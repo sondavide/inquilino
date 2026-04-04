@@ -1,0 +1,66 @@
+﻿id,user_id,role,content,step,created_at
+fbed1dbc-51f3-465f-a033-64b642b302a2,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Certo! Iniziamo a raccogliere le informazioni necessarie. Ho già il tuo indirizzo email: prova@asl.com. 
+
+Per favore, potresti fornirmi il tuo nome completo (nome e cognome)?",STEP_03,2026-04-03 23:44:53.822278
+25f9d996-9041-437b-a1e5-428a761a2348,21b8ed73-357f-40a4-b733-38e49b768e35,USER,Davide noviello,STEP_03,2026-04-03 23:45:00.764201
+35090c05-a051-4439-a645-bd8e75bce949,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Grazie, Davide Noviello. 
+
+Ora, potresti indicarmi la tua data di nascita?",STEP_03,2026-04-03 23:45:01.73325
+a70b85e1-970c-483e-a217-34f98d022e40,21b8ed73-357f-40a4-b733-38e49b768e35,USER,27/02/89,STEP_03,2026-04-03 23:45:07.343394
+5433c2ca-6a3b-4f0c-985e-1e83f6c6ec5f,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Perfetto, grazie! 
+
+Adesso, potresti dirmi in quale città e paese/regioni sei nato?",STEP_03,2026-04-03 23:45:08.295154
+"0b981b1e-0328-41b0-b948-903ba076ca00",21b8ed73-357f-40a4-b733-38e49b768e35,USER,italia a matera,STEP_03,2026-04-03 23:45:16.04443
+97cef75e-e51c-467d-a3e7-353f0154d314,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Ottimo, quindi sei nato a Matera, Italia. 
+
+Passiamo ora all'indirizzo di residenza attuale. Qual è il tuo indirizzo completo?",STEP_03,2026-04-03 23:45:17.430772
+"0dc8c90e-1472-446f-a7d1-3285e7ce2cb0",21b8ed73-357f-40a4-b733-38e49b768e35,USER,via la martella 5 75100 matera,STEP_03,2026-04-03 23:45:27.473746
+df665306-ddc2-46df-91a3-aab2c6742960,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Grazie per l'informazione! 
+
+L'ultima cosa che mi serve è il tuo codice fiscale italiano. Puoi fornirmelo, per favore?",STEP_03,2026-04-03 23:45:28.565392
+1f5ab8e9-a072-45e5-9a96-009be902059a,21b8ed73-357f-40a4-b733-38e49b768e35,USER,NVLDVD89B27F052U,STEP_03,2026-04-03 23:45:40.398764
+90d36f31-7119-4ff0-9717-047d76610be9,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Grazie per aver fornito il codice fiscale. Tuttavia, sembra che ci sia un'incongruenza. Il codice fiscale deve avere 16 caratteri e seguire il formato corretto.
+
+Potresti per favore controllare e fornirmi nuovamente il tuo codice fiscale?",STEP_03,2026-04-03 23:45:41.982146
+"0d532d98-f075-42c1-b01b-a9ff7e2e62e0",21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Per procedere con la registrazione, ti chiedo di caricare un documento d'identità utilizzando il pulsante di allegato 📎. Puoi caricare una carta d'identità, un passaporto o una patente di guida.",STEP_04,2026-04-03 23:45:45.156842
+cebd68b1-9701-48ff-a4f1-2af3b485d305,21b8ed73-357f-40a4-b733-38e49b768e35,USER,Ho caricato il documento: shared image.jpg,STEP_04,2026-04-03 23:46:15.863052
+5da2f149-f024-48cb-b88b-cd2f6c089d09,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"✓ Documento verificato. Ora, vorrei chiederti della tua situazione abitativa. Attualmente, dove risiedi?",STEP_04,2026-04-03 23:46:16.790463
+3e6f1090-7254-4aab-bce0-68076d41d4d5,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Per iniziare, potresti dirmi come attualmente vivi? Ad esempio, se sei in affitto, possiedi una casa, vivi con la famiglia o altro?",STEP_05,2026-04-03 23:46:18.432362
+91690f85-fa4d-4859-bad6-631db4dbba91,21b8ed73-357f-40a4-b733-38e49b768e35,USER,In affitto,STEP_05,2026-04-03 23:46:24.000715
+fde5dae3-f79c-4dd7-b845-6f31cc342549,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Quindi, attualmente sei in affitto. Paghi l'affitto?",STEP_05,2026-04-03 23:46:24.884591
+16d64a97-ad48-47da-9d14-da52aa6841f9,21b8ed73-357f-40a4-b733-38e49b768e35,USER,sì 400 euro,STEP_05,2026-04-03 23:46:31.344781
+fc1f43ae-36b1-40ca-8728-198a44d97fe2,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Perfetto, quindi paghi l'affitto. Ora, quando desideri trasferirti? Puoi indicare una data approssimativa o un periodo di tempo?",STEP_05,2026-04-03 23:46:32.664945
+"0df04239-816b-4ab3-b0c9-bccf2db37da6",21b8ed73-357f-40a4-b733-38e49b768e35,USER,tra un mese,STEP_05,2026-04-03 23:46:47.833746
+265e529f-b51f-4d5b-9cbc-fa82bda92d42,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Grazie per le informazioni. Quindi, per riassumere:
+
+- Tipo di abitazione attuale: in affitto
+- Paga affitto: sì
+- Data desiderata per il trasferimento: tra un mese
+
+Adesso ti chiederò delle aree di interesse per il tuo prossimo trasferimento. Quali zone stai considerando?",STEP_05,2026-04-03 23:46:49.566547
+ffa829ea-c335-4780-81af-a2b330394208,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Perfetto! Iniziamo con le aree in cui stai cercando una casa. Quali città o quartieri preferisci? Puoi indicare anche più aree, ad esempio ""Milano zona Navigli oppure Torino centro"".",STEP_06,2026-04-03 23:46:52.425866
+4c9de23d-03f1-4987-a07a-20388327ad59,21b8ed73-357f-40a4-b733-38e49b768e35,USER,Ho selezionato un'area sulla mappa vicino a Matera,STEP_06,2026-04-03 23:47:25.913632
+65c9bb6d-36c0-45de-9baf-8100b84eb9aa,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Ottimo! Puoi specificare il nome della città o del quartiere vicino a Matera che hai in mente? Se hai bisogno di suggerimenti, posso aiutarti con alcune opzioni.",STEP_06,2026-04-03 23:47:27.650513
+"06a65faa-63c7-4f2b-9f52-dcaf8236b5b4",21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Per iniziare, potresti indicarmi qual è il tuo budget massimo mensile per l'affitto?",STEP_07,2026-04-03 23:47:30.311835
+"0e09deb8-7445-4a6d-bab0-b13e99b639d5",21b8ed73-357f-40a4-b733-38e49b768e35,USER,600,STEP_07,2026-04-03 23:47:35.392586
+"06b126a4-17d4-41b4-949c-c8334cce1a10",21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Perfetto! Ora, che tipo di proprietà stai cercando? Puoi scegliere tra appartamento, studio, stanza, villa o altro.",STEP_07,2026-04-03 23:47:37.501498
+c5ad2395-f760-48a0-be57-d8231e1838ea,21b8ed73-357f-40a4-b733-38e49b768e35,USER,Appartamento,STEP_07,2026-04-03 23:47:41.932654
+7fdad373-a0ef-4f0b-a7b6-e4fbf364e18f,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Ottima scelta! Infine, preferisci un appartamento arredato, non arredato o non hai preferenze?",STEP_07,2026-04-03 23:47:43.047369
+530c1e19-af79-4354-b265-c022a02a4d2f,21b8ed73-357f-40a4-b733-38e49b768e35,USER,Indifferente,STEP_07,2026-04-03 23:47:48.085142
+37d714bb-ce33-4f34-8b3b-c1318346324a,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Hai indicato che il tuo budget massimo è di 600 euro, stai cercando un appartamento e non hai preferenze riguardo all'arredamento. 
+
+Adesso, ti chiederò chi vivrà con te nell'appartamento. Puoi fornirmi queste informazioni?",STEP_07,2026-04-03 23:47:49.807949
+bd8348a2-aa73-4e74-a6b2-831a8108219d,21b8ed73-357f-40a4-b733-38e49b768e35,USER,2,STEP_08,2026-04-03 23:47:56.171493
+ba196b49-795f-4770-9fc2-a20f25149142,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Quanti occupanti ci saranno nell'appartamento, compreso te stesso?",STEP_08,2026-04-03 23:47:52.027371
+5b1b64cf-cf81-4968-9618-eb5e2ba8dec3,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,Hai animali domestici?,STEP_08,2026-04-03 23:47:57.065597
+72370d91-4c36-4604-aa95-86ec119c7482,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Perfetto, quindi ci saranno 2 persone e non hai animali domestici. Ora ti chiederò della tua situazione lavorativa.",STEP_08,2026-04-03 23:48:00.418572
+a5b5446b-bd0e-42d1-bc70-3f788bab86f9,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Per iniziare, potresti dirmi che tipo di impiego hai? Sei un dipendente, un lavoratore autonomo, uno studente, un pensionato o altro?",STEP_09,2026-04-03 23:48:02.778543
+bbb7e5a0-3664-4da1-b32a-b938401273fb,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,Ottimo! Da quanto tempo sei un lavoratore autonomo?,STEP_09,2026-04-03 23:48:06.564472
+57dafaf1-9a0e-4ab2-ac10-a8f62a7a64bb,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Perfetto, quindi hai iniziato la tua attività da 3 anni. Ora ho tutte le informazioni necessarie riguardanti la tua situazione lavorativa. Procederò a chiederti informazioni sul tuo reddito.",STEP_09,2026-04-03 23:48:12.442964
+8ae64530-08c5-4f14-804e-068bcd215359,21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,Qual è il tuo reddito mensile medio?,STEP_09,2026-04-03 23:48:25.201585
+"0434aa46-efde-45dc-a2cf-fbc61d66e08c",21b8ed73-357f-40a4-b733-38e49b768e35,ASSISTANT,"Grazie per l'informazione. Ora ho completato il tuo profilo di affidabilità come inquilino. Se hai altre domande o hai bisogno di ulteriori informazioni, non esitare a chiedere!",STEP_09,2026-04-03 23:48:30.764995
+26cf587b-9912-4248-88ee-7fbe39b07eca,21b8ed73-357f-40a4-b733-38e49b768e35,USER,No animali,STEP_08,2026-04-03 23:47:59.091681
+31e2291d-6255-483a-9c0c-e2fb26b0e8f2,21b8ed73-357f-40a4-b733-38e49b768e35,USER,Autonomo / Libero professionista,STEP_09,2026-04-03 23:48:05.431951
+e30a23f7-6afe-4210-9926-614138925113,21b8ed73-357f-40a4-b733-38e49b768e35,USER,3 anni,STEP_09,2026-04-03 23:48:11.009953
+51a6447b-ffcc-4076-ada2-6ea4722fa4a7,21b8ed73-357f-40a4-b733-38e49b768e35,USER,dimmi,STEP_09,2026-04-03 23:48:24.304914
+3a6986d5-bf34-484a-b549-8b790733b131,21b8ed73-357f-40a4-b733-38e49b768e35,USER,2000,STEP_09,2026-04-03 23:48:29.373149

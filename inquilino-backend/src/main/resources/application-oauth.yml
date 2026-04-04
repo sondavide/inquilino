@@ -1,0 +1,24 @@
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: openid,profile,email
+          facebook:
+            client-id: ${FACEBOOK_CLIENT_ID}
+            client-secret: ${FACEBOOK_CLIENT_SECRET}
+            scope: public_profile,email
+          linkedin:
+            client-id: ${LINKEDIN_CLIENT_ID}
+            client-secret: ${LINKEDIN_CLIENT_SECRET}
+            scope: openid,profile,email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+        provider:
+          linkedin:
+            authorization-uri: https://www.linkedin.com/oauth/v2/authorization
+            token-uri: https://www.linkedin.com/oauth/v2/accessToken
+            user-info-uri: https://api.linkedin.com/v2/userinfo
+            user-name-attribute: sub

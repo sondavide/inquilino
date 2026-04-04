@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(jar tf:*)",
+      "Bash(xargs -I{} sh -c 'jar tf {} | grep -l \"UserMessage\" 2>/dev/null && echo {}')",
+      "Bash(javap:*)",
+      "Bash(npm info:*)",
+      "Bash(npm pack:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:scanbot.io)",
+      "WebFetch(domain:www.dynamsoft.com)",
+      "WebFetch(domain:docs.scanbot.io)",
+      "WebFetch(domain:bundlephobia.com)",
+      "WebFetch(domain:medium.com)",
+      "Read(//c/tmp/**)",
+      "Bash(ls -la jscanify*.tgz)",
+      "Bash(tar -tzf jscanify-1.4.2.tgz)",
+      "Read(//tmp/package/src/**)",
+      "Bash(tar -xzf /tmp/jscanify-1.4.2.tgz -C /tmp/ package/src/opencv.js)",
+      "Bash(tar -xzf /tmp/jscanify-1.4.2.tgz -C /tmp/ package/src/jscanify.js)",
+      "Bash(tar -tzf /tmp/techstark-opencv-js-4.12.0-release.1.tgz)",
+      "Bash(grep -E \"\\\\.\\(wasm|js\\)$\")",
+      "Bash(tar -xzf /tmp/techstark-opencv-js-4.12.0-release.1.tgz -C /tmp/ package/dist/opencv.js)",
+      "Read(//tmp/package/dist/**)",
+      "Bash(tar -xzf /tmp/techstark-opencv-js-4.12.0-release.1.tgz -C /tmp/ package/dist/src/index.js)",
+      "Bash(mvn dependency:get -Dartifact=org.locationtech.jts.io:jts-io-extra:1.19.0 -q)",
+      "Bash(./mvnw dependency:get -Dartifact=org.locationtech.jts.io:jts-io-extra:1.19.0 -q)",
+      "Bash(cmd /c \"mvnw.cmd dependency:get -Dartifact=org.locationtech.jts.io:jts-io-extra:1.19.0 -q 2>&1\")"
+    ]
+  }
+}
