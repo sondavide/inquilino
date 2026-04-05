@@ -20,6 +20,6 @@ export const onboardingApi = {
   listDocuments: () =>
     apiClient.get('/onboarding/documents').then(r => r.data),
 
-  saveInterestArea: (area: InterestArea) =>
-    apiClient.post('/onboarding/interest-area', area).then(r => r.data),
+  saveInterestAreas: (areas: InterestArea[]) =>
+    apiClient.post('/onboarding/interest-area', areas).then(r => r.data),
 }

@@ -44,13 +44,16 @@ public class TenantProfile {
     private String contractType;
     private LocalDate employmentStartDate;
 
+    @Builder.Default
     private boolean hasGuarantor = false;
     private BigDecimal guarantorIncome;
 
     private BigDecimal maxBudget;
     private LocalDate moveInDate;
     private Integer occupants;
+    @Builder.Default
     private boolean hasPets = false;
+    @Builder.Default
     private boolean smoker = false;
 
     // Array of {city, area, coordinates} stored as JSONB
@@ -58,10 +61,17 @@ public class TenantProfile {
     @Column(columnDefinition = "jsonb")
     private List<Map<String, Object>> desiredLocations;
 
+    @Builder.Default
     @Column(nullable = false)
     private int profileCompletion = 0;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private VerificationStatus verificationStatus = VerificationStatus.NONE;
+
+    /** When false the tenant has deactivated their profile and is no longer visible to landlords. */
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean active = true;
 }

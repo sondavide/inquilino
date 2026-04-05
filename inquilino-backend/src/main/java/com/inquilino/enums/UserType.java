@@ -2,5 +2,8 @@ package com.inquilino.enums;
 
 public enum UserType {
     TENANT,
-    LANDLORD
+    LANDLORD,
+    SUPERVISOR,
+    AGENCY,
+    SUPERADMIN
 }

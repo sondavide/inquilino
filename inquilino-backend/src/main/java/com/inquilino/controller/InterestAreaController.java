@@ -3,6 +3,7 @@ package com.inquilino.controller;
 import com.inquilino.dto.map.InterestAreaRequest;
 import com.inquilino.entity.TenantInterestArea;
 import com.inquilino.repository.InterestAreaRepository;
+import java.util.List;
 import com.inquilino.security.UserPrincipal;
 import com.inquilino.service.InterestAreaService;
 import jakarta.transaction.Transactional;
@@ -26,25 +27,28 @@ public class InterestAreaController {
     }
 
     /**
-     * Save (replace) the tenant's interest area.
-     * We delete the previous entry and insert the new one — a tenant has one active area at a time.
+     * Save (replace) the tenant's interest areas.
+     * Deletes all previous entries and inserts the new list atomically.
+     * An empty list is accepted (tenant becomes unmatchable until they add areas again).
      */
     @Transactional
     @PostMapping
-    public ResponseEntity<Void> saveArea(
+    public ResponseEntity<Void> saveAreas(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody InterestAreaRequest req) {
+            @RequestBody List<InterestAreaRequest> areas) {
 
         UUID userId = principal.getUserId();
         repo.deleteByUserId(userId);
 
-        TenantInterestArea area = TenantInterestArea.builder()
-                .userId(userId)
-                .areaType(req.areaType())
-                .cityName(req.cityName())
-                .areaGeojson(req.areaGeojson())
-                .build();
-        repo.save(area);
+        for (InterestAreaRequest req : areas) {
+            TenantInterestArea area = TenantInterestArea.builder()
+                    .userId(userId)
+                    .areaType(req.areaType())
+                    .cityName(req.cityName())
+                    .areaGeojson(req.areaGeojson())
+                    .build();
+            repo.save(area);
+        }
 
         return ResponseEntity.ok().build();
     }
@@ -53,6 +57,15 @@ public class InterestAreaController {
     public ResponseEntity<List<TenantInterestArea>> getAreas(
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(repo.findByUserId(principal.getUserId()));
+    }
+
+    /** Delete the tenant's current interest area (called from profile page). */
+    @Transactional
+    @DeleteMapping
+    public ResponseEntity<Void> deleteOwnArea(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        repo.deleteByUserId(principal.getUserId());
+        return ResponseEntity.noContent().build();
     }
 
     /**

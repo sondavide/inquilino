@@ -25,7 +25,10 @@
       "Bash(tar -xzf /tmp/techstark-opencv-js-4.12.0-release.1.tgz -C /tmp/ package/dist/src/index.js)",
       "Bash(mvn dependency:get -Dartifact=org.locationtech.jts.io:jts-io-extra:1.19.0 -q)",
       "Bash(./mvnw dependency:get -Dartifact=org.locationtech.jts.io:jts-io-extra:1.19.0 -q)",
-      "Bash(cmd /c \"mvnw.cmd dependency:get -Dartifact=org.locationtech.jts.io:jts-io-extra:1.19.0 -q 2>&1\")"
+      "Bash(cmd /c \"mvnw.cmd dependency:get -Dartifact=org.locationtech.jts.io:jts-io-extra:1.19.0 -q 2>&1\")",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

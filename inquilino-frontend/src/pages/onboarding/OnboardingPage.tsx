@@ -68,10 +68,10 @@ export default function OnboardingPage() {
     // If verification failed, the bot will ask for re-upload based on the updated onboarding state
   }
 
-  const handleMapConfirm = (message: string, area: InterestArea) => {
+  const handleMapConfirm = (message: string, areas: InterestArea[]) => {
     if (isStreaming) return
-    // Fire-and-forget: save the area to DB; don't block the chat
-    onboardingApi.saveInterestArea(area).catch(console.error)
+    // Fire-and-forget: save areas to DB; don't block the chat
+    onboardingApi.saveInterestAreas(areas).catch(console.error)
     sendMessage(message)
   }
 

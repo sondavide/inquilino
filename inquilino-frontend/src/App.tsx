@@ -1,11 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth }       from '@/hooks/useAuth'
 import { LangProvider, useLang } from '@/i18n'
-import LoginPage          from '@/pages/auth/LoginPage'
-import OAuthCallbackPage  from '@/pages/auth/OAuthCallbackPage'
-import OnboardingPage     from '@/pages/onboarding/OnboardingPage'
+import LoginPage         from '@/pages/auth/LoginPage'
+import OAuthCallbackPage from '@/pages/auth/OAuthCallbackPage'
+import OnboardingPage    from '@/pages/onboarding/OnboardingPage'
 import LanguageSelectPage from '@/pages/lang/LanguageSelectPage'
-import HomePage           from '@/pages/home/HomePage'
+import HomePage          from '@/pages/home/HomePage'
+import TenantProfilePage from '@/pages/tenant/TenantProfilePage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -33,6 +34,9 @@ function AppRoutes() {
         <Route path="/auth/callback" element={<OAuthCallbackPage />} />
         <Route path="/onboarding"    element={
           <ProtectedRoute><OnboardingPage /></ProtectedRoute>
+        } />
+        <Route path="/profile"       element={
+          <ProtectedRoute><TenantProfilePage /></ProtectedRoute>
         } />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

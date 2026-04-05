@@ -5,6 +5,8 @@ import com.inquilino.enums.DocumentType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -14,4 +16,6 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
     List<Document> findByUserId(UUID userId);
 
     List<Document> findByUserIdAndType(UUID userId, DocumentType type);
+
+    Optional<Document> findByIdAndUserId(UUID id, UUID userId);
 }

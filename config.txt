@@ -1,0 +1,11 @@
+Host github-envisoft
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/id_ed25519
+  IdentitiesOnly yes
+
+Host github-personale
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/id_ed25519-git
+  IdentitiesOnly yes
