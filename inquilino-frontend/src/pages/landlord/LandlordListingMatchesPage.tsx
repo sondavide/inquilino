@@ -296,8 +296,8 @@ export default function LandlordListingMatchesPage() {
 
   const [tab,           setTab]           = useState<'discover' | 'mutual'>('discover')
   const [queue,         setQueue]         = useState<TenantProfileCardDto[]>([])
+  const [hadCards,      setHadCards]      = useState(false)
   const [mutuals,       setMutuals]       = useState<TenantProfileCardDto[]>([])
-  const [current,       setCurrent]       = useState(0)
   const [loading,       setLoading]       = useState(true)
   const [mutualLoading, setMutualLoading] = useState(false)
   const [actionLoading,   setActionLoading]   = useState(false)
@@ -305,15 +305,18 @@ export default function LandlordListingMatchesPage() {
   const [page,          setPage]          = useState(0)
   const [hasMore,       setHasMore]       = useState(false)
 
+  const PENDING_STATES = ['ALGORITHMIC', 'TENANT_INTERESTED']
+
   const loadQueue = useCallback((p = 0) => {
     if (!listingId) return
     setLoading(true)
     landlordMatchApi.list(listingId, p)
       .then(res => {
-        setQueue(prev => p === 0 ? res.content : [...prev, ...res.content])
+        const pending = res.content.filter(m => PENDING_STATES.includes(m.matchState))
+        setQueue(prev => p === 0 ? pending : [...prev, ...pending])
         setHasMore((p + 1) < res.totalPages)
         setPage(p)
-        if (p === 0) setCurrent(0)
+        if (pending.length > 0) setHadCards(true)
       })
       .finally(() => setLoading(false))
   }, [listingId])
@@ -329,12 +332,14 @@ export default function LandlordListingMatchesPage() {
   useEffect(() => { loadQueue(0) }, [loadQueue])
   useEffect(() => { if (tab === 'mutual') loadMutuals() }, [tab, loadMutuals])
 
-  const card = queue[current] ?? null
+  const card = queue[0] ?? null
 
-  const advance = (updated?: TenantProfileCardDto) => {
-    if (updated) setQueue(q => q.map((m, i) => i === current ? updated : m))
-    if (current >= queue.length - 3 && hasMore) loadQueue(page + 1)
-    setCurrent(i => i + 1)
+  const advance = () => {
+    setQueue(q => {
+      const next = q.slice(1)
+      if (next.length <= 3 && hasMore) loadQueue(page + 1)
+      return next
+    })
   }
 
   const handleInvite = async () => {
@@ -343,10 +348,10 @@ export default function LandlordListingMatchesPage() {
     try {
       const u = await landlordMatchApi.invite(listingId, card.matchId)
       if (u.matchState === 'MUTUAL_INTEREST') setShowCelebration(true)
-      advance(u)
     }
-    catch { advance() }
+    catch { /* ignore */ }
     finally { setActionLoading(false) }
+    advance()
   }
 
   const handleSkip = async () => {
@@ -421,14 +426,14 @@ export default function LandlordListingMatchesPage() {
                 </p>
               )}
 
-              {!loading && queue.length === 0 && (
+              {!loading && !card && !hadCards && (
                 <div className="bg-white border rounded-2xl p-8 text-center space-y-2">
                   <p className="text-4xl">👥</p>
                   <p className="font-semibold text-gray-700">{t('matches.landlord.empty' as any)}</p>
                 </div>
               )}
 
-              {!loading && !card && queue.length > 0 && (
+              {!loading && !card && hadCards && (
                 <div className="text-center py-16 space-y-2">
                   <p className="text-4xl">✅</p>
                   <p className="font-semibold text-gray-700">Hai esaminato tutti i profili!</p>
@@ -440,8 +445,7 @@ export default function LandlordListingMatchesPage() {
                 <div className="max-w-2xl mx-auto space-y-3">
                   {/* Progresso */}
                   <div className="flex items-center justify-between text-xs text-gray-400 px-1">
-                    <span>Profilo {current + 1} di {queue.length}{hasMore ? '+' : ''}</span>
-                    <span>{queue.length - current - 1} rimanenti</span>
+                    <span>{queue.length}{hasMore ? '+' : ''} {queue.length === 1 ? 'profilo rimanente' : 'profili rimanenti'}</span>
                   </div>
 
                   <ProfileCard
@@ -475,7 +479,7 @@ export default function LandlordListingMatchesPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="space-y-4">
                 {mutuals.map(m => (
                   <ProfileCard
                     key={m.matchId}

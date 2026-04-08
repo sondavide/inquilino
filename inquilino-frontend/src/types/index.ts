@@ -480,16 +480,49 @@ export interface ListingCardDto {
   exactLng:           number | null
   fullAddress:        string | null
 
-  surfaceSqm:         number | null
-  roomsCount:         number | null
-  bedroomsCount:      number | null
-  bathroomsCount:     number | null
-  floorNumber:        number | null
-  elevator:           boolean
-  furnishedStatus:    string | null
-  availableFrom:      string | null
-  petsAllowed:        boolean
-  smokingAllowed:     boolean
+  // Caratteristiche
+  surfaceSqm:              number | null
+  commercialSurfaceSqm:    number | null
+  roomsCount:              number | null
+  bedroomsCount:           number | null
+  bathroomsCount:          number | null
+  floorNumber:             number | null
+  totalBuildingFloors:     number | null
+  elevator:                boolean
+  parkingSpacesCount:      number | null
+  garageIncluded:          boolean
+  balconiesCount:          number | null
+  terracesCount:           number | null
+  cellarsCount:            number | null
+  furnishedStatus:         string | null
+  conditionStatus:         string | null
+  kitchenStatus:           string | null
+
+  // Costi extra
+  utilitiesEstimatedMonthly: number | null
+  depositMonths:             number | null
+  depositAmount:             number | null
+  agencyFeeAmount:           number | null
+  agencyFeeNotes:            string | null
+
+  // Disponibilità
+  availableFrom:                    string | null
+  availableTo:                      string | null
+  minimumContractDurationMonths:    number | null
+  maximumContractDurationMonths:    number | null
+  petsAllowed:                      boolean
+  smokingAllowed:                   boolean
+  childrenAllowed:                  boolean
+  sublettingAllowed:                boolean
+  residenceAllowed:                 boolean
+  heatingType:                      string | null
+  coolingType:                      string | null
+  notesForTenants:                  string | null
+
+  // Energia
+  energyClass:              string | null
+  heatingEnergySource:      string | null
+  renewableEnergyPresent:   boolean
 
   coverImageUrl:      string | null
   allImageUrls:       string[]

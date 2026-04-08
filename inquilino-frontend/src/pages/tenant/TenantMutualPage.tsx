@@ -1,242 +1,117 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { tenantMatchApi } from '@/api/matching'
 import type { ListingCardDto } from '@/types'
 import MatchBadge from '@/components/matching/MatchBadge'
+import ListingDetailBody from '@/components/matching/ListingDetailBody'
 import { resolveMediaUrl } from '@/lib/utils'
 
-// ─── Lookup tables ────────────────────────────────────────────────────────────
+// ─── Galleria con blur fill ───────────────────────────────────────────────────
 
-const PROPERTY: Record<string, string> = {
-  APARTMENT: 'Appartamento', STUDIO: 'Monolocale', LOFT: 'Loft',
-  PENTHOUSE: 'Attico', HOUSE: 'Casa', VILLA: 'Villa',
-  ROOM: 'Stanza', BED_IN_SHARED_ROOM: 'Posto letto', OTHER: 'Altro',
-}
+function ListingGallery({ m }: { m: ListingCardDto }) {
+  const images = m.allImageUrls?.length
+    ? m.allImageUrls
+    : m.coverImageUrl ? [m.coverImageUrl] : []
 
-const LISTING_TYPE: Record<string, string> = {
-  LONG_TERM_RENT:    'Affitto residenziale',
-  SHORT_TERM_RENT:   'Affitto breve',
-  TRANSITIONAL_RENT: 'Affitto transitorio',
-  STUDENT_RENT:      'Affitto studentesco',
-  ROOM_RENT:         'Stanza in affitto',
-}
+  const [photoIdx, setPhotoIdx] = useState(0)
+  const gallStart = useRef<{ x: number; y: number } | null>(null)
 
-const FURNISHED: Record<string, string> = {
-  FURNISHED:           'Arredato',
-  PARTIALLY_FURNISHED: 'Parzialmente arredato',
-  UNFURNISHED:         'Non arredato',
-}
+  const prev = () => setPhotoIdx(i => Math.max(i - 1, 0))
+  const next = () => setPhotoIdx(i => Math.min(i + 1, images.length - 1))
+  const url  = images[photoIdx] ? resolveMediaUrl(images[photoIdx]) : null
 
-// ─── Utility components ───────────────────────────────────────────────────────
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
-      {children}
-    </h3>
-  )
-}
+    <div
+      className="relative w-full bg-gray-900 overflow-hidden select-none"
+      style={{ height: 220, touchAction: 'none' }}
+      onPointerDown={e => { gallStart.current = { x: e.clientX, y: e.clientY } }}
+      onPointerUp={e => {
+        if (!gallStart.current) return
+        const dx = e.clientX - gallStart.current.x
+        const dy = Math.abs(e.clientY - gallStart.current.y)
+        gallStart.current = null
+        if (dy > 30 || Math.abs(dx) < 40) return
+        dx < 0 ? next() : prev()
+      }}
+      onPointerCancel={() => { gallStart.current = null }}
+    >
+      {url ? (
+        <>
+          <img src={url} aria-hidden className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+               style={{ filter: 'blur(18px)', transform: 'scale(1.12)' }} draggable={false} />
+          <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+          <img key={`${m.matchId}-${photoIdx}`} src={url} alt=""
+               className="absolute inset-0 w-full h-full object-contain pointer-events-none" draggable={false} />
+        </>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-5xl">🏠</div>
+      )}
 
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-medium text-gray-900 text-right max-w-[55%]">{value}</span>
+      {/* Contatore */}
+      {images.length > 1 && (
+        <div className="absolute top-3 left-3 bg-black/55 text-white text-xs px-2.5 py-1 rounded-full">
+          {photoIdx + 1} / {images.length}
+        </div>
+      )}
+
+      {/* Badge match */}
+      <div className="absolute top-3 right-3">
+        <MatchBadge band={m.matchBand} size="sm" />
+      </div>
+
+      {/* Stato */}
+      <div className="absolute bottom-3 left-3">
+        {m.matchState === 'CONTACT_UNLOCKED' && (
+          <span className="bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+            🔓 Contatti sbloccati
+          </span>
+        )}
+        {m.matchState === 'MUTUAL_INTEREST' && (
+          <span className="bg-blue-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+            💚 Match reciproco
+          </span>
+        )}
+      </div>
+
+      {/* Frecce */}
+      {images.length > 1 && (
+        <>
+          <button onPointerDown={e => e.stopPropagation()} onClick={prev} disabled={photoIdx === 0}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full
+                             bg-white/80 shadow flex items-center justify-center font-bold
+                             hover:bg-white transition disabled:opacity-30">‹</button>
+          <button onPointerDown={e => e.stopPropagation()} onClick={next} disabled={photoIdx === images.length - 1}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full
+                             bg-white/80 shadow flex items-center justify-center font-bold
+                             hover:bg-white transition disabled:opacity-30">›</button>
+        </>
+      )}
+
+      {/* Dots */}
+      {images.length > 1 && (
+        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 pointer-events-none">
+          {images.map((_, i) => (
+            <span key={i} className={`rounded-full transition-all ${
+              i === photoIdx ? 'w-2 h-2 bg-white' : 'w-1.5 h-1.5 bg-white/45'
+            }`} />
+          ))}
+        </div>
+      )}
     </div>
-  )
-}
-
-function CompatChip({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium border ${
-      ok
-        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-        : 'bg-gray-50 text-gray-400 border-gray-200'
-    }`}>
-      {ok ? '✓' : '–'} {label}
-    </span>
   )
 }
 
 // ─── Full listing card ────────────────────────────────────────────────────────
 
 function MutualListingCard({
-  m,
-  onUnlock,
-  unlocking,
+  m, onUnlock, unlocking,
 }: {
-  m:         ListingCardDto
-  onUnlock:  (m: ListingCardDto) => void
-  unlocking: boolean
+  m: ListingCardDto; onUnlock: (m: ListingCardDto) => void; unlocking: boolean
 }) {
-  const coverUrl      = m.coverImageUrl ? resolveMediaUrl(m.coverImageUrl) : null
-  const propertyLabel = PROPERTY[m.propertyType]     ?? m.propertyType
-  const listingLabel  = LISTING_TYPE[m.listingType]  ?? m.listingType
-  const furnishedLabel = m.furnishedStatus
-    ? (FURNISHED[m.furnishedStatus] ?? m.furnishedStatus.replace(/_/g, ' '))
-    : null
-  const location = [m.district, m.municipality].filter(Boolean).join(', ')
-  const address  = m.matchState === 'CONTACT_UNLOCKED' && m.fullAddress ? m.fullAddress : location
-  const totalCost = (m.monthlyRent ?? 0) + (m.condominiumFees ?? 0)
-
-  const structuralRows = [
-    m.surfaceSqm     != null && { label: 'Superficie',      value: `${m.surfaceSqm} m²` },
-    m.roomsCount     != null && { label: 'Locali',          value: m.roomsCount },
-    m.bedroomsCount  != null && { label: 'Camere da letto', value: m.bedroomsCount },
-    m.bathroomsCount != null && { label: 'Bagni',           value: m.bathroomsCount },
-    m.floorNumber    != null && { label: 'Piano',           value: m.floorNumber },
-                                 { label: 'Ascensore',      value: m.elevator ? 'Sì' : 'No' },
-    furnishedLabel             && { label: 'Arredamento',   value: furnishedLabel },
-                                 { label: 'Animali',        value: m.petsAllowed ? 'Ammessi' : 'Non ammessi' },
-                                 { label: 'Fumo',           value: m.smokingAllowed ? 'Consentito' : 'Non consentito' },
-  ].filter(Boolean) as { label: string; value: React.ReactNode }[]
-
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-
-      {/* ── Foto copertina ────────────────────────────────────────────────── */}
-      <div className="relative w-full bg-gray-100" style={{ height: 180 }}>
-        {coverUrl ? (
-          <img src={coverUrl} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-5xl">🏠</div>
-        )}
-        <div className="absolute top-3 right-3">
-          <MatchBadge band={m.matchBand} size="sm" />
-        </div>
-        {m.matchState === 'CONTACT_UNLOCKED' && (
-          <div className="absolute bottom-3 left-3 bg-emerald-600 text-white text-xs font-semibold
-                          px-2.5 py-1 rounded-full">
-            🔓 Contatti sbloccati
-          </div>
-        )}
-        {m.matchState === 'MUTUAL_INTEREST' && (
-          <div className="absolute bottom-3 left-3 bg-blue-600 text-white text-xs font-semibold
-                          px-2.5 py-1 rounded-full">
-            💚 Match reciproco
-          </div>
-        )}
-      </div>
-
-      {/* ── Prezzo ────────────────────────────────────────────────────────── */}
-      <div className="px-5 pt-4 pb-3 border-b border-gray-100">
-        {m.monthlyRent ? (
-          <>
-            <span className="text-2xl font-bold text-gray-900">
-              € {m.monthlyRent.toLocaleString('it-IT')}
-            </span>
-            <span className="text-sm text-gray-500 ml-1">al mese</span>
-          </>
-        ) : (
-          <span className="text-lg text-gray-400">Prezzo non indicato</span>
-        )}
-        {m.condominiumFees != null && (
-          <p className="text-xs text-gray-400 mt-0.5">
-            + € {m.condominiumFees.toLocaleString('it-IT')} spese condominiali
-          </p>
-        )}
-      </div>
-
-      {/* ── Tipo + indirizzo ──────────────────────────────────────────────── */}
-      <div className="px-5 py-3 border-b border-gray-100">
-        <p className="font-semibold text-gray-900">{propertyLabel} · {listingLabel}</p>
-        <p className="text-sm text-gray-500 mt-0.5">📍 {address}</p>
-      </div>
-
-      {/* ── Compatibilità ─────────────────────────────────────────────────── */}
-      <div className="px-5 py-3 border-b border-gray-100 flex gap-2 flex-wrap">
-        <CompatChip ok={m.areaCompatible}   label="Zona" />
-        <CompatChip ok={m.priceCompatible}  label="Prezzo" />
-        <CompatChip ok={m.timingCompatible} label="Timing" />
-      </div>
-
-      {/* ── Analisi AI ────────────────────────────────────────────────────── */}
-      {(m.matchSummary || m.description) && (
-        <div className="px-5 pt-4 pb-3 border-b border-gray-100 space-y-2">
-          <SectionTitle>Descrizione</SectionTitle>
-          {m.matchSummary && (
-            <div className="bg-blue-50 rounded-xl p-3">
-              <p className="text-xs font-semibold text-blue-700 mb-1">🤖 Analisi compatibilità</p>
-              <p className="text-blue-800 text-xs leading-relaxed">{m.matchSummary}</p>
-            </div>
-          )}
-          {m.description && (
-            <p className="text-sm text-gray-700 leading-relaxed">{m.description}</p>
-          )}
-        </div>
-      )}
-
-      {/* ── Caratteristiche ───────────────────────────────────────────────── */}
-      {structuralRows.length > 0 && (
-        <div className="px-5 pt-4 pb-1 border-b border-gray-100">
-          <SectionTitle>Caratteristiche</SectionTitle>
-          {structuralRows.map((row, i) => (
-            <DetailRow key={i} label={row.label} value={row.value} />
-          ))}
-        </div>
-      )}
-
-      {/* ── Costi ─────────────────────────────────────────────────────────── */}
-      <div className="px-5 pt-4 pb-1 border-b border-gray-100">
-        <SectionTitle>Costi</SectionTitle>
-        {m.monthlyRent != null && (
-          <DetailRow label="Canone mensile" value={`€ ${m.monthlyRent.toLocaleString('it-IT')}`} />
-        )}
-        {m.condominiumFees != null && (
-          <DetailRow label="Spese condominiali" value={`€ ${m.condominiumFees.toLocaleString('it-IT')}`} />
-        )}
-        <DetailRow
-          label="Utenze"
-          value={m.utilitiesIncluded ? 'Incluse nel canone' : "A carico dell'inquilino"}
-        />
-        {totalCost > (m.monthlyRent ?? 0) && (
-          <DetailRow
-            label="Totale stimato"
-            value={<span className="font-bold">€ {totalCost.toLocaleString('it-IT')}</span>}
-          />
-        )}
-      </div>
-
-      {/* ── Disponibilità ─────────────────────────────────────────────────── */}
-      <div className="px-5 pt-4 pb-1 border-b border-gray-100">
-        <SectionTitle>Disponibilità</SectionTitle>
-        {m.availableFrom && (
-          <DetailRow
-            label="Disponibile dal"
-            value={new Date(m.availableFrom).toLocaleDateString('it-IT', {
-              day: 'numeric', month: 'long', year: 'numeric',
-            })}
-          />
-        )}
-        <DetailRow label="Tipo contratto" value={listingLabel} />
-      </div>
-
-      {/* ── Contatti sbloccati ────────────────────────────────────────────── */}
-      {m.matchState === 'CONTACT_UNLOCKED' && (
-        <div className="px-5 pt-4 pb-3 border-b border-gray-100">
-          <SectionTitle>Contatti</SectionTitle>
-          <div className="bg-emerald-50 rounded-xl p-4 space-y-1.5">
-            {m.landlordDisplayName  && (
-              <p className="text-sm font-semibold text-gray-800">{m.landlordDisplayName}</p>
-            )}
-            {m.landlordContactPhone && (
-              <a href={`tel:${m.landlordContactPhone}`} className="text-sm text-blue-600 block">
-                📞 {m.landlordContactPhone}
-              </a>
-            )}
-            {m.landlordContactEmail && (
-              <a href={`mailto:${m.landlordContactEmail}`} className="text-sm text-blue-600 block">
-                ✉️ {m.landlordContactEmail}
-              </a>
-            )}
-            {m.fullAddress && (
-              <p className="text-sm text-gray-600">📍 {m.fullAddress}</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Azione ────────────────────────────────────────────────────────── */}
-      <div className="px-5 py-4">
+      <ListingGallery m={m} />
+      <ListingDetailBody card={m} px="px-5" />
+      <div className="px-5 py-4 border-t border-gray-100">
         {m.matchState === 'MUTUAL_INTEREST' ? (
           <button
             onClick={() => onUnlock(m)}
@@ -247,13 +122,11 @@ function MutualListingCard({
             🔓 Sblocca contatti
           </button>
         ) : (
-          <div className="w-full py-3 rounded-2xl bg-emerald-50 text-emerald-700 font-semibold
-                          text-sm text-center">
+          <div className="w-full py-3 rounded-2xl bg-emerald-50 text-emerald-700 font-semibold text-sm text-center">
             ✓ Contatti sbloccati
           </div>
         )}
       </div>
-
     </div>
   )
 }
@@ -290,14 +163,14 @@ export default function TenantMutualPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-w-7xl mx-auto">
+        <div className="space-y-4 max-w-3xl mx-auto w-full">
 
           {loading && (
-            <p className="text-center text-gray-400 text-sm py-8 col-span-full">Caricamento…</p>
+            <p className="text-center text-gray-400 text-sm py-8">Caricamento…</p>
           )}
 
           {!loading && mutuals.length === 0 && (
-            <div className="col-span-full text-center py-16 space-y-2">
+            <div className="text-center py-16 space-y-2">
               <p className="text-4xl">💚</p>
               <p className="font-semibold text-gray-700">Nessun match reciproco ancora</p>
               <p className="text-sm text-gray-500">
