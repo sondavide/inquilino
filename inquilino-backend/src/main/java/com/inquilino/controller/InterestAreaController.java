@@ -3,9 +3,10 @@ package com.inquilino.controller;
 import com.inquilino.dto.map.InterestAreaRequest;
 import com.inquilino.entity.TenantInterestArea;
 import com.inquilino.repository.InterestAreaRepository;
-import java.util.List;
+import com.inquilino.repository.TenantProfileRepository;
 import com.inquilino.security.UserPrincipal;
 import com.inquilino.service.InterestAreaService;
+import com.inquilino.service.MatchingService;
 import jakarta.transaction.Transactional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,12 +19,17 @@ import java.util.UUID;
 @RequestMapping("/api/onboarding/interest-area")
 public class InterestAreaController {
 
-    private final InterestAreaRepository repo;
-    private final InterestAreaService    service;
+    private final InterestAreaRepository  repo;
+    private final InterestAreaService     service;
+    private final TenantProfileRepository profileRepo;
+    private final MatchingService         matchingService;
 
-    public InterestAreaController(InterestAreaRepository repo, InterestAreaService service) {
-        this.repo    = repo;
-        this.service = service;
+    public InterestAreaController(InterestAreaRepository repo, InterestAreaService service,
+                                  TenantProfileRepository profileRepo, MatchingService matchingService) {
+        this.repo           = repo;
+        this.service        = service;
+        this.profileRepo    = profileRepo;
+        this.matchingService = matchingService;
     }
 
     /**
@@ -50,6 +56,11 @@ public class InterestAreaController {
             repo.save(area);
         }
 
+        // Ricalcola matching con le nuove aree
+        profileRepo.findByUserId(userId).ifPresent(p ->
+            matchingService.computeMatchesForTenant(p.getId())
+        );
+
         return ResponseEntity.ok().build();
     }
 
@@ -64,7 +75,11 @@ public class InterestAreaController {
     @DeleteMapping
     public ResponseEntity<Void> deleteOwnArea(
             @AuthenticationPrincipal UserPrincipal principal) {
-        repo.deleteByUserId(principal.getUserId());
+        UUID userId = principal.getUserId();
+        repo.deleteByUserId(userId);
+        profileRepo.findByUserId(userId).ifPresent(p ->
+            matchingService.archiveMatchesForTenant(p.getId())
+        );
         return ResponseEntity.noContent().build();
     }
 

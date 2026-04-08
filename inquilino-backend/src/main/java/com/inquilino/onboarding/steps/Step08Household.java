@@ -32,7 +32,7 @@ public class Step08Household implements OnboardingStep {
                 - Ask "how many people will be living there including yourself?"
                 - Ask "do you have pets?"
                 - Skip already-collected fields
-                - When both fields are collected, confirm and say you'll ask about their work situation
+                - When both fields are collected, confirm warmly that this section is complete. Do NOT mention what comes next.
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());
     }
@@ -71,7 +71,8 @@ public class Step08Household implements OnboardingStep {
 
     @Override
     public boolean isCompleted(OnboardingContext ctx) {
-        return ctx.hasData("occupants_count") && ctx.hasData("has_pets");
+        // has_pets is optional (required=false in checklist); occupants_count is mandatory.
+        return ctx.hasData("occupants_count");
     }
 
     @Override

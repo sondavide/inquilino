@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLang }       from '@/i18n'
 import { tenantApi, type TenantUpdatePayload } from '@/api/tenant'
 import { onboardingApi } from '@/api/onboarding'
-import type { TenantProfileDto, DocumentDto, InterestAreaDto, InterestArea, ScoreLevel } from '@/types'
+import type { TenantProfileDto, DocumentDto, InterestAreaDto, InterestArea, ScoreLevel, FieldValidationDto } from '@/types'
 import { MapSelector }    from '@/components/map/MapSelector'
 import { AreaPreviewMap } from '@/components/map/AreaPreviewMap'
 import { UploadButton }  from '@/components/chat/UploadButton'
@@ -38,9 +38,222 @@ function ScoreBadge({ label, value }: { label: string; value: ScoreLevel }) {
   )
 }
 
-// ─── Field row ────────────────────────────────────────────────────────────────
+// ─── Editable field row ───────────────────────────────────────────────────────
 
-function FieldRow({ label, value }: { label: string; value: string }) {
+function EditableFieldRow({
+  label,
+  displayValue,
+  validation,
+  type = 'text',
+  options,
+  rawValue,
+  lockWhenApproved = true,
+  warning,
+  onSave,
+}: {
+  label:             string
+  displayValue:      string
+  validation?:       FieldValidationDto
+  type?:             'text' | 'date' | 'number' | 'bool' | 'select'
+  options?:          { value: string; label: string }[]
+  rawValue?:         string | number | boolean | null
+  /** If true (default), APPROVED fields are locked and cannot be edited. */
+  lockWhenApproved?: boolean
+  /** If set, clicking the pencil shows this warning before opening the input. */
+  warning?:          string
+  onSave:            (val: string | number | boolean | null) => Promise<void>
+}) {
+  const [editing,    setEditing]    = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [saving,     setSaving]     = useState(false)
+
+  // Ref to the DOM input/select — always holds the latest typed value
+  const fieldRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null)
+
+  const approved = validation?.status === 'APPROVED'
+  const flagged  = validation?.status === 'FLAGGED'
+  const pending  = validation?.status === 'PENDING'
+  const locked   = lockWhenApproved && approved
+
+  const bg =
+    flagged  ? 'bg-red-100 dark:bg-red-900/30 rounded-lg px-2 -mx-2 my-0.5' :
+    approved ? 'bg-emerald-50 dark:bg-emerald-950/20 rounded-lg px-2 -mx-2' :
+    pending  ? 'bg-amber-50 dark:bg-amber-950/20 rounded-lg px-2 -mx-2' : ''
+
+  const startEdit = () => setEditing(true)
+
+  const handlePencilClick = () => {
+    if (warning) setConfirming(true)
+    else startEdit()
+  }
+
+  const handleSave = async () => {
+    // Read directly from the DOM — immune to stale React state
+    const raw = fieldRef.current?.value ?? ''
+    setSaving(true)
+    try {
+      let val: string | number | null = raw
+      if (type === 'number') val = raw !== '' ? Number(raw) : null
+      await onSave(val)
+      setEditing(false)
+    } catch { /* ignore */ }
+    finally { setSaving(false) }
+  }
+
+  // ── Boolean: toggle with optional warning ────────────────────────────────
+
+  if (type === 'bool') {
+    return (
+      <div className={`flex flex-col gap-1 py-2 border-b last:border-0 ${bg}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</span>
+              {approved && <span className="text-[9px] font-bold text-emerald-600 ml-1">✓</span>}
+              {pending  && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 ml-1">In attesa</span>}
+              {flagged  && <span className="text-[10px] font-bold text-white bg-red-500 rounded px-1.5 py-0.5 ml-1">Da correggere</span>}
+            </div>
+            {flagged && validation?.note && (
+              <p className="text-xs font-medium text-red-700 dark:text-red-400 mt-0.5">{validation.note}</p>
+            )}
+          </div>
+          {locked ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm text-foreground">{displayValue}</span>
+              <span className="text-xs text-muted-foreground">🔒</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => warning ? setConfirming(true) : onSave(!(rawValue as boolean))}
+              className={`relative w-10 h-5 rounded-full transition-colors ${rawValue ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${rawValue ? 'translate-x-5' : ''}`} />
+            </button>
+          )}
+        </div>
+        {/* Warning confirmation for bool */}
+        {confirming && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 mt-1 space-y-2">
+            <p className="text-xs text-amber-800 dark:text-amber-300">{warning}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setConfirming(false); onSave(!(rawValue as boolean)) }}
+                className="text-xs font-semibold text-amber-700 hover:underline"
+              >Procedi</button>
+              <button
+                onClick={() => setConfirming(false)}
+                className="text-xs text-muted-foreground hover:underline"
+              >Annulla</button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Text / date / number / select ─────────────────────────────────────────
+
+  return (
+    <div className={`flex flex-col gap-0.5 py-2 border-b last:border-0 ${bg}`}>
+      <div className="flex items-center gap-1">
+        <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</span>
+        {approved && <span className="text-[9px] font-bold text-emerald-600 ml-1">✓</span>}
+        {pending  && !editing && !confirming && (
+          <span className="text-[10px] font-bold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5 ml-1">In attesa</span>
+        )}
+        {flagged && !editing && !confirming && (
+          <span className="text-[10px] font-bold text-white bg-red-500 rounded px-1.5 py-0.5 ml-1">Da correggere</span>
+        )}
+      </div>
+
+      {/* Warning confirmation step */}
+      {confirming && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 mt-1 space-y-2">
+          <p className="text-xs text-amber-800 dark:text-amber-300">{warning}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setConfirming(false); startEdit() }}
+              className="text-xs font-semibold text-amber-700 hover:underline"
+            >Procedi</button>
+            <button
+              onClick={() => setConfirming(false)}
+              className="text-xs text-muted-foreground hover:underline"
+            >Annulla</button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit input — uncontrolled so the DOM always has the latest typed value */}
+      {editing ? (
+        <div className="flex items-center gap-2">
+          {type === 'select' ? (
+            <select
+              ref={fieldRef as React.RefObject<HTMLSelectElement>}
+              defaultValue={rawValue != null ? String(rawValue) : ''}
+              autoFocus
+              className="flex-1 text-sm border border-input rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring bg-background"
+            >
+              <option value="">—</option>
+              {options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          ) : (
+            <input
+              ref={fieldRef as React.RefObject<HTMLInputElement>}
+              type={type === 'date' ? 'date' : type === 'number' ? 'number' : 'text'}
+              defaultValue={rawValue != null ? String(rawValue) : ''}
+              autoFocus
+              className="flex-1 text-sm border border-input rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring bg-background"
+            />
+          )}
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="text-emerald-600 font-bold text-lg leading-none disabled:opacity-50"
+          >✓</button>
+          <button
+            onClick={() => setEditing(false)}
+            className="text-muted-foreground text-lg leading-none"
+          >✕</button>
+        </div>
+      ) : !confirming && (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-foreground">{displayValue || '—'}</span>
+          {!locked && (
+            <button
+              onClick={handlePencilClick}
+              className="text-muted-foreground hover:text-foreground text-xs shrink-0"
+              title="Modifica"
+            >✏️</button>
+          )}
+          {locked && <span className="text-xs text-muted-foreground shrink-0">🔒</span>}
+        </div>
+      )}
+
+      {flagged && validation?.note && !editing && !confirming && (
+        <p className="text-xs font-medium text-red-700 dark:text-red-400 mt-0.5">{validation.note}</p>
+      )}
+    </div>
+  )
+}
+
+// ─── Section card wrapper (read-only header, no edit controls) ─────────────
+
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border bg-card overflow-hidden">
+      <div className="px-4 py-3 border-b bg-muted/30">
+        <span className="text-sm font-semibold text-foreground">{title}</span>
+      </div>
+      <div className="px-4 py-1">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// ─── Read-only field (for email) ──────────────────────────────────────────────
+
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5 py-2 border-b last:border-0">
       <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</span>
@@ -49,155 +262,18 @@ function FieldRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-// ─── Section wrapper ──────────────────────────────────────────────────────────
-
-function Section({
-  title, locked, editing, onEdit, onSave, onCancel, saving, children
-}: {
-  title: string
-  locked?: boolean
-  editing: boolean
-  onEdit: () => void
-  onSave: () => void
-  onCancel: () => void
-  saving?: boolean
-  children: React.ReactNode
-}) {
-  const { t } = useLang()
-  return (
-    <div className="rounded-xl border bg-card overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-        <span className="text-sm font-semibold text-foreground">{title}</span>
-        {!editing && !locked && (
-          <button
-            onClick={onEdit}
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            {t('profile.edit')}
-          </button>
-        )}
-        {!editing && locked && (
-          <span className="text-[10px] text-muted-foreground">🔒 {t('profile.locked')}</span>
-        )}
-        {editing && (
-          <div className="flex gap-3">
-            <button onClick={onCancel} className="text-xs text-muted-foreground hover:underline">
-              {t('profile.cancel')}
-            </button>
-            <button
-              onClick={onSave}
-              disabled={saving}
-              className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
-            >
-              {saving ? t('profile.saving') : t('profile.save')}
-            </button>
-          </div>
-        )}
-      </div>
-      <div className="px-4 py-3">
-        {children}
-      </div>
-    </div>
-  )
-}
-
-// ─── Text input ───────────────────────────────────────────────────────────────
-
-function TextInput({ label, value, onChange }: {
-  label: string; value: string; onChange: (v: string) => void
-}) {
-  return (
-    <div className="flex flex-col gap-1 py-1.5">
-      <label className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="text-sm border border-input rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-ring bg-background"
-      />
-    </div>
-  )
-}
-
-function DateInput({ label, value, onChange }: {
-  label: string; value: string; onChange: (v: string) => void
-}) {
-  return (
-    <div className="flex flex-col gap-1 py-1.5">
-      <label className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</label>
-      <input
-        type="date"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="text-sm border border-input rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-ring bg-background"
-      />
-    </div>
-  )
-}
-
-function NumberInput({ label, value, onChange }: {
-  label: string; value: string; onChange: (v: string) => void
-}) {
-  return (
-    <div className="flex flex-col gap-1 py-1.5">
-      <label className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</label>
-      <input
-        type="number"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="text-sm border border-input rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-ring bg-background"
-      />
-    </div>
-  )
-}
-
-function BoolInput({ label, value, onChange }: {
-  label: string; value: boolean; onChange: (v: boolean) => void
-}) {
-  const { t } = useLang()
-  return (
-    <div className="flex items-center justify-between py-1.5">
-      <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</span>
-      <button
-        onClick={() => onChange(!value)}
-        className={`relative w-10 h-5 rounded-full transition-colors ${value ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-      >
-        <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-5' : ''}`} />
-      </button>
-    </div>
-  )
-}
-
-function SelectInput({ label, value, options, onChange }: {
-  label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void
-}) {
-  return (
-    <div className="flex flex-col gap-1 py-1.5">
-      <label className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</label>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="text-sm border border-input rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-ring bg-background"
-      >
-        <option value="">—</option>
-        {options.map(o => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-    </div>
-  )
-}
-
 // ─── Documents tab ────────────────────────────────────────────────────────────
 
-function DocumentsTab({ docs, onDelete, onAdd }: {
-  docs: DocumentDto[]
-  onDelete: (id: string) => void
-  onAdd: (filename: string) => void
+function DocumentsTab({ docs, validations, onDelete, onAdd }: {
+  docs:        DocumentDto[]
+  validations: FieldValidationDto[]
+  onDelete:    (id: string) => void
+  onAdd:       (filename: string) => void
 }) {
   const { t } = useLang()
-  const [confirmId, setConfirmId]     = useState<string | null>(null)
+  const [confirmId, setConfirmId]       = useState<string | null>(null)
   const [previewingId, setPreviewingId] = useState<string | null>(null)
+  const vmap = Object.fromEntries(validations.map(v => [v.fieldName, v]))
 
   const docLabel = (type: string) => {
     const key = `doc.type.${type}` as Parameters<typeof t>[0]
@@ -224,58 +300,74 @@ function DocumentsTab({ docs, onDelete, onAdd }: {
       {docs.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-6">{t('doc.add')}</p>
       )}
-      {docs.map(doc => (
-        <div key={doc.id} className="rounded-xl border bg-card p-4 flex items-start gap-3">
-          <span className="text-2xl shrink-0">📄</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground">{docLabel(doc.type)}</p>
-            <p className="text-xs text-muted-foreground">{fmtDate(doc.uploadedAt)}</p>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                doc.verified
-                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                  : 'bg-amber-100 text-amber-700 border-amber-200'
-              }`}>
-                {doc.verified ? t('doc.verified') : t('doc.pending')}
-              </span>
-              <button
-                onClick={() => handlePreview(doc.id)}
-                disabled={previewingId === doc.id}
-                className="text-[10px] text-primary underline disabled:opacity-50"
-              >
-                {previewingId === doc.id ? '…' : 'Visualizza'}
-              </button>
-            </div>
-          </div>
-          {!doc.verified && (
-            <>
-              {confirmId === doc.id ? (
-                <div className="flex flex-col gap-1 items-end shrink-0">
-                  <span className="text-xs text-destructive">{t('doc.delete.confirm')}</span>
-                  <div className="flex gap-2">
-                    <button onClick={() => setConfirmId(null)} className="text-xs text-muted-foreground">
-                      {t('profile.cancel')}
-                    </button>
-                    <button
-                      onClick={() => { onDelete(doc.id); setConfirmId(null) }}
-                      className="text-xs font-semibold text-destructive"
-                    >
-                      {t('doc.delete')}
-                    </button>
-                  </div>
-                </div>
-              ) : (
+      {docs.map(doc => {
+        const docVal = vmap[`doc.${doc.type}`]
+        const canDelete = !doc.verified && docVal?.status !== 'APPROVED'
+        return (
+          <div key={doc.id} className={`rounded-xl border p-4 flex items-start gap-3 ${
+            docVal?.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/20' :
+            docVal?.status === 'FLAGGED'  ? 'bg-red-50 dark:bg-red-950/20' : 'bg-card'
+          }`}>
+            <span className="text-2xl shrink-0">📄</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">{docLabel(doc.type)}</p>
+              <p className="text-xs text-muted-foreground">{fmtDate(doc.uploadedAt)}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                  doc.verified
+                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                    : 'bg-amber-100 text-amber-700 border-amber-200'
+                }`}>
+                  {doc.verified ? t('doc.verified') : t('doc.pending')}
+                </span>
+                {docVal?.status === 'APPROVED' && (
+                  <span className="text-[10px] font-semibold text-emerald-600">✓ Validato</span>
+                )}
+                {docVal?.status === 'FLAGGED' && (
+                  <span className="text-[10px] font-semibold text-red-500">✕ Da correggere</span>
+                )}
                 <button
-                  onClick={() => setConfirmId(doc.id)}
-                  className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                  onClick={() => handlePreview(doc.id)}
+                  disabled={previewingId === doc.id}
+                  className="text-[10px] text-primary underline disabled:opacity-50"
                 >
-                  ✕
+                  {previewingId === doc.id ? '…' : 'Visualizza'}
                 </button>
+              </div>
+              {docVal?.status === 'FLAGGED' && docVal.note && (
+                <p className="text-xs text-red-600 italic mt-1">{docVal.note}</p>
               )}
-            </>
-          )}
-        </div>
-      ))}
+            </div>
+            {canDelete && (
+              <>
+                {confirmId === doc.id ? (
+                  <div className="flex flex-col gap-1 items-end shrink-0">
+                    <span className="text-xs text-destructive">{t('doc.delete.confirm')}</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => setConfirmId(null)} className="text-xs text-muted-foreground">
+                        {t('profile.cancel')}
+                      </button>
+                      <button
+                        onClick={() => { onDelete(doc.id); setConfirmId(null) }}
+                        className="text-xs font-semibold text-destructive"
+                      >
+                        {t('doc.delete')}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmId(doc.id)}
+                    className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                  >
+                    ✕
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )
+      })}
 
       <div className="pt-2">
         <UploadButton expectedTypes={[]} onUploaded={onAdd} disabled={false} highlight={false} />
@@ -301,7 +393,6 @@ function AreasTab({ areas, onSaved }: {
       .catch(console.error)
   }
 
-  // Fullscreen editor — renders over everything via MapSelector's fixed overlay
   if (editing) {
     return (
       <MapSelector
@@ -318,10 +409,7 @@ function AreasTab({ areas, onSaved }: {
     <div className="space-y-4">
       {hasArea ? (
         <>
-          {/* Static, non-interactive area preview */}
           <AreaPreviewMap areas={areas} />
-
-          {/* Area summary badges */}
           <div className="flex flex-wrap gap-1.5 px-1">
             {areas.map(a => (
               <span key={a.id} className="text-[11px] px-2.5 py-1 rounded-full border font-medium bg-primary/10 text-primary border-primary/20">
@@ -329,7 +417,6 @@ function AreasTab({ areas, onSaved }: {
               </span>
             ))}
           </div>
-
           <button
             onClick={() => setEditing(true)}
             className="w-full py-3 rounded-xl border border-primary/30 text-primary text-sm font-medium hover:bg-primary/5 transition-colors"
@@ -338,7 +425,6 @@ function AreasTab({ areas, onSaved }: {
           </button>
         </>
       ) : (
-        /* No area — user must have one to be matchable */
         <div className="rounded-xl border border-dashed border-amber-400 bg-amber-50 dark:bg-amber-950/20 p-6 flex flex-col items-center gap-3 text-center">
           <span className="text-3xl">📍</span>
           <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">{t('area.none')}</p>
@@ -362,24 +448,29 @@ function AreasTab({ areas, onSaved }: {
 type Tab = 'profile' | 'documents' | 'areas'
 
 export default function TenantProfilePage() {
-  const { t }     = useLang()
-  const navigate  = useNavigate()
-  const [params]  = useSearchParams()
+  const { t }    = useLang()
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
 
-  const [data, setData]     = useState<TenantProfileDto | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [tab, setTab]       = useState<Tab>((params.get('tab') as Tab) || 'profile')
+  const [data, setData]           = useState<TenantProfileDto | null>(null)
+  const [validations, setValidations] = useState<FieldValidationDto[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [tab, setTab]             = useState<Tab>((params.get('tab') as Tab) || 'profile')
 
-  // Edit states per section (personal, employment, housing, guarantor)
-  const [editSection, setEditSection] = useState<string | null>(null)
-  const [saving, setSaving]           = useState(false)
+  const vmap = Object.fromEntries(validations.map(v => [v.fieldName, v]))
 
-  // Draft state for editing
-  const [draft, setDraft] = useState<TenantUpdatePayload>({})
+  const loadValidations = () => {
+    tenantApi.getMyValidations()
+      .then(setValidations)
+      .catch(() => {})
+  }
 
   useEffect(() => {
     tenantApi.getProfile()
-      .then(d => { setData(d) })
+      .then(d => {
+        setData(d)
+        if (d.profileId) loadValidations()
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
@@ -391,29 +482,12 @@ export default function TenantProfilePage() {
   )
   if (!data) return null
 
-  const locked = data.verificationStatus === 'VERIFIED'
+  // ── Per-field save helper ───────────────────────────────────────────────────
 
-  // ── Edit helpers ────────────────────────────────────────────────────────────
-
-  const startEdit = (section: string, initial: TenantUpdatePayload) => {
-    setDraft(initial)
-    setEditSection(section)
-  }
-
-  const cancelEdit = () => {
-    setEditSection(null)
-    setDraft({})
-  }
-
-  const saveEdit = async () => {
-    setSaving(true)
-    try {
-      const updated = await tenantApi.updateProfile(draft)
-      setData(updated)
-      setEditSection(null)
-      setDraft({})
-    } catch { /* ignore */ }
-    finally { setSaving(false) }
+  const saveField = async (payload: TenantUpdatePayload) => {
+    const updated = await tenantApi.updateProfile(payload)
+    setData(updated)
+    if (updated.profileId) loadValidations()
   }
 
   // ── Document handlers ───────────────────────────────────────────────────────
@@ -425,12 +499,11 @@ export default function TenantProfilePage() {
     } catch { /* ignore */ }
   }
 
-  const handleDocAdded = (_filename: string) => {
-    // Refresh profile to get updated document list
+  const handleDocAdded = () => {
     tenantApi.getProfile().then(setData).catch(console.error)
   }
 
-  // ── Area saved / deleted ────────────────────────────────────────────────────
+  // ── Area saved ──────────────────────────────────────────────────────────────
 
   const handleAreaSaved = () => {
     tenantApi.getProfile().then(setData).catch(console.error)
@@ -458,15 +531,18 @@ export default function TenantProfilePage() {
   ]
 
   const verBadgeCfg =
-    data.verificationStatus === 'VERIFIED' ? { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: t('home.status.verified') } :
-    data.verificationStatus === 'PARTIAL'  ? { cls: 'bg-amber-100 text-amber-700 border-amber-200',       label: t('home.status.partial')  } :
-                                             { cls: 'bg-slate-100 text-slate-500 border-slate-200',        label: t('home.status.none')     }
+    data.verificationStatus === 'VERIFIED'           ? { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Verificato'       } :
+    data.verificationStatus === 'PENDING_VALIDATION' ? { cls: 'bg-blue-100 text-blue-700 border-blue-200',          label: 'In validazione'   } :
+    data.verificationStatus === 'IN_VALIDATION'      ? { cls: 'bg-blue-100 text-blue-700 border-blue-200',          label: 'In revisione'     } :
+    data.verificationStatus === 'NEEDS_CORRECTION'   ? { cls: 'bg-red-100 text-red-700 border-red-200',             label: 'Da correggere'    } :
+    data.verificationStatus === 'PARTIAL'            ? { cls: 'bg-amber-100 text-amber-700 border-amber-200',       label: t('home.status.partial')  } :
+                                                       { cls: 'bg-slate-100 text-slate-500 border-slate-200',        label: t('home.status.none')     }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="flex flex-col">
 
-      {/* ── Top bar ── */}
-      <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b bg-background/95 backdrop-blur">
+      {/* ── Sub-header ── */}
+      <header className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b bg-background/95 backdrop-blur">
         <button
           onClick={() => navigate('/')}
           className="text-muted-foreground hover:text-foreground transition-colors text-lg"
@@ -552,176 +628,192 @@ export default function TenantProfilePage() {
         {/* ── PROFILE tab ── */}
         {tab === 'profile' && (
           <>
-            {/* Personal info */}
-            <Section
-              title={t('profile.section.personal')}
-              locked={locked}
-              editing={editSection === 'personal'}
-              onEdit={() => startEdit('personal', {
-                fullName:   data.fullName   ?? '',
-                birthDate:  data.birthDate  ?? '',
-                birthPlace: data.birthPlace ?? '',
-                residence:  data.residence  ?? '',
-              })}
-              onSave={saveEdit}
-              onCancel={cancelEdit}
-              saving={saving}
-            >
-              {editSection === 'personal' ? (
-                <>
-                  <TextInput label={t('profile.fullName')}   value={String(draft.fullName   ?? '')} onChange={v => setDraft(d => ({ ...d, fullName: v }))} />
-                  <DateInput label={t('profile.birthDate')}  value={String(draft.birthDate  ?? '')} onChange={v => setDraft(d => ({ ...d, birthDate: v }))} />
-                  <TextInput label={t('profile.birthPlace')} value={String(draft.birthPlace ?? '')} onChange={v => setDraft(d => ({ ...d, birthPlace: v }))} />
-                  <TextInput label={t('profile.residence')}  value={String(draft.residence  ?? '')} onChange={v => setDraft(d => ({ ...d, residence: v }))} />
-                </>
-              ) : (
-                <>
-                  <FieldRow label={t('profile.fullName')}   value={data.fullName   ?? ''} />
-                  <FieldRow label={t('profile.birthDate')}  value={fmtDate(data.birthDate)} />
-                  <FieldRow label={t('profile.birthPlace')} value={data.birthPlace ?? ''} />
-                  <FieldRow label={t('profile.residence')}  value={data.residence  ?? ''} />
-                  <FieldRow label={t('profile.fiscalCode')} value={data.fiscalCode ?? ''} />
-                </>
-              )}
-            </Section>
+            {/* Banner NEEDS_CORRECTION */}
+            {data.verificationStatus === 'NEEDS_CORRECTION' && (
+              <div className="rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/20 p-4 flex gap-3 mb-1">
+                <span className="text-xl shrink-0">⚠️</span>
+                <div>
+                  <p className="text-sm font-semibold text-red-700">Profilo da correggere</p>
+                  <p className="text-xs text-red-600 mt-0.5">
+                    Il supervisore ha segnalato alcuni campi. Correggi i campi evidenziati in rosso, poi il tuo profilo tornerà automaticamente in validazione.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Personal */}
+            <SectionCard title={t('profile.section.personal')}>
+              <ReadOnlyField label="Email" value={data.email} />
+              <EditableFieldRow
+                label="Telefono"
+                displayValue={data.phone ?? ''}
+                rawValue={data.phone}
+                validation={vmap['phone']}
+                onSave={v => saveField({ phone: v as string | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.fullName')}
+                displayValue={data.fullName ?? ''}
+                rawValue={data.fullName}
+                validation={vmap['fullName']}
+                onSave={v => saveField({ fullName: v as string | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.birthDate')}
+                displayValue={fmtDate(data.birthDate)}
+                rawValue={data.birthDate}
+                validation={vmap['birthDate']}
+                type="date"
+                onSave={v => saveField({ birthDate: v as string | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.birthPlace')}
+                displayValue={data.birthPlace ?? ''}
+                rawValue={data.birthPlace}
+                validation={vmap['birthPlace']}
+                onSave={v => saveField({ birthPlace: v as string | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.residence')}
+                displayValue={data.residence ?? ''}
+                rawValue={data.residence}
+                validation={vmap['residence']}
+                onSave={v => saveField({ residence: v as string | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.fiscalCode')}
+                displayValue={data.fiscalCode ?? ''}
+                rawValue={data.fiscalCode}
+                validation={vmap['fiscalCode']}
+                onSave={v => saveField({ fiscalCode: v as string | null })}
+              />
+            </SectionCard>
 
             {/* Employment */}
-            <Section
-              title={t('profile.section.employment')}
-              locked={locked}
-              editing={editSection === 'employment'}
-              onEdit={() => startEdit('employment', {
-                employmentType:      data.employmentType      ?? '',
-                monthlyIncome:       data.monthlyIncome       ?? undefined,
-                contractType:        data.contractType        ?? '',
-                employmentStartDate: data.employmentStartDate ?? '',
-              })}
-              onSave={saveEdit}
-              onCancel={cancelEdit}
-              saving={saving}
-            >
-              {editSection === 'employment' ? (
-                <>
-                  <SelectInput
-                    label={t('profile.employmentType')}
-                    value={String(draft.employmentType ?? '')}
-                    options={employmentOptions}
-                    onChange={v => setDraft(d => ({ ...d, employmentType: v }))}
-                  />
-                  <NumberInput
-                    label={t('profile.monthlyIncome')}
-                    value={String(draft.monthlyIncome ?? '')}
-                    onChange={v => setDraft(d => ({ ...d, monthlyIncome: v ? Number(v) : null }))}
-                  />
-                  <TextInput
-                    label={t('profile.contractType')}
-                    value={String(draft.contractType ?? '')}
-                    onChange={v => setDraft(d => ({ ...d, contractType: v }))}
-                  />
-                  <DateInput
-                    label={t('profile.employmentStart')}
-                    value={String(draft.employmentStartDate ?? '')}
-                    onChange={v => setDraft(d => ({ ...d, employmentStartDate: v }))}
-                  />
-                </>
-              ) : (
-                <>
-                  <FieldRow label={t('profile.employmentType')} value={
-                    data.employmentType
-                      ? t(`profile.employmentType.${data.employmentType}` as Parameters<typeof t>[0])
-                      : ''
-                  } />
-                  <FieldRow label={t('profile.monthlyIncome')}  value={fmtMoney(data.monthlyIncome)} />
-                  <FieldRow label={t('profile.contractType')}   value={data.contractType ?? ''} />
-                  <FieldRow label={t('profile.employmentStart')} value={fmtDate(data.employmentStartDate)} />
-                </>
-              )}
-            </Section>
+            <SectionCard title={t('profile.section.employment')}>
+              <EditableFieldRow
+                label={t('profile.employmentType')}
+                displayValue={data.employmentType
+                  ? t(`profile.employmentType.${data.employmentType}` as Parameters<typeof t>[0])
+                  : ''}
+                rawValue={data.employmentType}
+                validation={vmap['employmentType']}
+                type="select"
+                options={employmentOptions}
+                lockWhenApproved={false}
+                warning="Modificando i dati lavorativi il profilo sarà inviato nuovamente in validazione. Ti consigliamo di caricare nuova documentazione reddituale per supportare le modifiche."
+                onSave={v => saveField({ employmentType: v as string | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.monthlyIncome')}
+                displayValue={fmtMoney(data.monthlyIncome)}
+                rawValue={data.monthlyIncome}
+                validation={vmap['monthlyIncome']}
+                type="number"
+                lockWhenApproved={false}
+                warning="Modificando i dati lavorativi il profilo sarà inviato nuovamente in validazione. Ti consigliamo di caricare nuova documentazione reddituale per supportare le modifiche."
+                onSave={v => saveField({ monthlyIncome: v as number | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.contractType')}
+                displayValue={data.contractType ?? ''}
+                rawValue={data.contractType}
+                validation={vmap['contractType']}
+                lockWhenApproved={false}
+                warning="Modificando i dati lavorativi il profilo sarà inviato nuovamente in validazione. Ti consigliamo di caricare nuova documentazione reddituale per supportare le modifiche."
+                onSave={v => saveField({ contractType: v as string | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.employmentStart')}
+                displayValue={fmtDate(data.employmentStartDate)}
+                rawValue={data.employmentStartDate}
+                validation={vmap['employmentStartDate']}
+                type="date"
+                lockWhenApproved={false}
+                warning="Modificando i dati lavorativi il profilo sarà inviato nuovamente in validazione. Ti consigliamo di caricare nuova documentazione reddituale per supportare le modifiche."
+                onSave={v => saveField({ employmentStartDate: v as string | null })}
+              />
+            </SectionCard>
 
             {/* Housing preferences */}
-            <Section
-              title={t('profile.section.housing')}
-              locked={false}
-              editing={editSection === 'housing'}
-              onEdit={() => startEdit('housing', {
-                maxBudget:  data.maxBudget  ?? undefined,
-                moveInDate: data.moveInDate ?? '',
-                occupants:  data.occupants  ?? undefined,
-                hasPets:    data.hasPets,
-                smoker:     data.smoker,
-              })}
-              onSave={saveEdit}
-              onCancel={cancelEdit}
-              saving={saving}
-            >
-              {editSection === 'housing' ? (
-                <>
-                  <NumberInput
-                    label={t('profile.maxBudget')}
-                    value={String(draft.maxBudget ?? '')}
-                    onChange={v => setDraft(d => ({ ...d, maxBudget: v ? Number(v) : null }))}
-                  />
-                  <DateInput
-                    label={t('profile.moveInDate')}
-                    value={String(draft.moveInDate ?? '')}
-                    onChange={v => setDraft(d => ({ ...d, moveInDate: v }))}
-                  />
-                  <NumberInput
-                    label={t('profile.occupants')}
-                    value={String(draft.occupants ?? '')}
-                    onChange={v => setDraft(d => ({ ...d, occupants: v ? Number(v) : null }))}
-                  />
-                  <BoolInput label={t('profile.hasPets')} value={!!draft.hasPets} onChange={v => setDraft(d => ({ ...d, hasPets: v }))} />
-                  <BoolInput label={t('profile.smoker')}  value={!!draft.smoker}  onChange={v => setDraft(d => ({ ...d, smoker: v }))} />
-                </>
-              ) : (
-                <>
-                  <FieldRow label={t('profile.maxBudget')}  value={fmtMoney(data.maxBudget)} />
-                  <FieldRow label={t('profile.moveInDate')} value={fmtDate(data.moveInDate)} />
-                  <FieldRow label={t('profile.occupants')}  value={data.occupants != null ? String(data.occupants) : ''} />
-                  <FieldRow label={t('profile.hasPets')}    value={data.hasPets ? t('profile.yes') : t('profile.no')} />
-                  <FieldRow label={t('profile.smoker')}     value={data.smoker   ? t('profile.yes') : t('profile.no')} />
-                </>
-              )}
-            </Section>
+            <SectionCard title={t('profile.section.housing')}>
+              <EditableFieldRow
+                label={t('profile.maxBudget')}
+                displayValue={fmtMoney(data.maxBudget)}
+                rawValue={data.maxBudget}
+                validation={vmap['maxBudget']}
+                type="number"
+                lockWhenApproved={false}
+                warning="Modificando le preferenze abitative il profilo sarà inviato nuovamente in validazione al supervisore."
+                onSave={v => saveField({ maxBudget: v as number | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.moveInDate')}
+                displayValue={fmtDate(data.moveInDate)}
+                rawValue={data.moveInDate}
+                validation={vmap['moveInDate']}
+                type="date"
+                lockWhenApproved={false}
+                warning="Modificando le preferenze abitative il profilo sarà inviato nuovamente in validazione al supervisore."
+                onSave={v => saveField({ moveInDate: v as string | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.occupants')}
+                displayValue={data.occupants != null ? String(data.occupants) : ''}
+                rawValue={data.occupants}
+                validation={vmap['occupants']}
+                type="number"
+                lockWhenApproved={false}
+                warning="Modificando le preferenze abitative il profilo sarà inviato nuovamente in validazione al supervisore."
+                onSave={v => saveField({ occupants: v as number | null })}
+              />
+              <EditableFieldRow
+                label={t('profile.hasPets')}
+                displayValue={data.hasPets ? t('profile.yes') : t('profile.no')}
+                rawValue={data.hasPets}
+                validation={vmap['hasPets']}
+                type="bool"
+                lockWhenApproved={false}
+                warning="Modificando le preferenze abitative il profilo sarà inviato nuovamente in validazione al supervisore."
+                onSave={v => saveField({ hasPets: v as boolean })}
+              />
+              <EditableFieldRow
+                label={t('profile.smoker')}
+                displayValue={data.smoker ? t('profile.yes') : t('profile.no')}
+                rawValue={data.smoker}
+                validation={vmap['smoker']}
+                type="bool"
+                lockWhenApproved={false}
+                warning="Modificando le preferenze abitative il profilo sarà inviato nuovamente in validazione al supervisore."
+                onSave={v => saveField({ smoker: v as boolean })}
+              />
+            </SectionCard>
 
             {/* Guarantor */}
-            <Section
-              title={t('profile.section.guarantor')}
-              locked={locked}
-              editing={editSection === 'guarantor'}
-              onEdit={() => startEdit('guarantor', {
-                hasGuarantor:   data.hasGuarantor,
-                guarantorIncome: data.guarantorIncome ?? undefined,
-              })}
-              onSave={saveEdit}
-              onCancel={cancelEdit}
-              saving={saving}
-            >
-              {editSection === 'guarantor' ? (
-                <>
-                  <BoolInput
-                    label={t('profile.hasGuarantor')}
-                    value={!!draft.hasGuarantor}
-                    onChange={v => setDraft(d => ({ ...d, hasGuarantor: v }))}
-                  />
-                  {draft.hasGuarantor && (
-                    <NumberInput
-                      label={t('profile.guarantorIncome')}
-                      value={String(draft.guarantorIncome ?? '')}
-                      onChange={v => setDraft(d => ({ ...d, guarantorIncome: v ? Number(v) : null }))}
-                    />
-                  )}
-                </>
-              ) : (
-                <>
-                  <FieldRow label={t('profile.hasGuarantor')}  value={data.hasGuarantor ? t('profile.yes') : t('profile.no')} />
-                  {data.hasGuarantor && (
-                    <FieldRow label={t('profile.guarantorIncome')} value={fmtMoney(data.guarantorIncome)} />
-                  )}
-                </>
+            <SectionCard title={t('profile.section.guarantor')}>
+              <EditableFieldRow
+                label={t('profile.hasGuarantor')}
+                displayValue={data.hasGuarantor ? t('profile.yes') : t('profile.no')}
+                rawValue={data.hasGuarantor}
+                validation={vmap['hasGuarantor']}
+                type="bool"
+                lockWhenApproved={false}
+                warning="Modificando i dati del garante il profilo sarà inviato nuovamente in validazione. Ti consigliamo di caricare nuova documentazione relativa al garante."
+                onSave={v => saveField({ hasGuarantor: v as boolean })}
+              />
+              {data.hasGuarantor && (
+                <EditableFieldRow
+                  label={t('profile.guarantorIncome')}
+                  displayValue={fmtMoney(data.guarantorIncome)}
+                  rawValue={data.guarantorIncome}
+                  validation={vmap['guarantorIncome']}
+                  type="number"
+                  lockWhenApproved={false}
+                  warning="Modificando i dati del garante il profilo sarà inviato nuovamente in validazione. Ti consigliamo di caricare nuova documentazione relativa al garante."
+                  onSave={v => saveField({ guarantorIncome: v as number | null })}
+                />
               )}
-            </Section>
+            </SectionCard>
           </>
         )}
 
@@ -729,6 +821,7 @@ export default function TenantProfilePage() {
         {tab === 'documents' && (
           <DocumentsTab
             docs={data.documents}
+            validations={validations}
             onDelete={handleDeleteDoc}
             onAdd={handleDocAdded}
           />

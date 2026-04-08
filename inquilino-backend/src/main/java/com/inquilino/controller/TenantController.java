@@ -10,8 +10,11 @@ import com.inquilino.enums.VerificationStatus;
 import com.inquilino.repository.*;
 import com.inquilino.security.UserPrincipal;
 import com.inquilino.security.UserService;
+import com.inquilino.service.MatchingService;
 import com.inquilino.service.ScoringService;
+import com.inquilino.service.SupervisorService;
 import com.inquilino.service.TenantProfileService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -42,6 +45,8 @@ public class TenantController {
     private final ScoringService            scoringService;
     private final UserService               userService;
     private final TenantProfileService      tenantProfileService;
+    private final SupervisorService         supervisorService;
+    private final MatchingService           matchingService;
     private final S3Client                  s3Client;
 
     @Value("${minio.bucket}")
@@ -69,50 +74,108 @@ public class TenantController {
         return ResponseEntity.ok(buildResponse(user, completed, profile, score, docs, areas));
     }
 
+    // ─── GET /api/tenant/validations ─────────────────────────────────────────────
+
+    @GetMapping("/validations")
+    public ResponseEntity<List<com.inquilino.dto.supervisor.FieldValidationDto>> getMyValidations(
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        TenantProfile profile = profileRepo.findByUserId(principal.getUserId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile not found"));
+
+        List<com.inquilino.dto.supervisor.FieldValidationDto> result =
+                supervisorService.getFieldValidations(profile.getId())
+                        .stream()
+                        .map(com.inquilino.dto.supervisor.FieldValidationDto::from)
+                        .toList();
+
+        return ResponseEntity.ok(result);
+    }
+
     // ─── PATCH /api/tenant/profile ────────────────────────────────────────────────
 
+    @Transactional
     @PatchMapping("/profile")
     public ResponseEntity<TenantProfileResponse> updateProfile(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody TenantUpdateRequest req) {
 
         UUID          userId  = principal.getUserId();
+        User          user    = userService.findById(userId);
         TenantProfile profile = profileRepo.findByUserId(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile not found"));
 
-        boolean locked = profile.getVerificationStatus() == VerificationStatus.VERIFIED;
+        UUID profileId = profile.getId();
 
-        // Always editable
-        if (req.maxBudget()  != null) profile.setMaxBudget(req.maxBudget());
-        if (req.moveInDate() != null) profile.setMoveInDate(req.moveInDate());
-        if (req.occupants()  != null) profile.setOccupants(req.occupants());
-        if (req.hasPets()    != null) profile.setHasPets(req.hasPets());
-        if (req.smoker()     != null) profile.setSmoker(req.smoker());
+        // Telefono (campo User)
+        if (req.phone() != null && !req.phone().isBlank()) {
+            user.setPhone(req.phone());
+            userService.save(user);
+            supervisorService.markFieldCorrected(profileId, "phone", userId);
+        }
 
-        // Editable only when not VERIFIED
-        if (!locked) {
-            if (req.fullName()            != null) profile.setFullName(req.fullName());
-            if (req.birthDate()           != null) profile.setBirthDate(req.birthDate());
-            if (req.birthPlace()          != null) profile.setBirthPlace(req.birthPlace());
-            if (req.residence()           != null) profile.setResidence(req.residence());
-            if (req.contractType()        != null) profile.setContractType(req.contractType());
-            if (req.employmentStartDate() != null) profile.setEmploymentStartDate(req.employmentStartDate());
-            if (req.hasGuarantor()        != null) profile.setHasGuarantor(req.hasGuarantor());
-            if (req.guarantorIncome()     != null) profile.setGuarantorIncome(req.guarantorIncome());
-            if (req.monthlyIncome()       != null) profile.setMonthlyIncome(req.monthlyIncome());
-            if (req.employmentType() != null) {
-                try {
-                    profile.setEmploymentType(EmploymentType.valueOf(req.employmentType()));
-                } catch (IllegalArgumentException ex) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Invalid employment type: " + req.employmentType());
-                }
+        // Preferenze abitative — sempre editabili, ma resettano la validazione del campo
+        if (req.maxBudget()  != null) { profile.setMaxBudget(req.maxBudget());   supervisorService.markFieldChangedByTenant(profileId, "maxBudget", userId);  }
+        if (req.moveInDate() != null) { profile.setMoveInDate(req.moveInDate());  supervisorService.markFieldChangedByTenant(profileId, "moveInDate", userId); }
+        if (req.occupants()  != null) { profile.setOccupants(req.occupants());   supervisorService.markFieldChangedByTenant(profileId, "occupants", userId);  }
+        if (req.hasPets()    != null) { profile.setHasPets(req.hasPets());       supervisorService.markFieldChangedByTenant(profileId, "hasPets", userId);    }
+        if (req.smoker()     != null) { profile.setSmoker(req.smoker());         supervisorService.markFieldChangedByTenant(profileId, "smoker", userId);     }
+
+        // Campi verificabili — editabili solo se non APPROVED dal supervisore
+        if (req.fiscalCode() != null && !supervisorService.isFieldApproved(profileId, "fiscalCode")) {
+            profile.setFiscalCode(req.fiscalCode());
+            supervisorService.markFieldCorrected(profileId, "fiscalCode", userId);
+        }
+        if (req.fullName() != null && !supervisorService.isFieldApproved(profileId, "fullName")) {
+            profile.setFullName(req.fullName());
+            supervisorService.markFieldCorrected(profileId, "fullName", userId);
+        }
+        if (req.birthDate() != null && !supervisorService.isFieldApproved(profileId, "birthDate")) {
+            profile.setBirthDate(req.birthDate());
+            supervisorService.markFieldCorrected(profileId, "birthDate", userId);
+        }
+        if (req.birthPlace() != null && !supervisorService.isFieldApproved(profileId, "birthPlace")) {
+            profile.setBirthPlace(req.birthPlace());
+            supervisorService.markFieldCorrected(profileId, "birthPlace", userId);
+        }
+        if (req.residence() != null && !supervisorService.isFieldApproved(profileId, "residence")) {
+            profile.setResidence(req.residence());
+            supervisorService.markFieldCorrected(profileId, "residence", userId);
+        }
+        // Dati lavorativi — sempre editabili, resettano la validazione del campo
+        if (req.contractType() != null) {
+            profile.setContractType(req.contractType());
+            supervisorService.markFieldChangedByTenant(profileId, "contractType", userId);
+        }
+        if (req.employmentStartDate() != null) {
+            profile.setEmploymentStartDate(req.employmentStartDate());
+            supervisorService.markFieldChangedByTenant(profileId, "employmentStartDate", userId);
+        }
+        if (req.monthlyIncome() != null) {
+            profile.setMonthlyIncome(req.monthlyIncome());
+            supervisorService.markFieldChangedByTenant(profileId, "monthlyIncome", userId);
+        }
+        if (req.employmentType() != null) {
+            try {
+                profile.setEmploymentType(EmploymentType.valueOf(req.employmentType()));
+                supervisorService.markFieldChangedByTenant(profileId, "employmentType", userId);
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Invalid employment type: " + req.employmentType());
             }
+        }
+        // Garante — sempre editabile, resetta la validazione del campo
+        if (req.hasGuarantor() != null) {
+            profile.setHasGuarantor(req.hasGuarantor());
+            supervisorService.markFieldChangedByTenant(profileId, "hasGuarantor", userId);
+        }
+        if (req.guarantorIncome() != null) {
+            profile.setGuarantorIncome(req.guarantorIncome());
+            supervisorService.markFieldChangedByTenant(profileId, "guarantorIncome", userId);
         }
 
         profileRepo.save(profile);
 
-        User                     user   = userService.findById(userId);
         boolean                  comp   = onboardingRepo.findByUserId(userId)
                 .map(s -> "STEP_18".equals(s.getCurrentStep())).orElse(false);
         List<Document>           docs   = documentRepo.findByUserId(userId);
@@ -121,6 +184,7 @@ public class TenantController {
 
         return ResponseEntity.ok(buildResponse(user, comp, profile, score, docs, areas));
     }
+
 
     // ─── PATCH /api/tenant/status ─────────────────────────────────────────────────
 
@@ -135,6 +199,12 @@ public class TenantController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile not found"));
         profile.setActive(active);
         profileRepo.save(profile);
+
+        if (active) {
+            matchingService.computeMatchesForTenant(profile.getId());
+        } else {
+            matchingService.archiveMatchesForTenant(profile.getId());
+        }
 
         return ResponseEntity.ok(Map.of("active", active));
     }
@@ -152,6 +222,15 @@ public class TenantController {
 
         if (doc.isVerified()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete a verified document");
+        }
+        // Controlla se il tipo di documento è stato approvato dal supervisore
+        TenantProfile tenantProfile = profileRepo.findByUserId(principal.getUserId()).orElse(null);
+        if (tenantProfile != null) {
+            String docField = "doc." + doc.getType().name();
+            if (supervisorService.isFieldApproved(tenantProfile.getId(), docField)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Cannot delete a supervisor-approved document type");
+            }
         }
         documentRepo.delete(doc);
     }

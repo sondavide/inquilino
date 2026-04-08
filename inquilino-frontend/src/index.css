@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Leaflet: impedisce ai z-index interni di uscire dal container della mappa
+   e sovrapporsi a sidebar, notifiche e altri elementi dell'app. */
+.leaflet-container {
+  isolation: isolate;
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

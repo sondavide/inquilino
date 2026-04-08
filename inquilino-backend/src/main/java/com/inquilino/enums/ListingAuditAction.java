@@ -1,0 +1,16 @@
+package com.inquilino.enums;
+
+public enum ListingAuditAction {
+    CREATED,
+    UPDATED,
+    SUBMITTED_FOR_REVIEW,
+    STATUS_CHANGED,
+    FIELD_APPROVED,
+    FIELD_FLAGGED,
+    FIELD_CORRECTION_SUBMITTED,
+    MEDIA_UPLOADED,
+    MEDIA_DELETED,
+    PUBLISHED,
+    ARCHIVED,
+    REJECTED
+}

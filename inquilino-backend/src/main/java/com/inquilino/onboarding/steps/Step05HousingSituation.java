@@ -33,7 +33,7 @@ public class Step05HousingSituation implements OnboardingStep {
                 - One question at a time
                 - Skip already-collected fields
                 - Accept natural answers (e.g. "in affitto" → pays_rent: true, current_housing_type: "rent")
-                - When all 3 fields are collected, confirm and say you'll ask about areas of interest
+                - When all 3 fields are collected, confirm warmly that this section is complete. Do NOT mention what comes next.
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());
     }

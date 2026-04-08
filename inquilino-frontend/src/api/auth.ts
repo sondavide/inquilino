@@ -3,7 +3,7 @@ import apiClient from './client'
 export interface RegisterPayload { email: string; password: string; phone?: string }
 export interface LoginPayload    { email: string; password: string }
 export interface AuthResponse    { token: string; userId: string; email: string }
-export interface MeResponse      { userId: string; email: string; userType: string }
+export interface MeResponse      { userId: string; email: string; userType: string; verificationStatus?: string; onboardingCompleted?: boolean }
 
 export const authApi = {
   register: (data: RegisterPayload) =>

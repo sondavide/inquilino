@@ -1,7 +1,9 @@
 package com.inquilino.controller;
 
+import com.inquilino.dto.chat.ChatHistoryItemDto;
 import com.inquilino.dto.chat.ChatRequest;
 import com.inquilino.dto.chat.OnboardingStateDto;
+import com.inquilino.entity.ChatMessage;
 import com.inquilino.onboarding.OnboardingService;
 import com.inquilino.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +12,8 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/onboarding")
@@ -41,6 +45,26 @@ public class ChatController {
 
         String cleanLang = lang.toLowerCase().startsWith("it") ? "it" : "en";
         return onboardingService.getState(principal.getUserId(), cleanLang);
+    }
+
+    /**
+     * Returns the chat messages for the current step so the frontend can
+     * restore the conversation when the user resumes the session.
+     */
+    @GetMapping("/history")
+    public List<ChatHistoryItemDto> getHistory(
+            @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        String cleanLang = lang.toLowerCase().startsWith("it") ? "it" : "en";
+        return onboardingService.getHistory(principal.getUserId(), cleanLang)
+                .stream()
+                .map(m -> new ChatHistoryItemDto(
+                        m.getId().toString(),
+                        m.getRole().name(),
+                        m.getContent(),
+                        m.getCreatedAt().toString()))
+                .toList();
     }
 
     /** Go back to the previous step. */

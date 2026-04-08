@@ -74,4 +74,12 @@ public class TenantProfile {
     @Builder.Default
     @Column(nullable = false)
     private boolean active = true;
+
+    /** Supervisore che ha preso in carico la validazione (status = IN_VALIDATION) */
+    @Column(name = "assigned_supervisor_id")
+    private UUID assignedSupervisorId;
+
+    /** Supervisore che ha effettuato l'ultima validazione (notificato quando l'utente corregge) */
+    @Column(name = "last_validated_by_supervisor_id")
+    private UUID lastValidatedBySupervisorId;
 }

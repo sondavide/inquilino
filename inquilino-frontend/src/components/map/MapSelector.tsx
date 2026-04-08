@@ -560,7 +560,7 @@ export function MapSelector({
         {!drawing && !selectedId && (
           <div className="absolute bottom-3 right-3 z-[500]">
             <button
-              onClick={() => { setDrawing(true); setSelectedId(null) }}
+              onClick={() => { setDrawing(true); setSelectedId(null); setAreas(prev => prev.filter(a => a.areaType !== 'CITY_BOUNDARY')) }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-background border shadow-lg
                          text-sm font-medium text-foreground hover:bg-accent active:scale-95 transition-all"
             >

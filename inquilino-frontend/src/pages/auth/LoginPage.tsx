@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { authApi } from '@/api/auth'
 import { setToken } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
+import { registerPushSubscription } from '@/lib/webPush'
 
 type Mode = 'choose' | 'login' | 'register'
 
 export default function LoginPage() {
-  const navigate        = useNavigate()
-  const [mode, setMode] = useState<Mode>('choose')
+  const navigate              = useNavigate()
+  const [searchParams]        = useSearchParams()
+  const initialMode: Mode     = searchParams.get('register') === 'true' ? 'register' : 'choose'
+  const [mode, setMode]       = useState<Mode>(initialMode)
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [phone, setPhone]       = useState('')
@@ -28,7 +31,8 @@ export default function LoginPage() {
         ? await authApi.register({ email, password, phone: phone || undefined })
         : await authApi.login({ email, password })
       setToken(res.token)
-      navigate('/onboarding', { replace: true })
+      registerPushSubscription().catch(() => {})
+      navigate('/', { replace: true })
     } catch {
       setError(mode === 'register' ? 'Registrazione fallita. Email già in uso?' : 'Credenziali non valide.')
     } finally {

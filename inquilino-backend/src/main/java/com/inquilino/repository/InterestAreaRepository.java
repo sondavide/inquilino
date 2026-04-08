@@ -55,4 +55,46 @@ public interface InterestAreaRepository extends JpaRepository<TenantInterestArea
             """, nativeQuery = true)
     List<UUID> findUserIdsContainingPoint(@Param("lat") double lat,
                                           @Param("lng") double lng);
+
+    /**
+     * Matching: returns user_ids whose areas contain OR are within radiusMeters
+     * of the given point. Used when a listing is published to find candidate tenants.
+     */
+    @Query(value = """
+            SELECT DISTINCT user_id
+            FROM   tenant_interest_areas
+            WHERE  area_type = 'ANYWHERE'
+               OR  ST_Contains(
+                       area_geometry,
+                       ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)
+                   )
+               OR  ST_DWithin(
+                       area_geometry::geography,
+                       ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                       :radiusMeters
+                   )
+            """, nativeQuery = true)
+    List<UUID> findUserIdsNearPoint(@Param("lat") double lat,
+                                    @Param("lng") double lng,
+                                    @Param("radiusMeters") double radiusMeters);
+
+    /**
+     * Returns the minimum distance (metres) from the given point to any of the
+     * user's non-ANYWHERE areas. Returns null if the user has only ANYWHERE areas.
+     */
+    @Query(value = """
+            SELECT MIN(
+                ST_Distance(
+                    area_geometry::geography,
+                    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+                )
+            )
+            FROM tenant_interest_areas
+            WHERE user_id = :userId
+              AND area_type != 'ANYWHERE'
+              AND area_geometry IS NOT NULL
+            """, nativeQuery = true)
+    Double findMinDistanceToUserAreas(@Param("userId") UUID userId,
+                                      @Param("lat") double lat,
+                                      @Param("lng") double lng);
 }

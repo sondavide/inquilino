@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth }     from '@/hooks/useAuth'
-import { useLang }     from '@/i18n'
-import { tenantApi }   from '@/api/tenant'
+import { useNavigate, Navigate } from 'react-router-dom'
+import { useAuth } from '@/hooks/useAuth'
+import { useLang } from '@/i18n'
+import { tenantApi } from '@/api/tenant'
 import type { TenantProfileDto } from '@/types'
 
 // ─── Score badge ─────────────────────────────────────────────────────────────
@@ -48,9 +48,12 @@ function ActiveToggle({ active, onChange }: { active: boolean; onChange: (v: boo
 function VerificationBadge({ status }: { status: string }) {
   const { t } = useLang()
   const cfg =
-    status === 'VERIFIED' ? { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: t('home.status.verified') } :
-    status === 'PARTIAL'  ? { cls: 'bg-amber-100 text-amber-700 border-amber-200',       label: t('home.status.partial')  } :
-                            { cls: 'bg-slate-100 text-slate-500 border-slate-200',        label: t('home.status.none')     }
+    status === 'VERIFIED'           ? { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: t('home.status.verified') } :
+    status === 'PENDING_VALIDATION' ? { cls: 'bg-blue-100 text-blue-700 border-blue-200',          label: 'In validazione'          } :
+    status === 'IN_VALIDATION'      ? { cls: 'bg-blue-100 text-blue-700 border-blue-200',          label: 'In revisione'            } :
+    status === 'NEEDS_CORRECTION'   ? { cls: 'bg-red-100 text-red-700 border-red-200',             label: 'Da correggere'           } :
+    status === 'PARTIAL'            ? { cls: 'bg-amber-100 text-amber-700 border-amber-200',       label: t('home.status.partial')  } :
+                                      { cls: 'bg-slate-100 text-slate-500 border-slate-200',        label: t('home.status.none')     }
   return (
     <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${cfg.cls}`}>
       {cfg.label}
@@ -85,26 +88,19 @@ function Tile({ icon, label, desc, onClick, disabled }: {
 // ─── Tenant — onboarding not completed ───────────────────────────────────────
 
 function TenantOnboardingCTA() {
-  const { t } = useLang()
-  const { logout } = useAuth()
-  const navigate  = useNavigate()
+  const { t }    = useLang()
+  const navigate = useNavigate()
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="flex items-center justify-between px-4 py-4 border-b">
-        <span className="text-base font-bold text-primary">inquilino</span>
-        <button onClick={logout} className="text-xs text-muted-foreground underline">{t('home.logout')}</button>
-      </header>
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 text-center">
-        <div className="text-6xl">🏠</div>
-        <h1 className="text-xl font-bold text-foreground">{t('home.onboarding.title')}</h1>
-        <p className="text-sm text-muted-foreground max-w-xs">{t('home.onboarding.desc')}</p>
-        <button
-          onClick={() => navigate('/onboarding')}
-          className="bg-primary text-primary-foreground font-semibold text-sm px-6 py-3 rounded-xl hover:bg-primary/90 transition-colors w-full max-w-xs"
-        >
-          {t('home.onboarding.cta')}
-        </button>
-      </div>
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-6 text-center">
+      <div className="text-6xl">🏠</div>
+      <h1 className="text-xl font-bold text-foreground">{t('home.onboarding.title')}</h1>
+      <p className="text-sm text-muted-foreground max-w-xs">{t('home.onboarding.desc')}</p>
+      <button
+        onClick={() => navigate('/onboarding')}
+        className="bg-primary text-primary-foreground font-semibold text-sm px-6 py-3 rounded-xl hover:bg-primary/90 transition-colors w-full max-w-xs"
+      >
+        {t('home.onboarding.cta')}
+      </button>
     </div>
   )
 }
@@ -112,9 +108,8 @@ function TenantOnboardingCTA() {
 // ─── Tenant — dashboard ───────────────────────────────────────────────────────
 
 function TenantDashboard({ initialProfile }: { initialProfile: TenantProfileDto }) {
-  const { t }     = useLang()
-  const { logout } = useAuth()
-  const navigate  = useNavigate()
+  const { t }    = useLang()
+  const navigate = useNavigate()
   const [profile, setProfile] = useState(initialProfile)
 
   const handleToggleActive = async (active: boolean) => {
@@ -131,15 +126,7 @@ function TenantDashboard({ initialProfile }: { initialProfile: TenantProfileDto 
   const displayName = profile.fullName || profile.email
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-4 border-b">
-        <span className="text-base font-bold text-primary">inquilino</span>
-        <button onClick={logout} className="text-xs text-muted-foreground underline">{t('home.logout')}</button>
-      </header>
-
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
 
           {/* Welcome card */}
           <div className="rounded-xl border bg-card p-4 flex items-center gap-4">
@@ -202,34 +189,13 @@ function TenantDashboard({ initialProfile }: { initialProfile: TenantProfileDto 
             <Tile
               icon="🏡"
               label={t('home.tile.matching')}
-              desc={t('home.tile.matching.desc')}
-              disabled
+              desc={profile.verificationStatus === 'VERIFIED'
+                ? t('matches.tenant.title')
+                : t('matches.tenant.not_verified')}
+              onClick={() => navigate('/matches')}
             />
           </div>
 
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Placeholder for non-tenant roles ─────────────────────────────────────────
-
-function RolePlaceholder({ role }: { role: string }) {
-  const { t } = useLang()
-  const { logout } = useAuth()
-  const key = role.toLowerCase() as 'supervisor' | 'agency' | 'superadmin'
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="flex items-center justify-between px-4 py-4 border-b">
-        <span className="text-base font-bold text-primary">inquilino</span>
-        <button onClick={logout} className="text-xs text-muted-foreground underline">{t('home.logout')}</button>
-      </header>
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <div className="text-5xl">🔧</div>
-        <h1 className="text-xl font-bold">{t(`role.${key}` as Parameters<typeof t>[0])}</h1>
-        <p className="text-sm text-muted-foreground">{t(`role.${key}.desc` as Parameters<typeof t>[0])}</p>
-      </div>
     </div>
   )
 }
@@ -238,8 +204,8 @@ function RolePlaceholder({ role }: { role: string }) {
 
 export default function HomePage() {
   const { user } = useAuth()
-  const [profile, setProfile]   = useState<TenantProfileDto | null>(null)
-  const [loading, setLoading]   = useState(true)
+  const [profile, setProfile] = useState<TenantProfileDto | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (user?.userType === 'TENANT') {
@@ -252,21 +218,18 @@ export default function HomePage() {
     }
   }, [user])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">
-        Caricamento…
-      </div>
-    )
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh] text-muted-foreground text-sm">
+      Caricamento…
+    </div>
+  )
 
   const role = user?.userType ?? ''
+  if (role === 'LANDLORD' || role === 'AGENCY') return <Navigate to="/landlord/listings" replace />
+  if (role === 'SUPERVISOR') return <Navigate to="/supervisor/profiles" replace />
+  if (role === 'SUPERADMIN') return <Navigate to="/admin/supervisors"  replace />
 
-  if (role === 'SUPERVISOR') return <RolePlaceholder role="supervisor" />
-  if (role === 'AGENCY')     return <RolePlaceholder role="agency"     />
-  if (role === 'SUPERADMIN') return <RolePlaceholder role="superadmin" />
-
-  // TENANT
+  // Solo TENANT arriva qui
   if (!profile?.onboardingCompleted) return <TenantOnboardingCTA />
   return <TenantDashboard initialProfile={profile} />
 }

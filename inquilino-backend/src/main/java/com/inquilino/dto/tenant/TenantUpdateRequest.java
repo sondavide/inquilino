@@ -9,18 +9,22 @@ import java.time.LocalDate;
  * Fields marked "identity/employment" are rejected if profile is VERIFIED.
  */
 public record TenantUpdateRequest(
-        // Always editable
+        // User fields
+        String     phone,
+
+        // Always editable (housing preferences)
         BigDecimal maxBudget,
         LocalDate  moveInDate,
         Integer    occupants,
         Boolean    hasPets,
         Boolean    smoker,
 
-        // Editable only when verificationStatus != VERIFIED
+        // Editable only if not APPROVED by supervisor
         String     fullName,
         LocalDate  birthDate,
         String     birthPlace,
         String     residence,
+        String     fiscalCode,
         String     employmentType,
         BigDecimal monthlyIncome,
         String     contractType,

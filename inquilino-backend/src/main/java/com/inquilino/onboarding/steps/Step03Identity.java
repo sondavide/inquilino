@@ -1,6 +1,7 @@
 package com.inquilino.onboarding.steps;
 
 import com.inquilino.onboarding.ChecklistItem;
+import com.inquilino.onboarding.FiscalCodeValidator;
 import com.inquilino.onboarding.OnboardingContext;
 import com.inquilino.onboarding.OnboardingStep;
 import com.inquilino.onboarding.Suggestion;
@@ -16,6 +17,20 @@ public class Step03Identity implements OnboardingStep {
 
     @Override
     public String buildSystemPrompt(OnboardingContext ctx) {
+        // If a fiscal code is present but fails checksum, inform the AI so it asks for re-entry
+        String cfNote = "";
+        if (ctx.hasData("fiscal_code")) {
+            String cf = String.valueOf(ctx.data().get("fiscal_code"));
+            if (!FiscalCodeValidator.isValid(cf)) {
+                cfNote = """
+
+                IMPORTANT: The fiscal_code currently saved ("%s") has failed the server-side checksum \
+                validation. Politely inform the user that the code appears to be incorrect and ask them \
+                to double-check and re-enter it. Do NOT accept the same value again.
+                """.formatted(cf);
+            }
+        }
+
         return """
                 You are a warm, professional assistant helping to build a tenant reliability profile for an Italian rental platform.
 
@@ -38,15 +53,14 @@ public class Step03Identity implements OnboardingStep {
 
                 Data collected so far:
                 %s
-
+                %s
                 Rules:
                 - Ask ONE field at a time (max 2 if closely related, e.g. birth city + birth country)
                 - Skip fields already collected — acknowledge them and move on
-                - Validate the Italian fiscal code format (16 chars: LLLLLL99L99L999L)
-                - If fiscal_code appears inconsistent with name/birth data, politely ask for clarification
-                - When ALL fields are collected, confirm warmly and say you now need an identity document
+                - Accept the fiscal_code exactly as the user provides it — do NOT attempt to validate it yourself
+                - When ALL fields are collected, confirm warmly that the personal information is complete. Do NOT mention documents, next steps, or anything beyond this form.
                 - ALWAYS respond in %s
-                """.formatted(ctx.formattedData(), ctx.lang());
+                """.formatted(ctx.formattedData(), cfNote, ctx.lang());
     }
 
     @Override
@@ -81,11 +95,17 @@ public class Step03Identity implements OnboardingStep {
 
     @Override
     public boolean isCompleted(OnboardingContext ctx) {
-        return ctx.hasData("full_name")
-                && ctx.hasData("birth_date")
-                && ctx.hasData("birth_place")
-                && ctx.hasData("residence")
-                && ctx.hasData("fiscal_code");
+        if (!ctx.hasData("full_name")
+                || !ctx.hasData("birth_date")
+                || !ctx.hasData("birth_place")
+                || !ctx.hasData("residence")
+                || !ctx.hasData("fiscal_code")) {
+            return false;
+        }
+        // Server-side checksum validation — if invalid, keep the step open so the
+        // AI can ask the user to re-enter it.
+        String cf = String.valueOf(ctx.data().get("fiscal_code"));
+        return FiscalCodeValidator.isValid(cf);
     }
 
     @Override

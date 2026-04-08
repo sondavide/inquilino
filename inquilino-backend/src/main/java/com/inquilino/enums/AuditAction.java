@@ -1,0 +1,12 @@
+package com.inquilino.enums;
+
+public enum AuditAction {
+    FIELD_APPROVED,
+    FIELD_FLAGGED,
+    FIELD_CORRECTION_SUBMITTED,
+    DOCUMENT_APPROVED,
+    DOCUMENT_FLAGGED,
+    STATUS_CHANGED,
+    INTEREST_AREA_MODIFIED,
+    SUPERVISOR_CREATED
+}

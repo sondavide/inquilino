@@ -1,9 +1,19 @@
 import apiClient from './client'
 import type { OnboardingStateDto, DocumentUploadResponse, InterestArea } from '@/types'
 
+export interface ChatHistoryItem {
+  id:        string
+  role:      string
+  content:   string
+  createdAt: string
+}
+
 export const onboardingApi = {
   getState: () =>
     apiClient.get<OnboardingStateDto>('/onboarding/state').then(r => r.data),
+
+  getHistory: () =>
+    apiClient.get<ChatHistoryItem[]>('/onboarding/history').then(r => r.data),
 
   goBack: () =>
     apiClient.post<OnboardingStateDto>('/onboarding/back').then(r => r.data),

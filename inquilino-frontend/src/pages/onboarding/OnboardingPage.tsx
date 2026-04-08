@@ -97,7 +97,7 @@ export default function OnboardingPage() {
   const requiresUpload = onboardingState?.requiresDocumentUpload ?? false
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div className="fixed inset-0 flex flex-col bg-background overflow-hidden">
 
       {/* ── Progress bar ── */}
       <ProgressBar

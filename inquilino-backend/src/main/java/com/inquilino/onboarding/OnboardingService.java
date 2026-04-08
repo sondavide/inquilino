@@ -14,6 +14,7 @@ import com.inquilino.repository.ChatMessageRepository;
 import com.inquilino.repository.OnboardingStateRepository;
 import com.inquilino.security.UserService;
 import com.inquilino.service.GibberishDetector;
+import com.inquilino.service.TenantProfileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -49,6 +50,7 @@ public class OnboardingService {
     private final GibberishDetector gibberishDetector;
     private final ObjectMapper objectMapper;
     private final S3Client s3Client;
+    private final TenantProfileService tenantProfileService;
 
     @Value("${minio.bucket}")
     private String bucket;
@@ -119,6 +121,18 @@ public class OnboardingService {
 
         OnboardingState state = stateRepository.findByUserId(userId)
                 .orElseGet(() -> createInitialState(user));
+
+        // Catch-up: if the current step was already completed in a previous session
+        // (e.g. session ended before the advance ran), advance now before generating a response.
+        {
+            OnboardingStep catchUpStep = stepRegistry.get(state.getCurrentStep());
+            OnboardingContext catchUpCtx = new OnboardingContext(state, user, locale);
+            if (catchUpStep.isCompleted(catchUpCtx)) {
+                maybeAdvanceStep(state, catchUpStep, user, locale);
+                stateRepository.save(state);
+            }
+        }
+
         OnboardingStep step = stepRegistry.get(state.getCurrentStep());
         OnboardingContext ctx = new OnboardingContext(state, user, locale);
 
@@ -158,9 +172,15 @@ public class OnboardingService {
                 "IMPORTANT INSTRUCTION: This is an ongoing conversation — do NOT greet " +
                 "the user or say 'Ciao', 'Hello', 'Buongiorno' or similar. Do NOT address them by name. " +
                 "Do NOT re-introduce yourself. Continue directly with your task.\n\n";
+        // Always appended: prevent the AI from closing the whole process or going beyond its step.
+        String scopeGuard =
+                "CRITICAL: Your role is strictly limited to the task described in your system prompt. " +
+                "Do NOT tell the user their profile, registration, or onboarding process is complete or finished. " +
+                "Do NOT describe future steps or promise what happens next. " +
+                "The system handles all step transitions automatically — just complete YOUR task.\n\n";
 
         chatClient.prompt()
-                .system(noGreetPrefix + step.buildSystemPrompt(ctx))
+                .system(scopeGuard + noGreetPrefix + step.buildSystemPrompt(ctx))
                 .messages(aiMessages)
                 .stream()
                 .content()
@@ -196,10 +216,15 @@ public class OnboardingService {
                                 // Extract structured data and advance step if complete
                                 boolean stepAdvanced = false;
                                 if (!isInit) {
-                                    extractAndMerge(state, step, content, locale);
+                                    extractAndMerge(state, step, content, fullResponse, locale);
                                     stepAdvanced = maybeAdvanceStep(state, step, user, locale);
                                 }
                                 stateRepository.save(state);
+
+                                // Sync profile when onboarding completes
+                                if ("STEP_18".equals(state.getCurrentStep())) {
+                                    tenantProfileService.syncOnCompletion(user.getId());
+                                }
                                 saveChatLog(userId, user, state);
 
                                 // Generate contextual suggestions from the bot's actual response.
@@ -234,9 +259,37 @@ public class OnboardingService {
 
     public OnboardingStateDto getState(UUID userId, String lang) {
         User user = userService.findById(userId);
+        Locale locale = parseLocale(lang);
         OnboardingState state = stateRepository.findByUserId(userId)
                 .orElseGet(() -> createInitialState(user));
-        return buildStateDto(state, user, parseLocale(lang), List.of());
+        // Catch-up: advance completed steps so the returned state is always current
+        OnboardingStep catchUpStep = stepRegistry.get(state.getCurrentStep());
+        OnboardingContext catchUpCtx = new OnboardingContext(state, user, locale);
+        if (catchUpStep.isCompleted(catchUpCtx)) {
+            maybeAdvanceStep(state, catchUpStep, user, locale);
+            stateRepository.save(state);
+        }
+        return buildStateDto(state, user, locale, List.of());
+    }
+
+    /**
+     * Returns the chat messages for the current step (used by the frontend to
+     * restore the conversation when the user resumes the onboarding session).
+     */
+    public List<com.inquilino.entity.ChatMessage> getHistory(UUID userId, String lang) {
+        User user = userService.findById(userId);
+        Locale locale = parseLocale(lang);
+        OnboardingState state = stateRepository.findByUserId(userId)
+                .orElseGet(() -> createInitialState(user));
+        // Run catch-up so we return history for the correct (possibly advanced) step
+        OnboardingStep catchUpStep = stepRegistry.get(state.getCurrentStep());
+        OnboardingContext catchUpCtx = new OnboardingContext(state, user, locale);
+        if (catchUpStep.isCompleted(catchUpCtx)) {
+            maybeAdvanceStep(state, catchUpStep, user, locale);
+            stateRepository.save(state);
+        }
+        return chatMessageRepository
+                .findByUserIdAndStepOrderByCreatedAtAsc(userId, state.getCurrentStep());
     }
 
     public OnboardingStateDto goBack(UUID userId, String lang) {
@@ -253,12 +306,18 @@ public class OnboardingService {
     // ─── Private helpers ─────────────────────────────────────────────────────────
 
     private void extractAndMerge(OnboardingState state, OnboardingStep step,
-                                  String userMessage, Locale locale) {
+                                  String userMessage, String lastBotMessage, Locale locale) {
         try {
             OnboardingContext ctx = new OnboardingContext(state, null, locale);
+            // Include the last bot message so the extraction LLM can resolve
+            // ambiguous short answers like "No", "Sì", "2" with the right context.
+            String contextualUser = (lastBotMessage == null || lastBotMessage.isBlank())
+                    ? userMessage
+                    : "Assistant: \"" + lastBotMessage.substring(0, Math.min(lastBotMessage.length(), 400)) + "\"\n"
+                      + "User: \"" + userMessage + "\"";
             String raw = chatClient.prompt()
                     .system(step.buildExtractionPrompt(ctx))
-                    .user(userMessage)
+                    .user(contextualUser)
                     .call()
                     .content();
 

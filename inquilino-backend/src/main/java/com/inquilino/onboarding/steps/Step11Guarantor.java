@@ -35,7 +35,7 @@ public class Step11Guarantor implements OnboardingStep {
                 - Ask "do you have a guarantor?" first
                 - If yes, ask for guarantor's name and approximate monthly income
                 - If no, acknowledge and move on
-                - When fields are collected, confirm and say you'll ask about rental history
+                - When fields are collected, confirm warmly that this section is complete. Do NOT mention what comes next.
                 - ALWAYS respond in %s
                 """.formatted(hasGuarantor ? "yes" : "not yet", ctx.formattedData(), ctx.lang());
     }

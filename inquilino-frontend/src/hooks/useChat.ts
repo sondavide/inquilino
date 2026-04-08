@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { getToken } from './useAuth'
 import { getStoredLang } from '@/i18n'
+import { onboardingApi } from '@/api/onboarding'
 import type { ChatMessage, OnboardingStateDto } from '@/types'
 import { MessageRole } from '@/types'
 
@@ -121,8 +122,48 @@ export function useChat() {
     }
   }, [isStreaming, banUntil])
 
-  /** Called on page mount to get the assistant's opening message. */
-  const init = useCallback(() => sendMessage(''), [sendMessage])
+  /**
+   * Called on page mount.
+   * 1. Fetches state + history in parallel for an instant UI restore.
+   * 2. If the current step already has messages, restores them and skips the
+   *    opening greeting (the user is resuming a previous conversation).
+   * 3. If no history exists for the current step, sends the empty init trigger
+   *    so the bot produces its opening message.
+   */
+  const init = useCallback(async () => {
+    try {
+      const [state, history] = await Promise.all([
+        onboardingApi.getState(),
+        onboardingApi.getHistory(),
+      ])
+      setOnboardingState(state)
+      if (state.currentStep) prevStepRef.current = state.currentStep
+
+      if (history.length > 0) {
+        // Restore previous messages (filter out empty assistant placeholders)
+        const restored: ChatMessage[] = history
+          .filter(m => m.content.trim() !== '')
+          .map(m => ({
+            id:        m.id,
+            role:      m.role === 'USER' ? MessageRole.USER : MessageRole.ASSISTANT,
+            content:   m.content,
+            createdAt: m.createdAt,
+          }))
+        setMessages(restored)
+
+        // If the last message is from the assistant the bot already greeted —
+        // no need to fire another init message.
+        const lastIsBot = restored.at(-1)?.role === MessageRole.ASSISTANT
+        if (lastIsBot) return
+      }
+
+      // No history (or last message is from user) — trigger the step's opening greeting
+      sendMessage('')
+    } catch {
+      // On error fall back to the original behaviour
+      sendMessage('')
+    }
+  }, [sendMessage])
 
   // Detect step changes: set pending flag when step advances mid-stream
   const currentStep = onboardingState?.currentStep

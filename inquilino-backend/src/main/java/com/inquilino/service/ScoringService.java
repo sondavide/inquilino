@@ -42,6 +42,11 @@ public class ScoringService {
     // ─── Income stability ─────────────────────────────────────────────────────────
     // Derived from employment type
 
+    /** Public accessor used by MatchingService for tenant_strength_score. */
+    public String incomeStabilityCategory(TenantProfile p) {
+        return incomeStability(p);
+    }
+
     private String incomeStability(TenantProfile p) {
         if (p == null || p.getEmploymentType() == null) return "LOW";
         return switch (p.getEmploymentType()) {
@@ -53,6 +58,11 @@ public class ScoringService {
 
     // ─── Document reliability ─────────────────────────────────────────────────────
     // Based on ratio of verified documents to total
+
+    /** Public accessor used by MatchingService for tenant_strength_score. */
+    public String documentReliabilityCategory(List<Document> docs) {
+        return documentReliability(docs);
+    }
 
     private String documentReliability(List<Document> docs) {
         if (docs == null || docs.isEmpty()) return "LOW";

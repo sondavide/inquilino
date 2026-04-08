@@ -34,7 +34,7 @@ public class Step10Income implements OnboardingStep {
                 - Ask for net monthly income%s
                 - If income < budget * 2, gently mention that a guarantor may strengthen the profile
                 - Ask if income is stable or variable
-                - When both fields are collected, confirm and transition to the guarantor question
+                - When both fields are collected, confirm warmly that this section is complete. Do NOT mention what comes next.
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), budgetHint, ctx.lang());
     }

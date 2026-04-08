@@ -34,7 +34,7 @@ public class Step09Employment implements OnboardingStep {
                 - EMPLOYEE: ask contract type, then start date
                 - SELF_EMPLOYED: ask ONLY how long they have been self-employed (start date) — do NOT ask for contract type
                 - STUDENT / RETIRED / OTHER: acknowledge and move on immediately
-                - When required fields are collected, confirm and say you will now ask about income
+                - When required fields are collected, confirm warmly that this section is complete. Do NOT mention what comes next.
                 - Do NOT ask about income here — that is the next step
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());

@@ -3,11 +3,16 @@ package com.inquilino.controller;
 import com.inquilino.dto.auth.AuthResponse;
 import com.inquilino.dto.auth.LoginRequest;
 import com.inquilino.dto.auth.RegisterRequest;
+import com.inquilino.dto.auth.RegisterLandlordRequest;
+import com.inquilino.entity.LandlordProfile;
 import com.inquilino.entity.OnboardingState;
 import com.inquilino.entity.User;
+import com.inquilino.enums.PublisherType;
 import com.inquilino.enums.StepStatus;
 import com.inquilino.enums.UserType;
+import com.inquilino.repository.LandlordProfileRepository;
 import com.inquilino.repository.OnboardingStateRepository;
+import com.inquilino.repository.TenantProfileRepository;
 import com.inquilino.repository.UserRepository;
 import com.inquilino.security.JwtService;
 import com.inquilino.security.UserPrincipal;
@@ -32,6 +37,8 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final OnboardingStateRepository onboardingStateRepository;
+    private final LandlordProfileRepository landlordProfileRepository;
+    private final TenantProfileRepository tenantProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -68,6 +75,47 @@ public class AuthController {
                 user.getId().toString(), user.getEmail());
     }
 
+    // ─── Registrazione Landlord / Agenzia ────────────────────────────────────
+
+    @PostMapping("/register/landlord")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponse registerLandlord(@RequestBody @Valid RegisterLandlordRequest req) {
+        if (userRepository.existsByEmail(req.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        }
+
+        // Determina UserType: AGENCY se publisherType è AGENCY, altrimenti LANDLORD
+        UserType userType = "AGENCY".equalsIgnoreCase(req.getPublisherType())
+                ? UserType.AGENCY
+                : UserType.LANDLORD;
+
+        User user = User.builder()
+                .type(userType)
+                .email(req.getEmail())
+                .phone(req.getPhone())
+                .passwordHash(passwordEncoder.encode(req.getPassword()))
+                .verified(false)
+                .build();
+        user = userRepository.save(user);
+
+        // Crea profilo landlord
+        LandlordProfile profile = LandlordProfile.builder()
+                .userId(user.getId())
+                .displayName(req.getDisplayName())
+                .agencyName(req.getAgencyName())
+                .vatNumber(req.getVatNumber())
+                .reaNumber(req.getReaNumber())
+                .contactMode(req.getContactMode() != null ? req.getContactMode() : "platform_only")
+                .contactPhone(req.getContactPhone())
+                .contactEmail(req.getContactEmail() != null ? req.getContactEmail() : req.getEmail())
+                .websiteUrl(req.getWebsiteUrl())
+                .build();
+        landlordProfileRepository.save(profile);
+
+        return new AuthResponse(jwtService.generateToken(user.getId()),
+                user.getId().toString(), user.getEmail());
+    }
+
     @PostMapping("/login")
     public AuthResponse login(@RequestBody @Valid LoginRequest req) {
         authenticationManager.authenticate(
@@ -82,10 +130,15 @@ public class AuthController {
 
     @GetMapping("/me")
     public Map<String, Object> me(@AuthenticationPrincipal UserPrincipal principal) {
-        return Map.of(
-                "userId",   principal.getUserId(),
-                "email",    principal.getEmail(),
-                "userType", principal.getUserType()
-        );
+        Map<String, Object> result = new HashMap<>();
+        result.put("userId",   principal.getUserId());
+        result.put("email",    principal.getEmail());
+        result.put("userType", principal.getUserType());
+        if (principal.getUserType() == UserType.TENANT) {
+            tenantProfileRepository.findByUserId(principal.getUserId()).ifPresent(p ->
+                result.put("verificationStatus", p.getVerificationStatus())
+            );
+        }
+        return result;
     }
 }
