@@ -465,9 +465,6 @@ export interface ListingCardDto {
   listingType:        string
   propertyType:       string
   title:              string | null
-  monthlyRent:        number | null
-  condominiumFees:    number | null
-  utilitiesIncluded:  boolean
 
   streetName:         string | null
   district:           string | null
@@ -480,7 +477,18 @@ export interface ListingCardDto {
   exactLng:           number | null
   fullAddress:        string | null
 
-  // Caratteristiche
+  // ─── Prezzo ───────────────────────────────────────────────────────────────
+  monthlyRent:               number | null
+  dailyRent:                 number | null
+  condominiumFees:           number | null
+  utilitiesIncluded:         boolean
+  utilitiesEstimatedMonthly: number | null
+  depositMonths:             number | null
+  depositAmount:             number | null
+  agencyFeeAmount:           number | null
+  agencyFeeNotes:            string | null
+
+  // ─── Caratteristiche ──────────────────────────────────────────────────────
   surfaceSqm:              number | null
   commercialSurfaceSqm:    number | null
   roomsCount:              number | null
@@ -489,40 +497,53 @@ export interface ListingCardDto {
   floorNumber:             number | null
   totalBuildingFloors:     number | null
   elevator:                boolean
-  parkingSpacesCount:      number | null
+  parkingSpacesCount:      number
   garageIncluded:          boolean
-  balconiesCount:          number | null
-  terracesCount:           number | null
-  cellarsCount:            number | null
-  furnishedStatus:         string | null
-  conditionStatus:         string | null
-  kitchenStatus:           string | null
+  balconiesCount:          number
+  terracesCount:           number
+  cellarsCount:            number
 
-  // Costi extra
-  utilitiesEstimatedMonthly: number | null
-  depositMonths:             number | null
-  depositAmount:             number | null
-  agencyFeeAmount:           number | null
-  agencyFeeNotes:            string | null
+  // Room-specific
+  roomType:          string | null
+  roomSurfaceSqm:    number | null
+  privateBathroom:   boolean | null
+  sharedBathroom:    boolean | null
+  sharedKitchen:     boolean | null
+  roommatesCount:    number | null
+  studentsOnly:      boolean
 
-  // Disponibilità
+  // ─── Stato / dotazioni ────────────────────────────────────────────────────
+  conditionStatus:   string | null
+  furnishedStatus:   string | null
+  kitchenStatus:     string | null
+  heatingType:       string | null
+  coolingType:       string | null
+  amenities:         Record<string, boolean>
+
+  // ─── Disponibilità ────────────────────────────────────────────────────────
+  availabilityStatus:               string | null
   availableFrom:                    string | null
   availableTo:                      string | null
   minimumContractDurationMonths:    number | null
   maximumContractDurationMonths:    number | null
+  minimumStayDays:                  number | null
+  maximumStayDays:                  number | null
+  maxOccupants:                     number | null
   petsAllowed:                      boolean
   smokingAllowed:                   boolean
   childrenAllowed:                  boolean
   sublettingAllowed:                boolean
   residenceAllowed:                 boolean
-  heatingType:                      string | null
-  coolingType:                      string | null
+  studentsAllowed:                  boolean
+  workersAllowed:                   boolean
   notesForTenants:                  string | null
 
-  // Energia
-  energyClass:              string | null
-  heatingEnergySource:      string | null
-  renewableEnergyPresent:   boolean
+  // ─── Energia ──────────────────────────────────────────────────────────────
+  energyClass:                 string | null
+  energyIndexEpgl:             number | null
+  energyCertificateAvailable:  boolean
+  heatingEnergySource:         string | null
+  renewableEnergyPresent:      boolean
 
   coverImageUrl:      string | null
   allImageUrls:       string[]

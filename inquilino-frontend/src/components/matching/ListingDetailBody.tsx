@@ -22,31 +22,75 @@ export const LISTING_TYPE: Record<string, string> = {
 
 const FURNISHED: Record<string, string> = {
   FURNISHED: 'Arredato', PARTIALLY_FURNISHED: 'Parzialmente arredato', UNFURNISHED: 'Non arredato',
+  furnished: 'Arredato', partially_furnished: 'Parzialmente arredato', unfurnished: 'Non arredato',
 }
 
 const CONDITION: Record<string, string> = {
   NEW: 'Nuovo', RENOVATED: 'Ristrutturato', GOOD: 'Buono stato',
   TO_RENOVATE: 'Da ristrutturare', UNDER_CONSTRUCTION: 'In costruzione',
+  new: 'Nuovo', excellent: 'Eccellente', renovated: 'Ristrutturato',
+  good: 'Buono stato', habitable: 'Abitabile', to_restore: 'Da ristrutturare',
 }
 
 const KITCHEN: Record<string, string> = {
   KITCHENETTE: 'Angolo cottura', SEPARATE_KITCHEN: 'Cucina separata',
   OPEN_KITCHEN: 'Cucina a vista', NO_KITCHEN: 'Senza cucina',
+  equipped: 'Cucina attrezzata', partially_equipped: 'Parzialmente attrezzata', not_equipped: 'Non attrezzata',
 }
 
 const HEATING: Record<string, string> = {
   AUTONOMOUS: 'Autonomo', CENTRALIZED: 'Centralizzato',
   DISTRICT: 'Teleriscaldamento', NONE: 'Assente',
+  centralized: 'Centralizzato', autonomous: 'Autonomo',
+  heat_pump: 'Pompa di calore', none: 'Assente', other: 'Altro',
 }
 
 const COOLING: Record<string, string> = {
   AIR_CONDITIONING: 'Aria condizionata', FAN_COIL: 'Fan coil',
   HEAT_PUMP: 'Pompa di calore', NONE: 'Assente',
+  air_conditioning: 'Aria condizionata', central_cooling: 'Raffreddamento centralizzato',
+  none: 'Assente', other: 'Altro',
 }
 
 const ENERGY_SOURCE: Record<string, string> = {
   GAS: 'Gas', ELECTRICITY: 'Elettricità', HEAT_PUMP: 'Pompa di calore',
   WOOD: 'Legna', OIL: 'Gasolio', DISTRICT: 'Teleriscaldamento',
+  gas: 'Gas', electric: 'Elettricità', district_heating: 'Teleriscaldamento',
+  biomass: 'Biomassa', other: 'Altro',
+}
+
+const AVAIL_STATUS: Record<string, string> = {
+  available_now: 'Disponibile subito',
+  available_from_date: 'Disponibile da data',
+  rented: 'Affittato',
+  reserved: 'Riservato',
+}
+
+const ROOM_TYPE: Record<string, string> = {
+  single: 'Singola', double: 'Doppia', shared_bed: 'Posto letto condiviso',
+}
+
+const AMENITY_LABELS: Record<string, string> = {
+  air_conditioning:    'Aria condizionata',
+  internet_available:  'Internet',
+  fiber_available:     'Fibra ottica',
+  tv:                  'TV',
+  washing_machine:     'Lavatrice',
+  dishwasher:          'Lavastoviglie',
+  dryer:               'Asciugatrice',
+  oven:                'Forno',
+  microwave:           'Microonde',
+  refrigerator:        'Frigorifero',
+  freezer:             'Congelatore',
+  security_door:       'Porta blindata',
+  alarm_system:        'Sistema d\'allarme',
+  concierge:           'Portineria',
+  private_garden:      'Giardino privato',
+  shared_garden:       'Giardino condiviso',
+  pool:                'Piscina',
+  gym:                 'Palestra',
+  wheelchair_accessible: 'Accessibile disabili',
+  disabled_bathroom:   'Bagno per disabili',
 }
 
 // ─── Utility sub-components ───────────────────────────────────────────────────
@@ -140,6 +184,15 @@ export default function ListingDetailBody({ card, px = 'px-4 md:px-6' }: {
   const heatingLabel   = card.heatingType     ? (HEATING[card.heatingType]       ?? card.heatingType)     : null
   const coolingLabel   = card.coolingType     ? (COOLING[card.coolingType]       ?? card.coolingType)     : null
   const energySrcLabel = card.heatingEnergySource ? (ENERGY_SOURCE[card.heatingEnergySource] ?? card.heatingEnergySource) : null
+  const availStatusLabel = card.availabilityStatus ? (AVAIL_STATUS[card.availabilityStatus] ?? card.availabilityStatus) : null
+
+  const isShortTerm    = card.listingType === 'SHORT_TERM_RENT'
+  const isRoom         = card.propertyType === 'ROOM' || card.propertyType === 'BED_IN_SHARED_ROOM'
+
+  // Amenities attive
+  const activeAmenities = Object.entries(card.amenities ?? {})
+    .filter(([, v]) => v)
+    .map(([k]) => AMENITY_LABELS[k] ?? k)
 
   return (
     <div className="bg-white">
@@ -155,6 +208,13 @@ export default function ListingDetailBody({ card, px = 'px-4 md:px-6' }: {
                 </span>
                 <span className="text-base text-gray-500 ml-1">al mese</span>
               </>
+            ) : card.dailyRent ? (
+              <>
+                <span className="text-3xl font-bold text-gray-900">
+                  € {card.dailyRent.toLocaleString('it-IT')}
+                </span>
+                <span className="text-base text-gray-500 ml-1">al giorno</span>
+              </>
             ) : (
               <span className="text-xl text-gray-400">Prezzo non indicato</span>
             )}
@@ -169,6 +229,9 @@ export default function ListingDetailBody({ card, px = 'px-4 md:px-6' }: {
 
       {/* ── TIPO + INDIRIZZO ──────────────────────────────────────────────── */}
       <div className={`${px} py-3 border-b border-gray-100`}>
+        {card.title && (
+          <p className="font-bold text-gray-900 text-lg mb-0.5">{card.title}</p>
+        )}
         <p className="font-semibold text-gray-900 text-base">{propertyLabel} · {listingLabel}</p>
         <p className="text-sm text-gray-500 mt-0.5 flex items-center gap-1">
           <span>📍</span> {address}
@@ -210,12 +273,13 @@ export default function ListingDetailBody({ card, px = 'px-4 md:px-6' }: {
       {/* ── CARATTERISTICHE ──────────────────────────────────────────────── */}
       <div className={`${px} pt-4 pb-1 border-b border-gray-100`}>
         <SectionTitle>Caratteristiche</SectionTitle>
-        {card.surfaceSqm         != null && <DetailRow label="Superficie"           value={`${card.surfaceSqm} m²`} />}
-        {card.commercialSurfaceSqm != null && <DetailRow label="Sup. commerciale"   value={`${card.commercialSurfaceSqm} m²`} />}
-        {card.roomsCount         != null && <DetailRow label="Locali"               value={card.roomsCount} />}
-        {card.bedroomsCount      != null && <DetailRow label="Camere da letto"      value={card.bedroomsCount} />}
-        {card.bathroomsCount     != null && <DetailRow label="Bagni"                value={card.bathroomsCount} />}
-        {card.floorNumber        != null && (
+        {isRoom && card.roomSurfaceSqm != null && <DetailRow label="Superficie stanza"      value={`${card.roomSurfaceSqm} m²`} />}
+        {!isRoom && card.surfaceSqm    != null && <DetailRow label="Superficie"              value={`${card.surfaceSqm} m²`} />}
+        {card.commercialSurfaceSqm     != null && <DetailRow label="Sup. commerciale"        value={`${card.commercialSurfaceSqm} m²`} />}
+        {!isRoom && card.roomsCount    != null && <DetailRow label="Locali"                  value={card.roomsCount} />}
+        {card.bedroomsCount            != null && <DetailRow label="Camere da letto"         value={card.bedroomsCount} />}
+        {card.bathroomsCount           != null && <DetailRow label="Bagni"                   value={card.bathroomsCount} />}
+        {card.floorNumber              != null && (
           <DetailRow
             label="Piano"
             value={card.totalBuildingFloors != null
@@ -226,30 +290,47 @@ export default function ListingDetailBody({ card, px = 'px-4 md:px-6' }: {
         {card.totalBuildingFloors != null && card.floorNumber == null && (
           <DetailRow label="Piani totali edificio" value={card.totalBuildingFloors} />
         )}
-        <DetailRow label="Ascensore"       value={card.elevator       ? 'Sì' : 'No'} />
-        {card.garageIncluded               && <DetailRow label="Garage"             value="Incluso" />}
-        {card.parkingSpacesCount != null && card.parkingSpacesCount > 0 && (
-          <DetailRow label="Posti auto"    value={card.parkingSpacesCount} />
-        )}
-        {card.balconiesCount  != null && card.balconiesCount  > 0 && <DetailRow label="Balconi"   value={card.balconiesCount} />}
-        {card.terracesCount   != null && card.terracesCount   > 0 && <DetailRow label="Terrazzi"  value={card.terracesCount} />}
-        {card.cellarsCount    != null && card.cellarsCount    > 0 && <DetailRow label="Cantine"   value={card.cellarsCount} />}
-        {furnishedLabel                    && <DetailRow label="Arredamento"         value={furnishedLabel} />}
-        {conditionLabel                    && <DetailRow label="Stato immobile"      value={conditionLabel} />}
-        {kitchenLabel                      && <DetailRow label="Cucina"              value={kitchenLabel} />}
-        {heatingLabel                      && <DetailRow label="Riscaldamento"       value={heatingLabel} />}
-        {coolingLabel                      && <DetailRow label="Raffreddamento"      value={coolingLabel} />}
-        <DetailRow label="Animali"         value={card.petsAllowed     ? 'Ammessi'      : 'Non ammessi'} />
-        <DetailRow label="Fumo"            value={card.smokingAllowed  ? 'Consentito'   : 'Non consentito'} />
-        <DetailRow label="Bambini"         value={card.childrenAllowed ? 'Benvenuti'    : 'Non specificato'} />
-        <DetailRow label="Residenza"       value={card.residenceAllowed ? 'Consentita'  : 'Non consentita'} />
-        {card.sublettingAllowed            && <DetailRow label="Subaffitto"          value="Consentito" />}
+        <DetailRow label="Ascensore" value={card.elevator ? 'Sì' : 'No'} />
+        {card.garageIncluded           && <DetailRow label="Garage"             value="Incluso" />}
+        {card.parkingSpacesCount > 0   && <DetailRow label="Posti auto"         value={card.parkingSpacesCount} />}
+        {card.balconiesCount     > 0   && <DetailRow label="Balconi"            value={card.balconiesCount} />}
+        {card.terracesCount      > 0   && <DetailRow label="Terrazzi"           value={card.terracesCount} />}
+        {card.cellarsCount       > 0   && <DetailRow label="Cantine"            value={card.cellarsCount} />}
+        {furnishedLabel                && <DetailRow label="Arredamento"        value={furnishedLabel} />}
+        {conditionLabel                && <DetailRow label="Stato immobile"     value={conditionLabel} />}
+        {kitchenLabel                  && <DetailRow label="Cucina"             value={kitchenLabel} />}
+        {heatingLabel                  && <DetailRow label="Riscaldamento"      value={heatingLabel} />}
+        {coolingLabel                  && <DetailRow label="Raffreddamento"     value={coolingLabel} />}
+
+        {/* Room-specific */}
+        {isRoom && card.roomType       && <DetailRow label="Tipo stanza"        value={ROOM_TYPE[card.roomType] ?? card.roomType} />}
+        {isRoom && card.privateBathroom != null && <DetailRow label="Bagno privato"   value={card.privateBathroom  ? 'Sì' : 'No'} />}
+        {isRoom && card.sharedBathroom  != null && <DetailRow label="Bagno condiviso" value={card.sharedBathroom   ? 'Sì' : 'No'} />}
+        {isRoom && card.sharedKitchen   != null && <DetailRow label="Cucina condivisa" value={card.sharedKitchen   ? 'Sì' : 'No'} />}
+        {isRoom && card.roommatesCount  != null && <DetailRow label="Coinquilini"      value={card.roommatesCount} />}
+        {isRoom && card.studentsOnly            && <DetailRow label="Solo studenti"    value="Sì" />}
       </div>
+
+      {/* ── DOTAZIONI ────────────────────────────────────────────────────── */}
+      {activeAmenities.length > 0 && (
+        <div className={`${px} pt-4 pb-3 border-b border-gray-100`}>
+          <SectionTitle>Dotazioni</SectionTitle>
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {activeAmenities.map(label => (
+              <span key={label}
+                className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-full">
+                ✓ {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── COSTI ────────────────────────────────────────────────────────── */}
       <div className={`${px} pt-4 pb-1 border-b border-gray-100`}>
         <SectionTitle>Costi</SectionTitle>
         {card.monthlyRent       != null && <DetailRow label="Canone mensile"        value={`€ ${card.monthlyRent.toLocaleString('it-IT')}`} />}
+        {card.dailyRent         != null && <DetailRow label="Canone giornaliero"    value={`€ ${card.dailyRent.toLocaleString('it-IT')}`} />}
         {card.condominiumFees   != null && <DetailRow label="Spese condominiali"    value={`€ ${card.condominiumFees.toLocaleString('it-IT')}`} />}
         <DetailRow
           label="Utenze"
@@ -258,10 +339,10 @@ export default function ListingDetailBody({ card, px = 'px-4 md:px-6' }: {
         {card.utilitiesEstimatedMonthly != null && (
           <DetailRow label="Stima utenze mensili" value={`€ ${card.utilitiesEstimatedMonthly.toLocaleString('it-IT')}`} />
         )}
-        {card.depositMonths  != null && <DetailRow label="Deposito cauzionale"      value={`${card.depositMonths} ${card.depositMonths === 1 ? 'mensilità' : 'mensilità'}`} />}
+        {card.depositMonths  != null && <DetailRow label="Deposito cauzionale"      value={`${card.depositMonths} mensilità`} />}
         {card.depositAmount  != null && <DetailRow label="Importo deposito"         value={`€ ${card.depositAmount.toLocaleString('it-IT')}`} />}
         {card.agencyFeeAmount != null && <DetailRow label="Spese agenzia"           value={`€ ${card.agencyFeeAmount.toLocaleString('it-IT')}`} />}
-        {card.agencyFeeNotes               && <DetailRow label="Note spese agenzia" value={card.agencyFeeNotes} />}
+        {card.agencyFeeNotes             && <DetailRow label="Note spese agenzia"  value={card.agencyFeeNotes} />}
         {totalCost > (card.monthlyRent ?? 0) && (
           <DetailRow
             label="Costo mensile stimato"
@@ -273,6 +354,7 @@ export default function ListingDetailBody({ card, px = 'px-4 md:px-6' }: {
       {/* ── DISPONIBILITÀ ────────────────────────────────────────────────── */}
       <div className={`${px} pt-4 pb-1 border-b border-gray-100`}>
         <SectionTitle>Disponibilità</SectionTitle>
+        {availStatusLabel && <DetailRow label="Stato disponibilità" value={availStatusLabel} />}
         {card.availableFrom && (
           <DetailRow
             label="Disponibile dal"
@@ -290,12 +372,29 @@ export default function ListingDetailBody({ card, px = 'px-4 md:px-6' }: {
           />
         )}
         <DetailRow label="Tipo contratto" value={listingLabel} />
-        {card.minimumContractDurationMonths != null && (
+        {!isShortTerm && card.minimumContractDurationMonths != null && (
           <DetailRow label="Durata minima contratto" value={`${card.minimumContractDurationMonths} mesi`} />
         )}
-        {card.maximumContractDurationMonths != null && (
+        {!isShortTerm && card.maximumContractDurationMonths != null && (
           <DetailRow label="Durata massima contratto" value={`${card.maximumContractDurationMonths} mesi`} />
         )}
+        {isShortTerm && card.minimumStayDays != null && (
+          <DetailRow label="Soggiorno minimo" value={`${card.minimumStayDays} giorni`} />
+        )}
+        {isShortTerm && card.maximumStayDays != null && (
+          <DetailRow label="Soggiorno massimo" value={`${card.maximumStayDays} giorni`} />
+        )}
+        {card.maxOccupants != null && <DetailRow label="Max occupanti" value={card.maxOccupants} />}
+
+        {/* Regole */}
+        <DetailRow label="Animali"    value={card.petsAllowed     ? 'Ammessi'       : 'Non ammessi'} />
+        <DetailRow label="Fumo"       value={card.smokingAllowed  ? 'Consentito'    : 'Non consentito'} />
+        <DetailRow label="Bambini"    value={card.childrenAllowed ? 'Benvenuti'     : 'Non consentito'} />
+        <DetailRow label="Residenza"  value={card.residenceAllowed ? 'Consentita'   : 'Non consentita'} />
+        <DetailRow label="Studenti"   value={card.studentsAllowed ? 'Benvenuti'     : 'Non consentito'} />
+        <DetailRow label="Lavoratori" value={card.workersAllowed  ? 'Benvenuti'     : 'Non consentito'} />
+        {card.sublettingAllowed       && <DetailRow label="Subaffitto"             value="Consentito" />}
+
         {card.notesForTenants && (
           <div className="py-2">
             <p className="text-xs text-gray-400 mb-1">Note del locatore</p>
@@ -305,7 +404,7 @@ export default function ListingDetailBody({ card, px = 'px-4 md:px-6' }: {
       </div>
 
       {/* ── ENERGIA ──────────────────────────────────────────────────────── */}
-      {(card.energyClass || energySrcLabel || card.renewableEnergyPresent) && (
+      {(card.energyClass || energySrcLabel || card.renewableEnergyPresent || card.energyCertificateAvailable || card.energyIndexEpgl != null) && (
         <div className={`${px} pt-4 pb-1 border-b border-gray-100`}>
           <SectionTitle>Energia</SectionTitle>
           {card.energyClass && (
@@ -314,8 +413,10 @@ export default function ListingDetailBody({ card, px = 'px-4 md:px-6' }: {
               <EnergyBadge cls={card.energyClass} />
             </div>
           )}
-          {energySrcLabel && <DetailRow label="Fonte riscaldamento" value={energySrcLabel} />}
-          {card.renewableEnergyPresent && <DetailRow label="Energia rinnovabile" value="Presente" />}
+          {card.energyIndexEpgl != null && <DetailRow label="Indice EPgl" value={`${card.energyIndexEpgl} kWh/m²·anno`} />}
+          {energySrcLabel                && <DetailRow label="Fonte riscaldamento"    value={energySrcLabel} />}
+          {card.renewableEnergyPresent   && <DetailRow label="Energia rinnovabile"    value="Presente" />}
+          {card.energyCertificateAvailable && <DetailRow label="Certificato energetico" value="Disponibile" />}
         </div>
       )}
 

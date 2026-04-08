@@ -5,6 +5,7 @@ import com.inquilino.enums.MatchState;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -28,9 +29,6 @@ public record ListingCardDto(
         String listingType,
         String propertyType,
         String title,
-        Double monthlyRent,
-        Double condominiumFees,
-        boolean utilitiesIncluded,
 
         // Localizzazione (via senza civico o approssimata)
         String streetName,
@@ -44,29 +42,85 @@ public record ListingCardDto(
         Double exactLng,
         String fullAddress,
 
-        // Caratteristiche
+        // ─── Prezzo ───────────────────────────────────────────────────────────
+        Double  monthlyRent,
+        Double  dailyRent,
+        Double  condominiumFees,
+        boolean utilitiesIncluded,
+        Double  utilitiesEstimatedMonthly,
+        Integer depositMonths,
+        Double  depositAmount,
+        Double  agencyFeeAmount,
+        String  agencyFeeNotes,
+
+        // ─── Caratteristiche ──────────────────────────────────────────────────
         Double   surfaceSqm,
+        Double   commercialSurfaceSqm,
         Integer  roomsCount,
         Integer  bedroomsCount,
         Integer  bathroomsCount,
         Integer  floorNumber,
+        Integer  totalBuildingFloors,
         boolean  elevator,
-        String   furnishedStatus,
-        LocalDate availableFrom,
-        boolean  petsAllowed,
-        boolean  smokingAllowed,
+        int      parkingSpacesCount,
+        boolean  garageIncluded,
+        int      balconiesCount,
+        int      terracesCount,
+        int      cellarsCount,
 
-        // Media
+        // Room-specific
+        String  roomType,
+        Double  roomSurfaceSqm,
+        Boolean privateBathroom,
+        Boolean sharedBathroom,
+        Boolean sharedKitchen,
+        Integer roommatesCount,
+        boolean studentsOnly,
+
+        // ─── Stato / dotazioni ────────────────────────────────────────────────
+        String conditionStatus,
+        String furnishedStatus,
+        String kitchenStatus,
+        String heatingType,
+        String coolingType,
+
+        // Amenities (chiavi boolean, es. "washing_machine", "air_conditioning"…)
+        Map<String, Boolean> amenities,
+
+        // ─── Disponibilità ────────────────────────────────────────────────────
+        String    availabilityStatus,
+        LocalDate availableFrom,
+        LocalDate availableTo,
+        Integer   minimumContractDurationMonths,
+        Integer   maximumContractDurationMonths,
+        Integer   minimumStayDays,
+        Integer   maximumStayDays,
+        Integer   maxOccupants,
+        boolean   petsAllowed,
+        boolean   smokingAllowed,
+        boolean   childrenAllowed,
+        boolean   sublettingAllowed,
+        boolean   residenceAllowed,
+        boolean   studentsAllowed,
+        boolean   workersAllowed,
+        String    notesForTenants,
+
+        // ─── Energia ──────────────────────────────────────────────────────────
+        String  energyClass,
+        Double  energyIndexEpgl,
+        boolean energyCertificateAvailable,
+        String  heatingEnergySource,
+        boolean renewableEnergyPresent,
+
+        // ─── Media / testi ────────────────────────────────────────────────────
         String       coverImageUrl,
         List<String> allImageUrls,
-
-        // Descrizione (lang-aware — il controller sceglie it/en)
-        String description,
+        String       description,
 
         // AI summary
         String matchSummary,
 
-        // Contatti locatore — solo in CONTACT_UNLOCKED
+        // ─── Contatti locatore — solo in CONTACT_UNLOCKED ────────────────────
         String landlordDisplayName,
         String landlordContactPhone,
         String landlordContactEmail
@@ -81,10 +135,12 @@ public record ListingCardDto(
             com.inquilino.entity.LandlordProfile landlordProfile,
             String lang) {
 
-        ListingLocation loc  = listing.getLocation();
-        ListingPrice    price = listing.getPrice();
+        ListingLocation     loc   = listing.getLocation();
+        ListingPrice        price = listing.getPrice();
         ListingAvailability avail = listing.getAvailability();
-        ListingFeatures feat = listing.getFeatures();
+        ListingFeatures     feat  = listing.getFeatures();
+        ListingEnergy       energy = listing.getEnergy();
+        ListingAmenities    amen  = listing.getAmenities();
 
         boolean unlocked = match.getMatchState() == MatchState.CONTACT_UNLOCKED;
 
@@ -130,10 +186,8 @@ public record ListingCardDto(
                 listing.getListingType().name(),
                 listing.getPropertyType().name(),
                 title,
-                price != null ? safeDouble(price.getMonthlyRent()) : null,
-                price != null ? safeDouble(price.getCondominiumFees()) : null,
-                price != null && price.isUtilitiesIncluded(),
 
+                // Localizzazione
                 loc != null ? loc.getStreetName() : null,
                 loc != null ? loc.getDistrict() : null,
                 loc != null ? loc.getMunicipality() : null,
@@ -145,23 +199,84 @@ public record ListingCardDto(
                 unlocked && loc != null && loc.getLocationPoint() != null ? loc.getLocationPoint().getX() : null,
                 unlocked && loc != null ? loc.getFullAddress() : null,
 
+                // Prezzo
+                price != null ? safeDouble(price.getMonthlyRent()) : null,
+                price != null ? safeDouble(price.getDailyRent()) : null,
+                price != null ? safeDouble(price.getCondominiumFees()) : null,
+                price != null && price.isUtilitiesIncluded(),
+                price != null ? safeDouble(price.getUtilitiesEstimatedMonthly()) : null,
+                price != null ? price.getDepositMonths() : null,
+                price != null ? safeDouble(price.getDepositAmount()) : null,
+                price != null ? safeDouble(price.getAgencyFeeAmount()) : null,
+                price != null ? price.getAgencyFeeNotes() : null,
+
+                // Caratteristiche
                 feat != null ? safeDouble(feat.getSurfaceSqm()) : null,
+                feat != null ? safeDouble(feat.getCommercialSurfaceSqm()) : null,
                 feat != null ? feat.getRoomsCount() : null,
                 feat != null ? feat.getBedroomsCount() : null,
                 feat != null ? feat.getBathroomsCount() : null,
                 feat != null ? feat.getFloorNumber() : null,
+                feat != null ? feat.getTotalBuildingFloors() : null,
                 feat != null && feat.isElevator(),
+                feat != null ? feat.getParkingSpacesCount() : 0,
+                feat != null && feat.isGarageIncluded(),
+                feat != null ? feat.getBalconiesCount() : 0,
+                feat != null ? feat.getTerracesCount() : 0,
+                feat != null ? feat.getCellarsCount() : 0,
+
+                // Room-specific
+                feat != null ? feat.getRoomType() : null,
+                feat != null ? safeDouble(feat.getRoomSurfaceSqm()) : null,
+                feat != null ? feat.getPrivateBathroom() : null,
+                feat != null ? feat.getSharedBathroom() : null,
+                feat != null ? feat.getSharedKitchen() : null,
+                feat != null ? feat.getRoommatesCount() : null,
+                feat != null && feat.isStudentsOnly(),
+
+                // Stato / dotazioni
+                avail != null ? avail.getConditionStatus() : null,
                 avail != null ? avail.getFurnishedStatus() : null,
+                avail != null ? avail.getKitchenStatus() : null,
+                avail != null ? avail.getHeatingType() : null,
+                avail != null ? avail.getCoolingType() : null,
+
+                // Amenities
+                amen != null ? amen.getAmenities() : java.util.Collections.emptyMap(),
+
+                // Disponibilità
+                avail != null ? avail.getAvailabilityStatus() : null,
                 avail != null ? avail.getAvailableFrom() : null,
+                avail != null ? avail.getAvailableTo() : null,
+                avail != null ? avail.getMinimumContractDurationMonths() : null,
+                avail != null ? avail.getMaximumContractDurationMonths() : null,
+                avail != null ? avail.getMinimumStayDays() : null,
+                avail != null ? avail.getMaximumStayDays() : null,
+                avail != null ? avail.getMaxOccupants() : null,
                 avail != null && avail.isPetsAllowed(),
                 avail != null && avail.isSmokingAllowed(),
+                avail == null || avail.isChildrenAllowed(),
+                avail != null && avail.isSublettingAllowed(),
+                avail == null || avail.isResidenceAllowed(),
+                avail == null || avail.isStudentsAllowed(),
+                avail == null || avail.isWorkersAllowed(),
+                avail != null ? avail.getNotesForTenants() : null,
 
+                // Energia
+                energy != null && energy.getEnergyClass() != null ? energy.getEnergyClass().name() : null,
+                energy != null ? safeDouble(energy.getEnergyIndexEpgl()) : null,
+                energy != null && energy.isEnergyCertificateAvailable(),
+                energy != null ? energy.getHeatingEnergySource() : null,
+                energy != null && energy.isRenewableEnergyPresent(),
+
+                // Media
                 coverUrl,
                 allUrls,
                 desc,
 
                 match.getMatchSummary(),
 
+                // Contatti
                 displayName,
                 contactPhone,
                 contactEmail
