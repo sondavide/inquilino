@@ -1,5 +1,7 @@
 # ── Stage 1: build ─────────────────────────────────────────────────────────────
-FROM node:20-alpine AS build
+# node:20 (Debian) is required because jscanify depends on 'canvas',
+# a native module that needs Python3 and C++ build tools to compile.
+FROM node:20 AS build
 WORKDIR /app
 
 COPY package*.json ./
