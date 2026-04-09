@@ -1,66 +1,77 @@
 #!/bin/bash
 # Initialises Let's Encrypt certificates for inquilinofacile.it.
-# Run once on a fresh VPS, before starting the full stack.
+# Run ONCE on a fresh VPS before starting the full stack.
 #
-# Usage: bash scripts/init-letsencrypt.sh
+# Usage (from deployment/production/):
+#   bash scripts/init-letsencrypt.sh
 
 set -e
 
 DOMAIN="inquilinofacile.it"
 EMAIL="privacy@inquilinofacile.it"
-CERT_PATH="./data/certbot/conf"
-WEBROOT_PATH="./data/certbot/www"
+CERT_LIVE="./data/certbot/conf/live/$DOMAIN"
+WEBROOT="./data/certbot/www"
 
-# ── 1. Create directories ──────────────────────────────────────────────────────
-mkdir -p "$CERT_PATH" "$WEBROOT_PATH"
+# ── 0. Stop any running stack ──────────────────────────────────────────────────
+echo "→ Stopping any running containers..."
+docker compose down 2>/dev/null || true
 
-# ── 2. Download recommended TLS parameters (if not already present) ────────────
-if [ ! -f "$CERT_PATH/options-ssl-nginx.conf" ]; then
-  echo "→ Downloading recommended TLS parameters..."
-  curl -fsSL \
-    "https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf" \
-    -o "$CERT_PATH/options-ssl-nginx.conf"
-fi
+# ── 1. Wipe any previous certbot state to avoid the -0001 suffix bug ──────────
+# Certbot appends -0001 if the live/ directory existed before (even empty).
+rm -rf ./data/certbot/conf/live \
+       ./data/certbot/conf/archive \
+       ./data/certbot/conf/renewal
 
-if [ ! -f "$CERT_PATH/ssl-dhparams.pem" ]; then
-  echo "→ Downloading DH parameters..."
-  curl -fsSL \
-    "https://raw.githubusercontent.com/certbot/certbot/master/certbot/certbot/ssl-dhparams.pem" \
-    -o "$CERT_PATH/ssl-dhparams.pem"
-fi
+mkdir -p "$CERT_LIVE" "$WEBROOT"
 
-# ── 3. Create a temporary self-signed cert so nginx can start ──────────────────
-if [ ! -d "$CERT_PATH/live/$DOMAIN" ]; then
-  echo "→ Creating temporary self-signed certificate..."
-  mkdir -p "$CERT_PATH/live/$DOMAIN"
-  docker run --rm \
-    -v "$(pwd)/$CERT_PATH:/etc/letsencrypt" \
-    --entrypoint openssl \
-    certbot/certbot \
-    req -x509 -nodes -newkey rsa:4096 -days 1 \
-    -keyout "/etc/letsencrypt/live/$DOMAIN/privkey.pem" \
-    -out    "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
-    -subj "/CN=localhost" 2>/dev/null
-fi
+# ── 2. Create temporary self-signed certificate so nginx can start ─────────────
+echo "→ Creating temporary self-signed certificate..."
+docker run --rm \
+  -v "$(pwd)/data/certbot/conf:/etc/letsencrypt" \
+  --entrypoint openssl \
+  certbot/certbot \
+  req -x509 -nodes -newkey rsa:2048 -days 1 \
+  -keyout "/etc/letsencrypt/live/$DOMAIN/privkey.pem" \
+  -out    "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
+  -subj   "/CN=localhost" 2>/dev/null
+echo "  ✓ Temporary certificate created."
 
-# ── 4. Start nginx with the dummy cert ────────────────────────────────────────
-echo "→ Starting nginx..."
+# ── 3. Start nginx only (uses temporary cert) ──────────────────────────────────
+echo "→ Starting nginx with temporary certificate..."
 docker compose up -d nginx
-sleep 3
+echo "  Waiting 8s for nginx to be ready..."
+sleep 8
 
-# ── 5. Request the real certificate via webroot ───────────────────────────────
-echo "→ Requesting Let's Encrypt certificate for $DOMAIN ..."
+if ! docker compose ps nginx | grep -q "Up"; then
+  echo "✗ ERROR: nginx failed to start. Logs:"
+  docker compose logs nginx
+  exit 1
+fi
+echo "  ✓ nginx is up."
+
+# ── 4. Delete dummy cert so certbot can create its own directory structure ─────
+# Nginx keeps the cert in memory — stays running fine during this brief gap.
+# We also remove live/ entirely so certbot uses "inquilinofacile.it" (not "…-0001").
+echo "→ Removing temporary certificate (nginx keeps it in memory)..."
+rm -rf ./data/certbot/conf/live
+
+# ── 5. Request real certificate from Let's Encrypt ────────────────────────────
+echo "→ Requesting Let's Encrypt certificate for $DOMAIN and www.$DOMAIN ..."
+echo "  (port 80 must be reachable from the internet)"
 docker compose run --rm certbot certonly \
   --webroot -w /var/www/certbot \
-  -d "$DOMAIN" -d "www.$DOMAIN" \
   --email "$EMAIL" \
-  --agree-tos --no-eff-email \
-  --force-renewal
+  -d "$DOMAIN" -d "www.$DOMAIN" \
+  --agree-tos --no-eff-email
 
-# ── 6. Reload nginx to load the real cert ─────────────────────────────────────
-echo "→ Reloading nginx..."
+# ── 6. Reload nginx with real certificate ─────────────────────────────────────
+echo "→ Reloading nginx with real Let's Encrypt certificate..."
 docker compose exec nginx nginx -s reload
+sleep 2
 
 echo ""
-echo "✓ Certificate issued successfully for $DOMAIN."
-echo "  You can now start the full stack: docker compose up -d"
+echo "✓ SSL certificate issued for $DOMAIN."
+echo "  Now start the full stack:"
+echo ""
+echo "    docker compose up -d"
+echo ""

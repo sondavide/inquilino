@@ -67,12 +67,12 @@ docker compose version
 
 ```bash
 # Crea utente non-root per l'app (opzionale ma consigliato)
-useradd -m -s /bin/bash ubuntu
-usermod -aG docker ubuntu
+useradd -m -s /bin/bash immobiliarefacile
+usermod -aG docker immobiliarefacile
 
 # Cartella di lavoro
 mkdir -p /opt/inquilinofacile
-chown ubuntu:ubuntu /opt/inquilinofacile
+chown immobiliarefacile:immobiliarefacile /opt/inquilinofacile
 ```
 
 ---
