@@ -19,12 +19,18 @@ export default function RegisterLandlordPage() {
   })
   const [error, setError]   = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  // GDPR consent
+  const [consentPrivacy, setConsentPrivacy] = useState(false)
 
   const isAgency = form.publisherType !== 'PRIVATE'
   const upd = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!consentPrivacy) {
+      setError('Devi accettare Privacy Policy e Termini di Servizio per continuare.')
+      return
+    }
     setError(null)
     setLoading(true)
     try {
@@ -52,7 +58,15 @@ export default function RegisterLandlordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col p-4">
+      {/* Back */}
+      <div className="mb-4">
+        <Link to="/register" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors">
+          <span className="text-base leading-none">←</span> Indietro
+        </Link>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center">
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-lg p-7">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Registrazione Locatore</h1>
@@ -125,6 +139,28 @@ export default function RegisterLandlordPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
+          {/* GDPR consent */}
+          <div className="space-y-2 pt-1 border-t border-gray-100">
+            <p className="text-xs text-gray-500 font-medium mb-2">Consensi obbligatori</p>
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox" checked={consentPrivacy}
+                onChange={e => setConsentPrivacy(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-blue-600 shrink-0"
+                required
+              />
+              <span className="text-xs text-gray-500 leading-relaxed">
+                Ho letto e accetto la{' '}
+                <Link to="/legal/privacy" className="text-blue-600 underline">Privacy Policy</Link>
+                , la{' '}
+                <Link to="/legal/cookie" className="text-blue-600 underline">Cookie Policy</Link>
+                {' '}e i{' '}
+                <Link to="/legal/terms" className="text-blue-600 underline">Termini di Servizio</Link>
+                {' '}(obbligatorio) *
+              </span>
+            </label>
+          </div>
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-3 py-2">
               {error}
@@ -147,6 +183,7 @@ export default function RegisterLandlordPage() {
           {' '}·{' '}
           <Link to="/login" className="text-blue-600 hover:underline">Hai già un account</Link>
         </p>
+      </div>
       </div>
     </div>
   )

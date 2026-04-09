@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { useLang } from '@/i18n'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { UserType } from '@/types'
 
@@ -13,42 +14,44 @@ interface NavItem {
   match:  string   // prefix usato per l'active state
 }
 
-function getNavItems(role: string): NavItem[] {
+type TFn = (key: Parameters<import('@/i18n').useLang>['0'] extends never ? string : any) => string
+
+function getNavItems(role: string, t: TFn): NavItem[] {
   switch (role) {
     case UserType.SUPERADMIN:
       return [
-        { label: 'Supervisori',   icon: '👥', path: '/admin/supervisors',    match: '/admin/supervisors' },
-        { label: 'Audit Log',     icon: '📋', path: '/admin/audit-log',       match: '/admin/audit-log' },
-        { label: 'Profili',       icon: '🔍', path: '/supervisor/profiles',   match: '/supervisor/profiles' },
-        { label: 'Annunci',       icon: '🏠', path: '/supervisor/listings',   match: '/supervisor/listings' },
+        { label: t('nav.admin.supervisors'),   icon: '👥', path: '/admin/supervisors',   match: '/admin/supervisors' },
+        { label: t('nav.admin.auditlog'),       icon: '📋', path: '/admin/audit-log',      match: '/admin/audit-log' },
+        { label: t('nav.supervisor.profiles'), icon: '🔍', path: '/supervisor/profiles',  match: '/supervisor/profiles' },
+        { label: t('nav.supervisor.listings'), icon: '🏠', path: '/supervisor/listings',  match: '/supervisor/listings' },
       ]
     case UserType.SUPERVISOR:
       return [
-        { label: 'Profili',       icon: '👤', path: '/supervisor/profiles',   match: '/supervisor/profiles' },
-        { label: 'Annunci',       icon: '🏠', path: '/supervisor/listings',   match: '/supervisor/listings' },
+        { label: t('nav.supervisor.profiles'), icon: '👤', path: '/supervisor/profiles',  match: '/supervisor/profiles' },
+        { label: t('nav.supervisor.listings'), icon: '🏠', path: '/supervisor/listings',  match: '/supervisor/listings' },
       ]
     case UserType.LANDLORD:
     case UserType.AGENCY:
       return [
-        { label: 'Annunci',       icon: '🏠', path: '/landlord/listings',     match: '/landlord/listings' },
-        { label: 'Profilo',       icon: '👤', path: '/landlord/profile',      match: '/landlord/profile' },
+        { label: t('nav.landlord.listings'),   icon: '🏠', path: '/landlord/listings',    match: '/landlord/listings' },
+        { label: t('nav.landlord.profile'),    icon: '👤', path: '/landlord/profile',     match: '/landlord/profile' },
       ]
-    default: // TENANT e altri
+    default:
       return [
-        { label: 'Profilo',  icon: '👤', path: '/profile', match: '/profile' },
-        { label: 'Annunci',  icon: '🏡', path: '/matches', match: '/matches' },
-        { label: 'Match',    icon: '💚', path: '/mutual',  match: '/mutual'  },
+        { label: t('nav.tenant.profile'),      icon: '👤', path: '/profile', match: '/profile' },
+        { label: t('nav.tenant.listings'),     icon: '🏡', path: '/matches', match: '/matches' },
+        { label: t('nav.tenant.matches'),      icon: '💚', path: '/mutual',  match: '/mutual'  },
       ]
   }
 }
 
-function getRoleLabel(role: string): string {
+function getRoleLabel(role: string, t: TFn): string {
   switch (role) {
-    case UserType.SUPERADMIN: return 'Super Admin'
-    case UserType.SUPERVISOR: return 'Supervisore'
-    case UserType.LANDLORD:   return 'Locatore'
-    case UserType.AGENCY:     return 'Agenzia'
-    default:                  return 'inquilino'
+    case UserType.SUPERADMIN: return t('nav.role.superadmin')
+    case UserType.SUPERVISOR: return t('nav.role.supervisor')
+    case UserType.LANDLORD:   return t('nav.role.landlord')
+    case UserType.AGENCY:     return t('nav.role.agency')
+    default:                  return t('nav.role.tenant')
   }
 }
 
@@ -62,6 +65,21 @@ function isActive(item: NavItem, pathname: string, search: string): boolean {
   // "Annunci" del locatore non deve attivarsi sulle pagine matches
   if (item.match === '/landlord/listings') return pathname.startsWith('/landlord/listings') && !pathname.includes('/matches')
   return pathname.startsWith(item.match)
+}
+
+// ─── Secondary route detection ────────────────────────────────────────────────
+// Returns back-destination + title when we're on a drill-down page, null on primary pages.
+
+interface SecondaryRoute { title: string; backTo: string }
+
+function getSecondaryRoute(pathname: string): SecondaryRoute | null {
+  if (/^\/landlord\/listings\/[^/]+\/matches/.test(pathname))
+    return { title: 'Profili compatibili', backTo: '/landlord/listings' }
+  if (/^\/supervisor\/profiles\/.+/.test(pathname))
+    return { title: 'Dettaglio profilo',   backTo: '/supervisor/profiles' }
+  if (/^\/supervisor\/listings\/.+/.test(pathname))
+    return { title: 'Dettaglio annuncio',  backTo: '/supervisor/listings' }
+  return null
 }
 
 // ─── Sidebar (desktop) ────────────────────────────────────────────────────────
@@ -136,43 +154,60 @@ function MobileTopbar({ items, roleLabel, onNavigate, onLogout, user }: {
 }) {
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const initials = user?.email.slice(0, 2).toUpperCase() ?? '??'
+  const initials  = user?.email.slice(0, 2).toUpperCase() ?? '??'
+  const secondary = getSecondaryRoute(location.pathname)
 
   return (
     <>
-      {/* Top strip: logo + icons */}
+      {/* Top strip */}
       <header className="md:hidden sticky top-0 z-30 flex items-center gap-2 px-4 py-3 border-b bg-background/95 backdrop-blur">
-        <span className="text-base font-bold text-primary flex-1">{roleLabel}</span>
+        {secondary ? (
+          /* ── Secondary page: back arrow + title ── */
+          <>
+            <button
+              onClick={() => onNavigate(secondary.backTo)}
+              className="flex items-center gap-1.5 text-primary font-medium text-sm shrink-0 -ml-1 px-1 py-1 rounded-lg hover:bg-muted/60 transition-colors"
+              aria-label="Torna indietro"
+            >
+              <span className="text-lg leading-none">←</span>
+            </button>
+            <span className="text-base font-bold text-foreground flex-1 truncate">{secondary.title}</span>
+          </>
+        ) : (
+          /* ── Primary page: role label ── */
+          <span className="text-base font-bold text-primary flex-1">{roleLabel}</span>
+        )}
         <NotificationBell />
-        {/* Avatar / menu toggle */}
         <button
           onClick={() => setMenuOpen(v => !v)}
-          className="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center"
+          className="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0"
         >
           {initials}
         </button>
       </header>
 
-      {/* Nav tabs: scrollabile orizzontalmente */}
-      <nav className="md:hidden sticky top-[53px] z-20 flex border-b bg-background overflow-x-auto scrollbar-hide">
-        {items.map(item => {
-          const active = isActive(item, location.pathname, location.search)
-          return (
-            <button
-              key={item.match}
-              onClick={() => onNavigate(item.path)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 whitespace-nowrap text-xs font-medium border-b-2 transition-colors shrink-0
-                ${active
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </button>
-          )
-        })}
-      </nav>
+      {/* Nav tabs: nascosti sulle pagine secondarie */}
+      {!secondary && (
+        <nav className="md:hidden sticky top-[53px] z-20 flex border-b bg-background overflow-x-auto scrollbar-hide">
+          {items.map(item => {
+            const active = isActive(item, location.pathname, location.search)
+            return (
+              <button
+                key={item.match}
+                onClick={() => onNavigate(item.path)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 whitespace-nowrap text-xs font-medium border-b-2 transition-colors shrink-0
+                  ${active
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+              >
+                <span>{item.icon}</span>
+                {item.label}
+              </button>
+            )
+          })}
+        </nav>
+      )}
 
       {/* Drawer overlay per logout (compare dal avatar) */}
       {menuOpen && (
@@ -234,10 +269,11 @@ function MobileTopbar({ items, roleLabel, onNavigate, onLogout, user }: {
 export default function AppLayout() {
   const { user, logout } = useAuth()
   const navigate         = useNavigate()
+  const { t }            = useLang()
 
-  const role     = user?.userType ?? 'TENANT'
-  const items    = getNavItems(role)
-  const roleLabel = getRoleLabel(role)
+  const role      = user?.userType ?? 'TENANT'
+  const items     = getNavItems(role, t as TFn)
+  const roleLabel = getRoleLabel(role, t as TFn)
 
   const handleNavigate = (path: string) => navigate(path)
 

@@ -28,7 +28,10 @@
       "Bash(cmd /c \"mvnw.cmd dependency:get -Dartifact=org.locationtech.jts.io:jts-io-extra:1.19.0 -q 2>&1\")",
       "Bash(npx tsc:*)",
       "Bash(npx vite:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(xargs -I {} bash -c 'echo \"=== {} ===\" && head -5 {}')",
+      "Bash(npm run:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

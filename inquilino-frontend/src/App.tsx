@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth }          from '@/hooks/useAuth'
 import { LangProvider, useLang } from '@/i18n'
+import LandingPage          from '@/pages/landing/LandingPage'
+import PolicyPage           from '@/pages/legal/PolicyPage'
 import LoginPage            from '@/pages/auth/LoginPage'
 import OAuthCallbackPage    from '@/pages/auth/OAuthCallbackPage'
 import OnboardingPage       from '@/pages/onboarding/OnboardingPage'
@@ -15,6 +17,7 @@ import AppLayout            from '@/components/layout/AppLayout'
 import { UserType }         from '@/types'
 // Landlord
 import RegisterLandlordPage  from '@/pages/auth/RegisterLandlordPage'
+import RegisterChoicePage   from '@/pages/auth/RegisterChoicePage'
 import LandlordListingsPage  from '@/pages/landlord/LandlordListingsPage'
 import LandlordProfilePage   from '@/pages/landlord/LandlordProfilePage'
 import ListingWizardPage     from '@/pages/landlord/ListingWizardPage'
@@ -52,17 +55,49 @@ function RoleGuard({ children, roles }: { children: React.ReactNode; roles: User
   return <>{children}</>
 }
 
+// ─── Landing guard: shows LandingPage for unauthenticated, else redirect ──────
+
+function PublicLandingRoute() {
+  const { isAuthenticated, loading } = useAuth()
+  const { t } = useLang()
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">
+      {t('app.loading')}
+    </div>
+  )
+  if (isAuthenticated) return <Navigate to="/profile" replace />
+  return <LandingPage />
+}
+
 // ─── Routing ──────────────────────────────────────────────────────────────────
 
 function AppRoutes() {
   const { hasLang } = useLang()
-  if (!hasLang) return <LanguageSelectPage />
+
+  // Landing page is always accessible regardless of language preference.
+  // It ships its own language switcher.
+  if (!hasLang) {
+    return (
+      <Routes>
+        <Route path="/"  element={<PublicLandingRoute />} />
+        <Route path="*"  element={<LanguageSelectPage />} />
+      </Routes>
+    )
+  }
 
   return (
     <Routes>
+        {/* Public landing */}
+        <Route path="/"                  element={<PublicLandingRoute />} />
+
         {/* Pagine senza layout (auth, onboarding) */}
         <Route path="/login"             element={<LoginPage />} />
+        <Route path="/register"          element={<RegisterChoicePage />} />
         <Route path="/register/landlord" element={<RegisterLandlordPage />} />
+        {/* Legal pages — always public */}
+        <Route path="/legal/privacy" element={<PolicyPage file="privacy-policy.md"       title="Privacy Policy" />} />
+        <Route path="/legal/cookie"  element={<PolicyPage file="cookie-policy.md"        title="Cookie Policy" />} />
+        <Route path="/legal/terms"   element={<PolicyPage file="termini-di-servizio.md"  title="Termini di Servizio" />} />
         <Route path="/auth/callback"     element={<OAuthCallbackPage />} />
         <Route path="/onboarding"        element={
           <AuthGuard><OnboardingPage /></AuthGuard>
@@ -87,7 +122,6 @@ function AppRoutes() {
         {/* Tutte le pagine con AppLayout */}
         <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
           {/* Tenant */}
-          <Route path="/"        element={<TenantProfilePage />} />
           <Route path="/profile" element={<TenantProfilePage />} />
           <Route path="/matches" element={<TenantMatchesPage />} />
           <Route path="/mutual"  element={<TenantMutualPage />} />

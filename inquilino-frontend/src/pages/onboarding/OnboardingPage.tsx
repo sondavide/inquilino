@@ -99,16 +99,28 @@ export default function OnboardingPage() {
   return (
     <div className="fixed inset-0 flex flex-col bg-background overflow-hidden">
 
-      {/* ── Progress bar ── */}
-      <ProgressBar
-        stepNumber={onboardingState?.stepNumber ?? 1}
-        totalSteps={onboardingState?.totalSteps ?? 16}
-        progress={onboardingState?.progress ?? 0}
-        canGoBack={(onboardingState?.stepNumber ?? 1) > 1}
-        onBack={handleBack}
-      />
+      {/* ── Top bar: exit + progress ── */}
+      <div className="flex items-center gap-2 px-3 pt-2 pb-0 shrink-0">
+        <button
+          onClick={() => navigate('/profile')}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/60 shrink-0"
+          title="Esci dall'onboarding"
+        >
+          <span className="text-sm leading-none">←</span>
+          <span className="hidden sm:inline">Esci</span>
+        </button>
+        <div className="flex-1 min-w-0">
+          <ProgressBar
+            stepNumber={onboardingState?.stepNumber ?? 1}
+            totalSteps={onboardingState?.totalSteps ?? 16}
+            progress={onboardingState?.progress ?? 0}
+            canGoBack={(onboardingState?.stepNumber ?? 1) > 1}
+            onBack={handleBack}
+          />
+        </div>
+      </div>
 
-      {/* ── Checklist bar (horizontal scroll) ── */}
+      {/* ── Checklist bar ── */}
       <ChecklistBar items={onboardingState?.checklistItems ?? []} />
 
       {/* ── Chat area ── */}
