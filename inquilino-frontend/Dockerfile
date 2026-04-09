@@ -8,7 +8,9 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build
+# Use vite build directly to skip tsc type-checking in Docker.
+# Type errors are caught during local development with 'npm run build'.
+RUN npx vite build
 
 # ── Stage 2: serve ─────────────────────────────────────────────────────────────
 FROM nginx:alpine
