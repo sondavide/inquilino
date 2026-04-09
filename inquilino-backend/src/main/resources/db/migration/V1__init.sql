@@ -211,7 +211,10 @@ CREATE TABLE listings (
     -- Identity
     status              VARCHAR(30)  NOT NULL DEFAULT 'DRAFT', -- DRAFT | IN_REVIEW | PUBLISHED | REJECTED | ARCHIVED | SUSPENDED
     title               VARCHAR(255),
+    title_en            VARCHAR(255),
     description         TEXT,
+    description_en      TEXT,
+    source_lang         VARCHAR(10)  DEFAULT 'it',
     internal_reference  VARCHAR(100),
     slug                VARCHAR(255) UNIQUE,
     -- Metadata
@@ -242,8 +245,8 @@ CREATE TABLE listing_locations (
     street_number       VARCHAR(20),
     full_address        TEXT,
     location_precision  VARCHAR(20)  NOT NULL DEFAULT 'EXACT', -- EXACT | APPROXIMATE | HIDDEN
-    location_point      geometry(Point, 4326),  -- coordinate reali (non mostrate se HIDDEN)
-    display_point       geometry(Point, 4326),  -- coordinate da mostrare (approssimate se APPROXIMATE)
+    location_point      geometry(Point, 4326),
+    display_point       geometry(Point, 4326),
     geocoding_provider  VARCHAR(100),
     place_id            VARCHAR(255)
 );
@@ -304,7 +307,6 @@ CREATE TABLE listing_features (
 CREATE TABLE listing_amenities (
     listing_id  UUID  PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
     amenities   JSONB NOT NULL DEFAULT '{}'
-    -- Esempio: {"air_conditioning":true,"washing_machine":true,"dishwasher":false,...}
 );
 
 -- ─── Listing availability & rules ────────────────────────────────────────────
@@ -348,7 +350,7 @@ CREATE TABLE listing_energy (
     renewable_energy_present        BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- ─── Listing media (foto, video, planimetrie) ─────────────────────────────────
+-- ─── Listing media ────────────────────────────────────────────────────────────
 
 CREATE TABLE listing_media (
     id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -396,3 +398,57 @@ CREATE TABLE listing_audit_logs (
 
 CREATE INDEX idx_listing_audit_listing ON listing_audit_logs(listing_id);
 CREATE INDEX idx_listing_audit_created ON listing_audit_logs(created_at DESC);
+
+-- ─── Matches ──────────────────────────────────────────────────────────────────
+
+CREATE TABLE matches (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    listing_id              UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    tenant_profile_id       UUID NOT NULL REFERENCES tenant_profiles(id) ON DELETE CASCADE,
+
+    -- Hard filter results
+    geo_match               BOOLEAN NOT NULL DEFAULT FALSE,
+    price_match             BOOLEAN NOT NULL DEFAULT FALSE,
+    timing_match            BOOLEAN NOT NULL DEFAULT FALSE,
+    property_type_match     BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Valori calcolati
+    geo_distance_meters     DOUBLE PRECISION,
+    price_delta_percentage  DOUBLE PRECISION,
+    price_band              VARCHAR(30),    -- within_budget | within_tolerance | over_budget
+
+    -- Punteggi soft (0-100 ciascuno)
+    geo_score               DOUBLE PRECISION,
+    price_score             DOUBLE PRECISION,
+    timing_score            DOUBLE PRECISION,
+    fit_score               DOUBLE PRECISION,
+    tenant_strength_score   DOUBLE PRECISION,
+
+    -- Punteggi aggregati (due formule distinte per le due viste)
+    match_score_tenant      DOUBLE PRECISION,
+    match_score_landlord    DOUBLE PRECISION,
+
+    -- Banda di compatibilità
+    match_band              VARCHAR(30),    -- excellent_match | good_match | medium_match | weak_match
+
+    -- Macchina a stati
+    match_state             VARCHAR(30) NOT NULL DEFAULT 'ALGORITHMIC',
+
+    -- AI summary
+    match_summary           TEXT,
+
+    -- Timestamps azioni
+    tenant_interest_at      TIMESTAMP,
+    landlord_interest_at    TIMESTAMP,
+    contact_unlocked_at     TIMESTAMP,
+    created_at              TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_match_listing_tenant UNIQUE (listing_id, tenant_profile_id)
+);
+
+CREATE INDEX idx_matches_listing_id        ON matches(listing_id);
+CREATE INDEX idx_matches_tenant_profile_id ON matches(tenant_profile_id);
+CREATE INDEX idx_matches_listing_state     ON matches(listing_id, match_state);
+CREATE INDEX idx_matches_tenant_state      ON matches(tenant_profile_id, match_state);
+CREATE INDEX idx_matches_band_state        ON matches(match_band, match_state);
