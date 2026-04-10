@@ -1,0 +1,12 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: email-alerts
+    receivers:
+      - uid: email-receiver-01
+        type: email
+        settings:
+          addresses: sondavide@msn.com
+          singleEmail: true
+        disableResolveMessage: false
