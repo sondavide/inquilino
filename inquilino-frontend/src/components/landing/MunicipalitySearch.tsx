@@ -177,7 +177,7 @@ export default function MunicipalitySearch() {
                 </div>
 
                 <Link
-                  to={mode === 'tenant' ? '/login?register=true' : '/register/landlord'}
+                  to={mode === 'tenant' ? '/register' : '/register/landlord'}
                   className={`mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-semibold text-sm transition-colors
                     ${mode === 'tenant'
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'

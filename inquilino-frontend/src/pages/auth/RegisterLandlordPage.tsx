@@ -78,15 +78,32 @@ export default function RegisterLandlordPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Tipo inserzionista</label>
             <div className="grid grid-cols-2 gap-2">
-              {PUBLISHER_TYPES.map(t => (
-                <button key={t.v} type="button" onClick={() => upd('publisherType', t.v)}
-                  className={`p-2.5 text-sm rounded-lg border-2 transition
-                    ${form.publisherType === t.v
-                      ? 'border-blue-600 bg-blue-50 text-blue-700 font-medium'
-                      : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}>
-                  {t.l}
-                </button>
-              ))}
+              {PUBLISHER_TYPES.map(pt => {
+                const isPrivate = pt.v === 'PRIVATE'
+                return (
+                  <div key={pt.v} className="relative">
+                    <button
+                      type="button"
+                      disabled={!isPrivate}
+                      onClick={() => isPrivate && upd('publisherType', pt.v)}
+                      className={`w-full p-2.5 text-sm rounded-lg border-2 transition
+                        ${isPrivate && form.publisherType === pt.v
+                          ? 'border-blue-600 bg-blue-50 text-blue-700 font-medium'
+                          : isPrivate
+                            ? 'border-gray-200 text-gray-700 hover:border-gray-300'
+                            : 'border-gray-100 text-gray-300 cursor-not-allowed bg-gray-50'
+                        }`}
+                    >
+                      {pt.l}
+                    </button>
+                    {!isPrivate && (
+                      <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 leading-none">
+                        WIP
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
 

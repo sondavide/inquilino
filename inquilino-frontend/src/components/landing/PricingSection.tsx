@@ -51,7 +51,7 @@ export default function PricingSection({ onAgencyCta }: Props) {
               ))}
             </ul>
             <Link
-              to="/login?register=true"
+              to="/register"
               className="w-full text-center py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors"
             >
               {t('landing.pricing.tenant.cta')}

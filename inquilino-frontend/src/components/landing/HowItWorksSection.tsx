@@ -41,7 +41,7 @@ const TABS: TabConfig[] = [
       'landing.how.tenant.benefit4',
     ],
     ctaKey: 'landing.how.tenant.cta',
-    ctaHref: '/login?register=true',
+    ctaHref: '/register',
   },
   {
     id: 'landlord',
