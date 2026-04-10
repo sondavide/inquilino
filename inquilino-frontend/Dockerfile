@@ -9,10 +9,6 @@ RUN npm ci
 
 COPY . .
 
-# VAPID public key is baked into the bundle at build time
-ARG VITE_VAPID_PUBLIC_KEY
-ENV VITE_VAPID_PUBLIC_KEY=$VITE_VAPID_PUBLIC_KEY
-
 # Use vite build directly to skip tsc type-checking in Docker.
 # Type errors are caught during local development with 'npm run build'.
 RUN npx vite build

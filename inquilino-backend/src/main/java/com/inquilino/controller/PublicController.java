@@ -4,6 +4,7 @@ import com.inquilino.dto.public_.AgencyContactRequest;
 import com.inquilino.service.EmailService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +16,15 @@ public class PublicController {
     private static final String CONTACT_EMAIL = "info@inquilinofacile.it";
 
     private final EmailService emailService;
+
+    @Value("${app.vapid.public-key:}")
+    private String vapidPublicKey;
+
+    /** Restituisce la configurazione pubblica della piattaforma (chiavi pubbliche, feature flags). */
+    @GetMapping("/config")
+    public ResponseEntity<java.util.Map<String, String>> config() {
+        return ResponseEntity.ok(java.util.Map.of("vapidPublicKey", vapidPublicKey));
+    }
 
     /**
      * Receives a partnership enquiry from an agency or professional on the landing page.

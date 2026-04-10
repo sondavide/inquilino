@@ -1,11 +1,20 @@
 import { notificationsApi } from '@/api/notifications'
 
+async function fetchVapidPublicKey(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/public/config')
+    if (!res.ok) return null
+    const data = await res.json() as { vapidPublicKey?: string }
+    return data.vapidPublicKey || null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Registra il service worker e la sottoscrizione Web Push.
  * Da chiamare al login, dopo aver ottenuto il consenso dell'utente.
- *
- * La VAPID public key deve essere configurata come variabile d'ambiente:
- *   VITE_VAPID_PUBLIC_KEY=...
+ * La VAPID public key viene letta dal backend (GET /api/public/config).
  */
 export async function registerPushSubscription(): Promise<void> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -13,9 +22,9 @@ export async function registerPushSubscription(): Promise<void> {
     return;
   }
 
-  const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+  const vapidPublicKey = await fetchVapidPublicKey();
   if (!vapidPublicKey) {
-    console.info('[Push] VITE_VAPID_PUBLIC_KEY not set — skipping push registration');
+    console.info('[Push] VAPID public key not available — skipping push registration');
     return;
   }
 
