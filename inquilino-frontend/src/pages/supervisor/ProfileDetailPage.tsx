@@ -8,6 +8,9 @@ import type {
   ChatMessageDto,
   InterestAreaDto,
   FiscalCodeAnalysis,
+  OnboardingStateInfo,
+  ScoreDetailDto,
+  ScoreLevel,
 } from '@/types'
 import { AreaPreviewMap } from '@/components/map/AreaPreviewMap'
 import { MapSelector } from '@/components/map/MapSelector'
@@ -27,12 +30,14 @@ function fmtMoney(n: number | null | undefined) {
 // ─── Status badge config ──────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<string, string> = {
+  NONE:               'In onboarding',
   PENDING_VALIDATION: 'In attesa',
   IN_VALIDATION:      'In revisione',
   NEEDS_CORRECTION:   'Da correggere',
   VERIFIED:           'Verificato',
 }
 const STATUS_COLOR: Record<string, string> = {
+  NONE:               'bg-purple-100 text-purple-700 border-purple-200',
   PENDING_VALIDATION: 'bg-amber-100 text-amber-700 border-amber-200',
   IN_VALIDATION:      'bg-blue-100 text-blue-700 border-blue-200',
   NEEDS_CORRECTION:   'bg-red-100 text-red-700 border-red-200',
@@ -433,9 +438,53 @@ function DocumentsTab({
 
 // ─── Tab: Chat history ────────────────────────────────────────────────────────
 
-function ChatTab({ messages }: { messages: ChatMessageDto[] }) {
+function ChatTab({
+  messages,
+  onboardingState,
+  onAdvanceStep,
+  advancing,
+}: {
+  messages:       ChatMessageDto[]
+  onboardingState: OnboardingStateInfo | null
+  onAdvanceStep:  () => void
+  advancing:      boolean
+}) {
   return (
     <div className="space-y-3 pb-4">
+      {/* Onboarding progress bar + advance button */}
+      {onboardingState && !onboardingState.onboardingCompleted && (
+        <div className="rounded-xl border bg-purple-50 dark:bg-purple-950/20 border-purple-200 p-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-purple-700">
+              Onboarding in corso · {onboardingState.currentStep}
+            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 h-1.5 bg-purple-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-purple-500 rounded-full transition-all"
+                  style={{ width: `${Math.round((onboardingState.stepNumber / onboardingState.totalSteps) * 100)}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-purple-600 shrink-0">
+                {onboardingState.stepNumber}/{onboardingState.totalSteps}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={onAdvanceStep}
+            disabled={advancing}
+            className="shrink-0 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 transition-colors"
+          >
+            {advancing ? '…' : 'Avanza step →'}
+          </button>
+        </div>
+      )}
+      {onboardingState?.onboardingCompleted && (
+        <div className="rounded-xl border bg-emerald-50 border-emerald-200 p-3">
+          <p className="text-xs font-semibold text-emerald-700">✓ Onboarding completato</p>
+        </div>
+      )}
+
       {messages.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-8">Nessun messaggio</p>
       )}
@@ -576,7 +625,200 @@ function AreasTab({ profileId, areas: initialAreas, validations, onApprove, onFl
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type Tab = 'profile' | 'documents' | 'chat' | 'areas'
+// ─── Tab: Score ───────────────────────────────────────────────────────────────
+
+const SCORE_LABEL: Record<ScoreLevel, string> = { HIGH: 'ALTO', MEDIUM: 'MEDIO', LOW: 'BASSO' }
+const SCORE_COLOR: Record<ScoreLevel, string> = {
+  HIGH:   'bg-emerald-100 text-emerald-700 border-emerald-200',
+  MEDIUM: 'bg-amber-100 text-amber-700 border-amber-200',
+  LOW:    'bg-red-100 text-red-700 border-red-200',
+}
+const LEVELS: ScoreLevel[] = ['HIGH', 'MEDIUM', 'LOW']
+
+function ScoreLevelSelect({ value, onChange }: {
+  value: ScoreLevel | null
+  onChange: (v: ScoreLevel | null) => void
+}) {
+  return (
+    <div className="flex gap-1 flex-wrap">
+      <button
+        onClick={() => onChange(null)}
+        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors
+          ${value === null
+            ? 'bg-primary text-primary-foreground border-primary'
+            : 'border-muted text-muted-foreground hover:border-foreground'}`}
+      >
+        Auto
+      </button>
+      {LEVELS.map(l => (
+        <button key={l} onClick={() => onChange(l)}
+          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors
+            ${value === l ? SCORE_COLOR[l] + ' ring-1 ring-offset-1 ring-current' : 'border-muted text-muted-foreground hover:border-foreground'}`}
+        >
+          {SCORE_LABEL[l]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function ScoreTab({ profileId, initialScore }: {
+  profileId: string
+  initialScore: ScoreDetailDto | null
+}) {
+  const [score, setScore]   = useState<ScoreDetailDto | null>(initialScore)
+  const [overrides, setOverrides] = useState({
+    rentSustainability:  initialScore?.overrideRentSustainability  ?? null as ScoreLevel | null,
+    incomeStability:     initialScore?.overrideIncomeStability     ?? null as ScoreLevel | null,
+    documentReliability: initialScore?.overrideDocumentReliability ?? null as ScoreLevel | null,
+  })
+  const [reason, setReason] = useState(initialScore?.overrideReason ?? '')
+  const [saving, setSaving] = useState(false)
+  const [dirty, setDirty]   = useState(false)
+
+  const anyOverride = overrides.rentSustainability !== null
+    || overrides.incomeStability !== null
+    || overrides.documentReliability !== null
+
+  const set = (key: keyof typeof overrides, val: ScoreLevel | null) => {
+    setOverrides(o => ({ ...o, [key]: val }))
+    setDirty(true)
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const updated = await supervisorApi.setScoreOverride(profileId, {
+        rentSustainability:  overrides.rentSustainability,
+        incomeStability:     overrides.incomeStability,
+        documentReliability: overrides.documentReliability,
+        reason: reason.trim() || null,
+      })
+      setScore(updated)
+      setDirty(false)
+    } catch { /* ignore */ }
+    finally { setSaving(false) }
+  }
+
+  const handleReset = async () => {
+    setSaving(true)
+    try {
+      await supervisorApi.deleteScoreOverride(profileId)
+      setOverrides({ rentSustainability: null, incomeStability: null, documentReliability: null })
+      setReason('')
+      setDirty(false)
+      if (score) {
+        setScore({
+          ...score,
+          overrideRentSustainability: null,
+          overrideIncomeStability: null,
+          overrideDocumentReliability: null,
+          overrideReason: null,
+          rentSustainability:  score.algoRentSustainability,
+          incomeStability:     score.algoIncomeStability,
+          documentReliability: score.algoDocumentReliability,
+        })
+      }
+    } catch { /* ignore */ }
+    finally { setSaving(false) }
+  }
+
+  if (!score) return (
+    <p className="text-sm text-muted-foreground text-center py-8">
+      Dati insufficienti per calcolare gli indici
+    </p>
+  )
+
+  const indicators = [
+    {
+      key:   'rentSustainability' as const,
+      label: 'Sostenibilità affitto',
+      algo:  score.algoRentSustainability,
+      explanation: score.algoRentSustainabilityExplanation,
+    },
+    {
+      key:   'incomeStability' as const,
+      label: 'Stabilità reddito',
+      algo:  score.algoIncomeStability,
+      explanation: score.algoIncomeStabilityExplanation,
+    },
+    {
+      key:   'documentReliability' as const,
+      label: 'Affidabilità documenti',
+      algo:  score.algoDocumentReliability,
+      explanation: score.algoDocumentReliabilityExplanation,
+    },
+  ]
+
+  return (
+    <div className="space-y-4 pb-4">
+      {indicators.map(ind => {
+        const ov = overrides[ind.key]
+        const effective = ov ?? ind.algo
+        return (
+          <div key={ind.key} className="rounded-xl border bg-card p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-foreground">{ind.label}</span>
+              <div className="flex items-center gap-1.5">
+                {ov !== null && (
+                  <span className="text-[10px] text-purple-600 font-medium">override</span>
+                )}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${SCORE_COLOR[effective as ScoreLevel]}`}>
+                  {SCORE_LABEL[effective as ScoreLevel]}
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {ind.explanation}
+            </p>
+            <div className="pt-1">
+              <p className="text-[10px] text-muted-foreground mb-1">Override supervisore:</p>
+              <ScoreLevelSelect value={ov} onChange={v => set(ind.key, v)} />
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Reason */}
+      {(anyOverride || dirty) && (
+        <div>
+          <label className="text-[10px] text-muted-foreground block mb-1">
+            Motivo dell'override (opzionale)
+          </label>
+          <textarea
+            value={reason}
+            onChange={e => { setReason(e.target.value); setDirty(true) }}
+            rows={2}
+            placeholder="Es. busta paga non standard, reddito da locazione non dichiarato…"
+            className="w-full text-xs border rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-ring bg-background resize-none"
+          />
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <button
+          onClick={handleSave}
+          disabled={!dirty || saving}
+          className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-40 hover:bg-primary/90 transition-colors"
+        >
+          {saving ? 'Salvataggio…' : 'Salva indici'}
+        </button>
+        {anyOverride && !dirty && (
+          <button
+            onClick={handleReset}
+            disabled={saving}
+            className="px-4 py-2.5 rounded-xl border text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+          >
+            Rimuovi override
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+type Tab = 'profile' | 'documents' | 'chat' | 'areas' | 'score'
 
 export default function ProfileDetailPage() {
   const { profileId }          = useParams<{ profileId: string }>()
@@ -588,9 +830,11 @@ export default function ProfileDetailPage() {
   const [chat, setChat]        = useState<ChatMessageDto[]>([])
   const [areas, setAreas]      = useState<InterestAreaDto[]>([])
   const [cfAnalysis, setCfAnalysis] = useState<FiscalCodeAnalysis | null>(null)
+  const [onboardingState, setOnboardingState] = useState<OnboardingStateInfo | null>(null)
   const [loading, setLoading]  = useState(true)
   const [working, setWorking]  = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
+  const [advancing, setAdvancing] = useState(false)
 
   useEffect(() => {
     if (!profileId) return
@@ -600,8 +844,10 @@ export default function ProfileDetailPage() {
       supervisorApi.getDocuments(profileId),
       supervisorApi.getChatHistory(profileId),
       supervisorApi.getInterestAreas(profileId),
-    ]).then(([p, v, d, c, a]) => {
+      supervisorApi.getOnboardingState(profileId),
+    ]).then(([p, v, d, c, a, obs]) => {
       setProfile(p); setValidations(v); setDocs(d); setChat(c); setAreas(a)
+      setOnboardingState(obs)
       // Load CF analysis if fiscal code is present
       if (p.fiscalCode) {
         supervisorApi.getFiscalCodeAnalysis(profileId)
@@ -651,6 +897,16 @@ export default function ProfileDetailPage() {
     finally { setWorking(null) }
   }
 
+  const handleAdvanceStep = async () => {
+    if (!profileId) return
+    setAdvancing(true)
+    try {
+      const updated = await supervisorApi.advanceOnboardingStep(profileId)
+      setOnboardingState(updated)
+    } catch { /* ignore */ }
+    finally { setAdvancing(false) }
+  }
+
   const handleCompleteValidation = async () => {
     if (!profileId) return
     setCompleting(true)
@@ -673,13 +929,14 @@ export default function ProfileDetailPage() {
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'profile',   label: 'Profilo' },
+    { id: 'score',     label: 'Indici' },
     { id: 'documents', label: 'Documenti' },
     { id: 'chat',      label: 'Chat' },
     { id: 'areas',     label: 'Aree' },
   ]
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-4">
+    <div className="w-full px-4 py-4">
       {/* Sub-header */}
       <div className="flex items-center gap-3 mb-4 sticky top-0 bg-background/95 backdrop-blur py-2 -mx-4 px-4 border-b mb-4 z-10">
         <button onClick={() => navigate('/supervisor/profiles')}
@@ -736,10 +993,20 @@ export default function ProfileDetailPage() {
           <DocumentsTab profileId={profile.profileId} docs={docs} validations={validations}
             onApprove={handleApprove} onFlag={handleFlag} onReset={handleReset} working={working} />
         )}
-        {tab === 'chat' && <ChatTab messages={chat} />}
+        {tab === 'chat' && (
+          <ChatTab
+            messages={chat}
+            onboardingState={onboardingState}
+            onAdvanceStep={handleAdvanceStep}
+            advancing={advancing}
+          />
+        )}
         {tab === 'areas' && (
           <AreasTab profileId={profile.profileId} areas={areas} validations={validations}
             onApprove={handleApprove} onFlag={handleFlag} onReset={handleReset} working={working} />
+        )}
+        {tab === 'score' && (
+          <ScoreTab profileId={profile.profileId} initialScore={profile.score ?? null} />
         )}
       </div>
 
@@ -747,7 +1014,7 @@ export default function ProfileDetailPage() {
       {(profile.verificationStatus === 'IN_VALIDATION' ||
         profile.verificationStatus === 'PENDING_VALIDATION') && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t">
-          <div className="max-w-2xl mx-auto">
+          <div className="w-full">
             {flaggedCount > 0 && (
               <p className="text-xs text-red-500 text-center mb-2">
                 {flaggedCount} campo/i segnalato/i — al completamento l'utente verrà notificato di correggere

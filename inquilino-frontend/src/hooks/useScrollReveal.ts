@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react'
  * class to every child that has the `scroll-reveal` class, triggering the
  * CSS transition defined in index.css.
  */
-export function useScrollReveal() {
+export function useScrollReveal(deps: unknown[] = []) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export function useScrollReveal() {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add('is-visible')
-            observer.unobserve(entry.target) // animate once
+            observer.unobserve(entry.target)
           }
         })
       },
@@ -29,7 +29,8 @@ export function useScrollReveal() {
     targets.forEach((el) => observer.observe(el))
 
     return () => observer.disconnect()
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
 
   return ref
 }

@@ -73,14 +73,21 @@ function OnboardingGuard({ children }: { children: React.ReactNode }) {
 // ─── Landing guard: shows LandingPage for unauthenticated, else redirect ──────
 
 function PublicLandingRoute() {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, user } = useAuth()
   const { t } = useLang()
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">
       {t('app.loading')}
     </div>
   )
-  if (isAuthenticated) return <Navigate to="/profile" replace />
+  if (isAuthenticated && user) {
+    const type = user.userType as UserType
+    if (type === UserType.SUPERVISOR || type === UserType.SUPERADMIN)
+      return <Navigate to="/supervisor/profiles" replace />
+    if (type === UserType.LANDLORD || type === UserType.AGENCY)
+      return <Navigate to="/landlord/listings" replace />
+    return <Navigate to="/profile" replace />
+  }
   return <LandingPage />
 }
 

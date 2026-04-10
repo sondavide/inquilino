@@ -115,7 +115,7 @@ export default function ListingListPage() {
   const totalItems = result?.totalElements ?? 0
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6">
+    <div className="w-full px-4 py-6">
       <h1 className="text-xl font-bold mb-5">Annunci</h1>
 
       {/* Filtri */}

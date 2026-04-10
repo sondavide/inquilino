@@ -452,3 +452,17 @@ CREATE INDEX idx_matches_tenant_profile_id ON matches(tenant_profile_id);
 CREATE INDEX idx_matches_listing_state     ON matches(listing_id, match_state);
 CREATE INDEX idx_matches_tenant_state      ON matches(tenant_profile_id, match_state);
 CREATE INDEX idx_matches_band_state        ON matches(match_band, match_state);
+
+-- ─── Score overrides ──────────────────────────────────────────────────────────
+
+CREATE TABLE score_overrides (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_profile_id    UUID NOT NULL UNIQUE REFERENCES tenant_profiles(id) ON DELETE CASCADE,
+    supervisor_id        UUID NOT NULL,
+    rent_sustainability  VARCHAR(10),   -- HIGH | MEDIUM | LOW | NULL (null = use algorithm)
+    income_stability     VARCHAR(10),
+    document_reliability VARCHAR(10),
+    reason               TEXT,
+    created_at           TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at           TIMESTAMP NOT NULL DEFAULT NOW()
+);

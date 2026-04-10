@@ -172,6 +172,7 @@ export interface SupervisorProfileDetail {
   verificationStatus:   string
   profileCompletion:    number
   assignedSupervisorId: string
+  score:                ScoreDetailDto | null
 }
 
 export interface SupervisorDocumentDto {
@@ -188,6 +189,40 @@ export interface ChatMessageDto {
   content:   string
   step:      string
   createdAt: string
+}
+
+export interface ScoreDetailDto {
+  // Algorithm
+  algoRentSustainability:            ScoreLevel
+  algoRentSustainabilityExplanation: string
+  algoIncomeStability:               ScoreLevel
+  algoIncomeStabilityExplanation:    string
+  algoDocumentReliability:           ScoreLevel
+  algoDocumentReliabilityExplanation:string
+  algoProfileCompleteness:           number
+  // Override (null = not set)
+  overrideRentSustainability:        ScoreLevel | null
+  overrideIncomeStability:           ScoreLevel | null
+  overrideDocumentReliability:       ScoreLevel | null
+  overrideReason:                    string | null
+  // Effective
+  rentSustainability:                ScoreLevel
+  incomeStability:                   ScoreLevel
+  documentReliability:               ScoreLevel
+}
+
+export interface ScoreOverrideRequest {
+  rentSustainability:    ScoreLevel | null
+  incomeStability:       ScoreLevel | null
+  documentReliability:   ScoreLevel | null
+  reason:                string | null
+}
+
+export interface OnboardingStateInfo {
+  currentStep:        string
+  stepNumber:         number
+  totalSteps:         number
+  onboardingCompleted: boolean
 }
 
 // ─── Notification types ───────────────────────────────────────────────────────

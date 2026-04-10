@@ -4,6 +4,7 @@ import { supervisorApi } from '@/api/supervisor'
 import type { SupervisorProfileSummary, PagedResponse } from '@/types'
 
 const STATUS_LABEL: Record<string, string> = {
+  NONE:               'In onboarding',
   PENDING_VALIDATION: 'In attesa',
   IN_VALIDATION:      'In revisione',
   NEEDS_CORRECTION:   'Da correggere',
@@ -11,6 +12,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const STATUS_COLOR: Record<string, string> = {
+  NONE:               'bg-purple-100 text-purple-700 border-purple-200',
   PENDING_VALIDATION: 'bg-amber-100 text-amber-700 border-amber-200',
   IN_VALIDATION:      'bg-blue-100 text-blue-700 border-blue-200',
   NEEDS_CORRECTION:   'bg-red-100 text-red-700 border-red-200',
@@ -19,10 +21,19 @@ const STATUS_COLOR: Record<string, string> = {
 
 const PAGE_SIZE = 20
 
-const FILTERS = ['ALL', 'PENDING_VALIDATION', 'IN_VALIDATION', 'NEEDS_CORRECTION', 'VERIFIED'] as const
+const FILTERS = ['ALL', 'ONBOARDING', 'PENDING_VALIDATION', 'IN_VALIDATION', 'NEEDS_CORRECTION', 'VERIFIED'] as const
 type Filter = typeof FILTERS[number]
 
-const ALL_STATUSES = 'PENDING_VALIDATION,IN_VALIDATION,NEEDS_CORRECTION,VERIFIED'
+const ALL_STATUSES = 'NONE,PENDING_VALIDATION,IN_VALIDATION,NEEDS_CORRECTION,VERIFIED'
+
+const FILTER_LABEL: Record<Filter, string> = {
+  ALL:                'Tutti',
+  ONBOARDING:         'In onboarding',
+  PENDING_VALIDATION: 'In attesa',
+  IN_VALIDATION:      'In revisione',
+  NEEDS_CORRECTION:   'Da correggere',
+  VERIFIED:           'Verificato',
+}
 
 function Pagination({ current, total, onChange }: {
   current: number; total: number; onChange: (p: number) => void
@@ -85,7 +96,7 @@ export default function ProfileListPage() {
   const [filter, setFilter]   = useState<Filter>('ALL')
   const [page, setPage]       = useState(0)
 
-  const statuses = filter === 'ALL' ? ALL_STATUSES : filter
+  const statuses = filter === 'ALL' ? ALL_STATUSES : filter === 'ONBOARDING' ? 'NONE' : filter
 
   useEffect(() => {
     setLoading(true)
@@ -105,7 +116,7 @@ export default function ProfileListPage() {
   const totalItems = result?.totalElements ?? 0
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="w-full px-4 py-6">
       <h1 className="text-xl font-bold mb-5">Profili</h1>
 
       {/* Filtri */}
@@ -120,7 +131,7 @@ export default function ProfileListPage() {
                 : 'border-muted text-muted-foreground hover:border-foreground hover:text-foreground'
               }`}
           >
-            {s === 'ALL' ? 'Tutti' : STATUS_LABEL[s]}
+            {FILTER_LABEL[s]}
           </button>
         ))}
       </div>

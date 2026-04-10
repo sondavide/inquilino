@@ -1,6 +1,7 @@
 package com.inquilino.repository;
 
 import com.inquilino.entity.TenantProfile;
+import com.inquilino.enums.UserType;
 import com.inquilino.enums.VerificationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +22,9 @@ public interface TenantProfileRepository extends JpaRepository<TenantProfile, UU
     List<TenantProfile> findByVerificationStatusIn(List<VerificationStatus> statuses);
 
     Page<TenantProfile> findByVerificationStatusIn(List<VerificationStatus> statuses, Pageable pageable);
+
+    Page<TenantProfile> findByVerificationStatusInAndUserType(
+            List<VerificationStatus> statuses, UserType userType, Pageable pageable);
 
     /** Matching: profili verificati e attivi i cui user_id sono nella lista. */
     List<TenantProfile> findByUserIdInAndVerificationStatusAndActiveTrue(

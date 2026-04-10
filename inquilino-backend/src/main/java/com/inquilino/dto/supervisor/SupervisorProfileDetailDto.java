@@ -28,9 +28,10 @@ public record SupervisorProfileDetailDto(
         boolean smoker,
         String  verificationStatus,
         int     profileCompletion,
-        UUID    assignedSupervisorId
+        UUID    assignedSupervisorId,
+        ScoreDetailDto score
 ) {
-    public static SupervisorProfileDetailDto from(TenantProfile p) {
+    public static SupervisorProfileDetailDto from(TenantProfile p, ScoreDetailDto score) {
         var u = p.getUser();
         return new SupervisorProfileDetailDto(
                 p.getId(),
@@ -55,7 +56,8 @@ public record SupervisorProfileDetailDto(
                 p.isSmoker(),
                 p.getVerificationStatus().name(),
                 p.getProfileCompletion(),
-                p.getAssignedSupervisorId()
+                p.getAssignedSupervisorId(),
+                score
         );
     }
 }

@@ -40,4 +40,12 @@ public class StepRegistry {
                 .filter(s -> s.getStepNumber() == current.getStepNumber() - 1)
                 .findFirst();
     }
+
+    public Optional<OnboardingStep> getNext(String stepId) {
+        OnboardingStep current = stepsById.get(stepId);
+        if (current == null) return Optional.empty();
+        return orderedSteps.stream()
+                .filter(s -> s.getStepNumber() == current.getStepNumber() + 1)
+                .findFirst();
+    }
 }

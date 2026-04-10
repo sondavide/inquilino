@@ -36,7 +36,7 @@ public class SupervisorService {
     }
 
     public Page<TenantProfile> getProfilesByStatusesPaged(List<VerificationStatus> statuses, Pageable pageable) {
-        return profileRepo.findByVerificationStatusIn(statuses, pageable);
+        return profileRepo.findByVerificationStatusInAndUserType(statuses, UserType.TENANT, pageable);
     }
 
     // ─── Apertura profilo (IN_VALIDATION) ────────────────────────────────────

@@ -71,6 +71,9 @@ public class AuthController {
                 .pendingActions(new ArrayList<>())
                 .build());
 
+        // Create a minimal TenantProfile immediately so the tenant is visible to supervisors
+        tenantProfileRepository.save(com.inquilino.entity.TenantProfile.builder().user(user).build());
+
         return new AuthResponse(jwtService.generateToken(user.getId()),
                 user.getId().toString(), user.getEmail());
     }
@@ -135,6 +138,10 @@ public class AuthController {
         result.put("email",    principal.getEmail());
         result.put("userType", principal.getUserType());
         if (principal.getUserType() == UserType.TENANT) {
+            boolean completed = onboardingStateRepository.findByUserId(principal.getUserId())
+                    .map(s -> "STEP_18".equals(s.getCurrentStep()))
+                    .orElse(false);
+            result.put("onboardingCompleted", completed);
             tenantProfileRepository.findByUserId(principal.getUserId()).ifPresent(p ->
                 result.put("verificationStatus", p.getVerificationStatus())
             );

@@ -9,6 +9,9 @@ import type {
   InterestAreaDto,
   InterestArea,
   FiscalCodeAnalysis,
+  OnboardingStateInfo,
+  ScoreDetailDto,
+  ScoreOverrideRequest,
 } from '@/types'
 
 export const supervisorApi = {
@@ -69,4 +72,21 @@ export const supervisorApi = {
 
   updateInterestAreas: (profileId: string, areas: InterestArea[]) =>
     apiClient.put(`/supervisor/profiles/${profileId}/interest-areas`, areas),
+
+  // Onboarding
+  getOnboardingState: (profileId: string) =>
+    apiClient.get<OnboardingStateInfo>(`/supervisor/profiles/${profileId}/onboarding-state`)
+      .then(r => r.data),
+
+  advanceOnboardingStep: (profileId: string) =>
+    apiClient.post<OnboardingStateInfo>(`/supervisor/profiles/${profileId}/advance-onboarding-step`)
+      .then(r => r.data),
+
+  // Score override
+  setScoreOverride: (profileId: string, req: ScoreOverrideRequest) =>
+    apiClient.put<ScoreDetailDto>(`/supervisor/profiles/${profileId}/score-override`, req)
+      .then(r => r.data),
+
+  deleteScoreOverride: (profileId: string) =>
+    apiClient.delete(`/supervisor/profiles/${profileId}/score-override`),
 }

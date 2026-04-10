@@ -94,7 +94,7 @@ interface Props { onAgencyCta: () => void }
 export default function HowItWorksSection({ onAgencyCta }: Props) {
   const { t } = useLang()
   const [activeTab, setActiveTab] = useState<Tab>('tenant')
-  const ref = useScrollReveal()
+  const ref = useScrollReveal([activeTab])
   const tab = TABS.find(t => t.id === activeTab)!
 
   return (
