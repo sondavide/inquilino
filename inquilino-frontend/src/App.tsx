@@ -55,6 +55,21 @@ function RoleGuard({ children, roles }: { children: React.ReactNode; roles: User
   return <>{children}</>
 }
 
+function OnboardingGuard({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  const { t } = useLang()
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">
+      {t('app.loading')}
+    </div>
+  )
+  if (!user) return <Navigate to="/login" replace />
+  if (user.userType === UserType.TENANT && user.onboardingCompleted === false) {
+    return <Navigate to="/onboarding" replace />
+  }
+  return <>{children}</>
+}
+
 // ─── Landing guard: shows LandingPage for unauthenticated, else redirect ──────
 
 function PublicLandingRoute() {
@@ -106,21 +121,25 @@ function AppRoutes() {
         {/* Landlord wizard (senza AppLayout per massimizzare spazio) */}
         <Route path="/landlord/listings/new"      element={
           <AuthGuard>
-            <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.SUPERADMIN]}>
-              <ListingWizardPage />
-            </RoleGuard>
+            <OnboardingGuard>
+              <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.SUPERADMIN]}>
+                <ListingWizardPage />
+              </RoleGuard>
+            </OnboardingGuard>
           </AuthGuard>
         } />
         <Route path="/landlord/listings/:id/edit" element={
           <AuthGuard>
-            <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.SUPERADMIN]}>
-              <ListingWizardPage />
-            </RoleGuard>
+            <OnboardingGuard>
+              <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.SUPERADMIN]}>
+                <ListingWizardPage />
+              </RoleGuard>
+            </OnboardingGuard>
           </AuthGuard>
         } />
 
         {/* Tutte le pagine con AppLayout */}
-        <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
+        <Route element={<AuthGuard><OnboardingGuard><AppLayout /></OnboardingGuard></AuthGuard>}>
           {/* Tenant */}
           <Route path="/profile" element={<TenantProfilePage />} />
           <Route path="/matches" element={<TenantMatchesPage />} />

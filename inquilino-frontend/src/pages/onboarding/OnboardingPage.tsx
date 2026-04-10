@@ -25,9 +25,10 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (!isCompleted) return
-    const timer = setTimeout(() => navigate('/'), 4000)
+    // Full reload so useAuth re-fetches /api/me and picks up onboardingCompleted=true
+    const timer = setTimeout(() => { window.location.href = '/' }, 4000)
     return () => clearTimeout(timer)
-  }, [isCompleted, navigate])
+  }, [isCompleted])
 
   useEffect(() => {
     if (!hasInitialized.current) {
@@ -140,7 +141,7 @@ export default function OnboardingPage() {
         ))}
 
         {/* Loading indicator while waiting for first token */}
-        {isStreaming && messages.at(-1)?.content === '' && (
+        {isStreaming && messages[messages.length - 1]?.content === '' && (
           <div className="flex justify-start mb-3">
             <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs mr-2 mt-1">AI</div>
             <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1 items-center">
