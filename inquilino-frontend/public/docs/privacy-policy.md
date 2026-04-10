@@ -14,10 +14,10 @@ Il Titolare del trattamento dei dati personali raccolti tramite la piattaforma I
 > **[RAGIONE_SOCIALE]**  
 > Sede legale: [INDIRIZZO_COMPLETO]  
 > C.F. / P.IVA: [CODICE_FISCALE_PIVA]  
-> Email privacy: privacy@inquilinofacile.it  
+> Email privacy: info@inquilinofacile.it  
 > PEC: [INDIRIZZO_PEC]  
 
-Per qualsiasi questione relativa al trattamento dei tuoi dati personali puoi contattarci all'indirizzo **privacy@inquilinofacile.it**.
+Per qualsiasi questione relativa al trattamento dei tuoi dati personali puoi contattarci all'indirizzo **info@inquilinofacile.it**.
 
 > **Nota sul DPO:** Al momento non è stato nominato un Responsabile della Protezione dei Dati (DPO). Prima dell'avvio di operazioni di trattamento su larga scala, sarà condotta una Valutazione d'Impatto sulla Protezione dei Dati (DPIA) ai sensi dell'art. 35 GDPR e sarà valutata la nomina di un DPO ai sensi dell'art. 37 GDPR.
 
@@ -187,7 +187,7 @@ La piattaforma **non prende decisioni completamente automatizzate** con effetti 
 - **Il locatore decide autonomamente** a chi inviare una richiesta di contatto, sulla base del profilo visualizzato.
 - **Nessun algoritmo esclude automaticamente** un candidato dalla ricerca.
 - Il profilo sintetico è uno **strumento di supporto alla decisione umana**, non un atto decisionale automatizzato.
-- L'utente ha sempre il diritto di **richiedere una revisione manuale** del proprio profilo di affidabilità contattando privacy@inquilinofacile.it.
+- L'utente ha sempre il diritto di **richiedere una revisione manuale** del proprio profilo di affidabilità contattando info@inquilinofacile.it.
 
 ### 8.3 Spiegabilità
 
@@ -280,7 +280,7 @@ Ai sensi degli artt. 15–22 GDPR, hai i seguenti diritti:
 | **Revoca consenso** (art. 7.3) | Revocare il consenso alla profilazione o alla visibilità del profilo in qualsiasi momento |
 | **Revisione umana** (art. 22.3) | Richiedere che una persona fisica riveda il tuo profilo di affidabilità |
 
-Per esercitare i tuoi diritti, scrivi a **privacy@inquilinofacile.it**. Risponderemo entro **30 giorni** dalla ricezione della richiesta (prorogabili di ulteriori 60 giorni per richieste complesse, con comunicazione motivata).
+Per esercitare i tuoi diritti, scrivi a **info@inquilinofacile.it**. Risponderemo entro **30 giorni** dalla ricezione della richiesta (prorogabili di ulteriori 60 giorni per richieste complesse, con comunicazione motivata).
 
 Hai inoltre il diritto di proporre **reclamo al Garante per la Protezione dei Dati Personali** (www.garanteprivacy.it).
 
@@ -300,7 +300,7 @@ Adottiamo le seguenti misure tecniche e organizzative:
 
 ## 12. Minori
 
-Il servizio è riservato a **utenti maggiorenni (≥ 18 anni)**. Non raccogliamo consapevolmente dati di minori. Se vieni a conoscenza di un account intestato a un minore, segnalacelo a privacy@inquilinofacile.it.
+Il servizio è riservato a **utenti maggiorenni (≥ 18 anni)**. Non raccogliamo consapevolmente dati di minori. Se vieni a conoscenza di un account intestato a un minore, segnalacelo a info@inquilinofacile.it.
 
 ---
 

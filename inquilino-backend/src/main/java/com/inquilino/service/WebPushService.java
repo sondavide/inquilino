@@ -67,7 +67,8 @@ public class WebPushService {
             try {
                 String payload = objectMapper.writeValueAsString(Map.of(
                         "title", title,
-                        "body", body
+                        "body",  body,
+                        "url",   "/notifications"
                 ));
                 Notification notification = new Notification(
                         sub.getEndpoint(),
@@ -77,7 +78,13 @@ public class WebPushService {
                 );
                 pushService.send(notification);
             } catch (Exception e) {
-                log.warn("Push notification failed for subscription {}: {}", sub.getId(), e.getMessage());
+                String msg = e.getMessage() != null ? e.getMessage() : "";
+                if (msg.contains("410") || msg.contains("404") || msg.contains("403")) {
+                    log.info("Push subscription expired, removing: {}", sub.getId());
+                    pushRepo.delete(sub);
+                } else {
+                    log.warn("Push notification failed for subscription {}: {}", sub.getId(), msg);
+                }
             }
         }
     }

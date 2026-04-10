@@ -810,7 +810,7 @@ const translations = {
     'landing.agency.submit':            'Invia richiesta',
     'landing.agency.sending':           'Invio in corso…',
     'landing.agency.success':           'Richiesta inviata! Ti contatteremo entro 2 giorni lavorativi.',
-    'landing.agency.error':             'Errore nell\'invio. Riprova o scrivi a partner@inquilino.it',
+    'landing.agency.error':             'Errore nell\'invio. Riprova o scrivi a info@inquilinofacile.it',
     'landing.agency.close':             'Chiudi',
 
     // ── Landing — cookie notice ───────────────────────────────────────────────
@@ -1624,7 +1624,7 @@ const translations = {
     'landing.agency.submit':            'Send request',
     'landing.agency.sending':           'Sending…',
     'landing.agency.success':           'Request sent! We will contact you within 2 business days.',
-    'landing.agency.error':             'Send failed. Try again or write to partner@inquilino.it',
+    'landing.agency.error':             'Send failed. Try again or write to info@inquilinofacile.it',
     'landing.agency.close':             'Close',
 
     // ── Landing — cookie notice ───────────────────────────────────────────────

@@ -77,10 +77,10 @@ export default function FaqSection() {
           <p className="text-slate-500 text-sm">
             Non hai trovato risposta?{' '}
             <a
-              href="mailto:privacy@inquilino.it"
+              href="mailto:info@inquilinofacile.it"
               className="text-blue-600 font-medium hover:underline"
             >
-              Scrivici a privacy@inquilino.it
+              Scrivici a info@inquilinofacile.it
             </a>
           </p>
         </div>

@@ -141,7 +141,7 @@ L'utente è consapevole che:
 In conformità all'art. 22 GDPR e all'AI Act, **nessuna decisione con effetti significativi** sull'utente è presa in modo completamente automatizzato. In particolare:
 
 - La decisione finale di contattare o meno un Inquilino spetta **esclusivamente al Locatore** (persona fisica).
-- L'Inquilino può in qualsiasi momento richiedere la **revisione manuale del proprio Profilo di Affidabilità** scrivendo a privacy@inquilinofacile.it.
+- L'Inquilino può in qualsiasi momento richiedere la **revisione manuale del proprio Profilo di Affidabilità** scrivendo a info@inquilinofacile.it.
 - Il Gestore garantisce una risposta alla richiesta di revisione entro **15 giorni lavorativi**.
 - L'Inquilino può contestare i dati estratti dai documenti e richiederne la correzione direttamente dal proprio account.
 
@@ -299,7 +299,7 @@ Il Gestore si riserva il diritto di modificare i presenti Termini in qualsiasi m
 
 I presenti Termini sono regolati dalla **legge italiana**. Per le controversie con consumatori si applica il foro del domicilio del consumatore ai sensi del D.Lgs. 206/2005 (Codice del Consumo). Per le controversie con soggetti professionali (agenzie, società) è competente il Tribunale di [CITTÀ_SEDE_LEGALE].
 
-Prima di adire le vie legali, le parti si impegnano a tentare una **risoluzione stragiudiziale** della controversia tramite comunicazione a privacy@inquilinofacile.it.
+Prima di adire le vie legali, le parti si impegnano a tentare una **risoluzione stragiudiziale** della controversia tramite comunicazione a info@inquilinofacile.it.
 
 Per le controversie di consumo è possibile ricorrere alla **piattaforma ODR** della Commissione Europea: https://ec.europa.eu/consumers/odr/
 
@@ -310,5 +310,5 @@ Per le controversie di consumo è possibile ricorrere alla **piattaforma ODR** d
 Per qualsiasi richiesta relativa ai presenti Termini:
 
 > **[RAGIONE_SOCIALE]**  
-> Email: privacy@inquilinofacile.it  
+> Email: info@inquilinofacile.it  
 > PEC: [INDIRIZZO_PEC]  

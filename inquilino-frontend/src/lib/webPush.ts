@@ -48,6 +48,29 @@ export async function registerPushSubscription(): Promise<void> {
   }
 }
 
+/**
+ * Cancella la sottoscrizione push e la rimuove dal backend.
+ * Da chiamare al logout.
+ */
+export async function unregisterPushSubscription(): Promise<void> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  try {
+    const registration = await navigator.serviceWorker.getRegistration('/sw.js');
+    if (!registration) return;
+
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return;
+
+    const { endpoint } = subscription;
+    await notificationsApi.unsubscribePush(endpoint);
+    await subscription.unsubscribe();
+    console.info('[Push] Unsubscribed successfully');
+  } catch (err) {
+    console.warn('[Push] Unsubscribe failed:', err);
+  }
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');

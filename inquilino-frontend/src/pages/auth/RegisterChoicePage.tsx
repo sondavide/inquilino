@@ -33,7 +33,7 @@ export default function RegisterChoicePage() {
       title: t('auth.choice.agency.title' as any),
       desc: t('auth.choice.agency.desc' as any),
       cta: t('auth.choice.agency.cta' as any),
-      href: 'mailto:partner@inquilino.it',
+      href: 'mailto:info@inquilinofacile.it',
       external: true,
     },
   ]

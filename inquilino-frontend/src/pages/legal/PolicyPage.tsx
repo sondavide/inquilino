@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useLang } from '@/i18n'
 
 interface Props {
@@ -66,7 +67,7 @@ export default function PolicyPage({ file, title }: Props) {
             prose-blockquote:border-l-blue-400 prose-blockquote:text-slate-500
             prose-code:bg-slate-100 prose-code:text-slate-700 prose-code:px-1 prose-code:rounded
           ">
-            <ReactMarkdown>{content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           </div>
         )}
 

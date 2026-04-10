@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { authApi, type MeResponse } from '@/api/auth'
+import { unregisterPushSubscription } from '@/lib/webPush'
 
 const TOKEN_KEY = 'auth_token'
 
@@ -30,9 +31,11 @@ export function useAuth() {
   }, [])
 
   function logout() {
-    clearToken()
-    setUser(null)
-    window.location.href = '/login'
+    unregisterPushSubscription().catch(() => {}).finally(() => {
+      clearToken()
+      setUser(null)
+      window.location.href = '/login'
+    })
   }
 
   return { user, loading, isAuthenticated: !!user, logout }

@@ -75,7 +75,7 @@ I dati associati ai token di sessione (es. identificativo utente, timestamp di l
 ## 7. Contatti
 
 Per qualsiasi domanda relativa all'utilizzo dei cookie su InquilinoFacile.it, scrivi a:  
-**privacy@inquilinofacile.it**
+**info@inquilinofacile.it**
 
 ---
 
