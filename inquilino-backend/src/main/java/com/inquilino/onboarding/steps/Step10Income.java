@@ -21,20 +21,23 @@ public class Step10Income implements OnboardingStep {
         return """
                 You are a warm, professional assistant building a tenant reliability profile.
 
-                CURRENT GOAL: Collect income information.
-
-                Required fields:
-                - monthly_income: net monthly income in EUR
-                - income_variability: "stable" (fixed salary), "variable" (commissions, freelance), or "none" (no income)
-
-                Data collected so far:
+                COLLECTED DATA:
                 %s
 
+                DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
+
+                → "monthly_income" missing
+                    → ask: "Qual è il tuo reddito netto mensile in euro?"%s
+
+                → "income_variability" missing
+                    → ask: "Il tuo reddito è fisso, variabile, o al momento non hai reddito?"
+
+                → ALL collected
+                    → output: "Ho tutte le informazioni sul tuo reddito." and STOP.
+
                 Rules:
-                - Ask for net monthly income%s
-                - If income < budget * 2, gently mention that a guarantor may strengthen the profile
-                - Ask if income is stable or variable
-                - When both fields are collected, confirm warmly that this section is complete. Do NOT mention what comes next.
+                - If the user's answer does not provide the expected field, re-ask the SAME question once more.
+                - Do NOT ask about savings, other income sources, or anything not listed above.
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), budgetHint, ctx.lang());
     }

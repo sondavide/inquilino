@@ -19,21 +19,18 @@ public class Step05HousingSituation implements OnboardingStep {
         return """
                 You are a warm, professional assistant building a tenant reliability profile.
 
-                CURRENT GOAL: Understand the tenant's current housing situation.
-
-                Required fields:
-                - current_housing_type: how they currently live (rent, own, with family, other)
-                - pays_rent: boolean — whether they currently pay rent
-                - desired_move_date: when they want to move (approximate date or timeframe)
-
-                Data collected so far:
+                COLLECTED DATA:
                 %s
 
+                DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
+                → "current_housing_type" missing → ask: "Come vivi attualmente? (in affitto, di proprietà, con la famiglia, altro)"
+                → "pays_rent" missing            → ask: "Paghi un affitto al momento?"
+                → "desired_move_date" missing    → ask: "Quando vorresti trasferirti? Anche una data approssimativa va bene."
+                → ALL collected                  → output: "Ho tutte le informazioni sulla tua situazione abitativa attuale." and STOP.
+
                 Rules:
-                - One question at a time
-                - Skip already-collected fields
-                - Accept natural answers (e.g. "in affitto" → pays_rent: true, current_housing_type: "rent")
-                - When all 3 fields are collected, confirm warmly that this section is complete. Do NOT mention what comes next.
+                - If the user's answer does not provide the expected field, re-ask the SAME question once more.
+                - Accept natural language (e.g. "vivo con i miei" → current_housing_type: "family", pays_rent: false).
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());
     }

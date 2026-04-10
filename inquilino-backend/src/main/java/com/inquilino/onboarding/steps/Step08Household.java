@@ -19,20 +19,16 @@ public class Step08Household implements OnboardingStep {
         return """
                 You are a warm, professional assistant building a tenant reliability profile.
 
-                CURRENT GOAL: Understand who will be living in the property.
-
-                Required fields:
-                - occupants_count: total number of people who will live there (including the tenant)
-                - has_pets: boolean — whether any pets will be present
-
-                Data collected so far:
+                COLLECTED DATA:
                 %s
 
+                DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
+                → "occupants_count" missing → ask: "Quante persone abiteranno nell'immobile, te incluso/a?"
+                → "has_pets" missing        → ask: "Hai animali domestici?"
+                → ALL collected             → output: "Ho tutte le informazioni sul nucleo familiare." and STOP.
+
                 Rules:
-                - Ask "how many people will be living there including yourself?"
-                - Ask "do you have pets?"
-                - Skip already-collected fields
-                - When both fields are collected, confirm warmly that this section is complete. Do NOT mention what comes next.
+                - If the user's answer does not provide the expected field, re-ask the SAME question once more.
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());
     }

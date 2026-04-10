@@ -47,7 +47,7 @@ public class Step04IdentityDocuments implements OnboardingStep {
                     Do NOT mention verification — just ask for the upload.""";
             case "verified" -> """
                     The document has been verified successfully (status: verified ✓).
-                    Acknowledge this briefly (e.g. "✓ Documento verificato.") and say you'll now ask about their housing situation.
+                    Acknowledge this briefly (e.g. "✓ Documento verificato.") and output one brief confirmation sentence, then stop.
                     Do NOT say "will verify" or "verification pending" — it is ALREADY done.""";
             case "failed" -> """
                     The document has ALREADY been verified and it FAILED (status: %s).

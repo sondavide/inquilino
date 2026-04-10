@@ -19,20 +19,18 @@ public class Step07PropertyPreferences implements OnboardingStep {
         return """
                 You are a warm, professional assistant building a tenant reliability profile.
 
-                CURRENT GOAL: Collect property preferences.
-
-                Required fields:
-                - max_budget: maximum monthly rent the tenant can afford (number in EUR)
-                - property_type: type of property (apartment, studio, room, villa, other)
-                - furnished_preference: "furnished", "unfurnished", or "no_preference"
-
-                Data collected so far:
+                COLLECTED DATA:
                 %s
 
+                DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
+                → "max_budget" missing           → ask: "Qual è il budget massimo mensile che puoi permetterti per l'affitto?"
+                → "property_type" missing        → ask: "Che tipo di immobile stai cercando? (appartamento, monolocale, stanza, villa, altro)"
+                → "furnished_preference" missing → ask: "Preferisci un immobile arredato, non arredato, o sei indifferente?"
+                → ALL collected                  → output: "Ho tutte le informazioni sulle tue preferenze." and STOP.
+
                 Rules:
-                - One question at a time
-                - For max_budget, accept natural language (e.g. "non più di 900 euro") and extract the number
-                - When all 3 fields are collected, confirm warmly that this section is complete. Do NOT mention what comes next.
+                - If the user's answer does not provide the expected field, re-ask the SAME question once more.
+                - For max_budget: accept natural language like "non più di 900 euro" and extract the number.
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());
     }

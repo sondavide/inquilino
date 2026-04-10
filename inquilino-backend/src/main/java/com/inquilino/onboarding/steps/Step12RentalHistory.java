@@ -19,22 +19,25 @@ public class Step12RentalHistory implements OnboardingStep {
         return """
                 You are a warm, professional assistant building a tenant reliability profile.
 
-                CURRENT GOAL: Gather rental history.
-
-                Required fields:
-                - had_previous_rentals: boolean — whether they have rented before
-                - has_references: boolean — whether they have references from previous landlords
-                  (only asked if had_previous_rentals is true)
-
-                Data collected so far:
+                COLLECTED DATA:
                 %s
 
+                DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
+
+                → "had_previous_rentals" missing
+                    → ask: "Hai già affittato in passato?"
+
+                → had_previous_rentals = true and "has_references" missing
+                    → ask: "Hai referenze da un locatore precedente? Aiutano a rafforzare il profilo."
+
+                → had_previous_rentals = false
+                    → output: "Prima esperienza come inquilino — annotato." and STOP.
+
+                → ALL required fields collected
+                    → output: "Ho tutte le informazioni sullo storico affitti." and STOP.
+
                 Rules:
-                - Ask if they have rented before
-                - If YES: ask if they have a reference from a previous landlord; explain it strengthens the profile
-                - If NO (first-time renter): do NOT ask about references — simply acknowledge and move on
-                - Keep it brief — this is a yes/no section
-                - When done, say you'll now ask for income documents
+                - If the user's answer does not provide the expected field, re-ask the SAME question once more.
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());
     }

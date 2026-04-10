@@ -52,7 +52,7 @@ public class Step13IncomeDocuments implements OnboardingStep {
                     Communicate this result NOW — do NOT say "will verify" or "I'll check".
                     Explain the reason and ask the user to re-upload a clearer, valid photo using the 📎 button.""";
         } else if (ctx.hasData("payslip_uploaded") || ctx.hasData("tax_return_uploaded") || ctx.hasData("guarantor_document_uploaded")) {
-            immediateInstruction = "A document was uploaded and verified ✓. Confirm this and ask if more docs are needed, or say you'll move to optional documents.";
+            immediateInstruction = "A document was uploaded and verified ✓. Confirm this briefly. If more income documents are needed, ask for them; otherwise output one brief confirmation sentence and stop.";
         } else {
             immediateInstruction = "Ask the user to upload the required income document(s) using the 📎 button. Do NOT mention verification — just request the upload.";
         }

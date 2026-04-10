@@ -32,7 +32,7 @@ public class Step16Consents implements OnboardingStep {
                 - Explain clearly what each consent means in simple language
                 - Both consents are required to complete registration
                 - Do NOT pressure — explain the purpose transparently
-                - When both consents are given, say you'll show a final summary of the profile
+                - When both consents are given, output one brief confirmation sentence and stop
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());
     }

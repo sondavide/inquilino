@@ -169,15 +169,43 @@ public class OnboardingService {
         boolean isFirstEverMessage = "STEP_03".equals(state.getCurrentStep())
                 && history.stream().noneMatch(m -> m.getRole() == MessageRole.ASSISTANT);
         String noGreetPrefix = isFirstEverMessage ? "" :
-                "IMPORTANT INSTRUCTION: This is an ongoing conversation — do NOT greet " +
-                "the user or say 'Ciao', 'Hello', 'Buongiorno' or similar. Do NOT address them by name. " +
+                "IMPORTANT: This is an ongoing conversation — do NOT greet the user, " +
+                "say 'Ciao', 'Hello', 'Buongiorno' or similar. Do NOT address them by name. " +
                 "Do NOT re-introduce yourself. Continue directly with your task.\n\n";
-        // Always appended: prevent the AI from closing the whole process or going beyond its step.
-        String scopeGuard =
-                "CRITICAL: Your role is strictly limited to the task described in your system prompt. " +
-                "Do NOT tell the user their profile, registration, or onboarding process is complete or finished. " +
-                "Do NOT describe future steps or promise what happens next. " +
-                "The system handles all step transitions automatically — just complete YOUR task.\n\n";
+
+        // Global strict rules injected into every step prompt.
+        String scopeGuard = """
+                CRITICAL OPERATIONAL RULES — MUST FOLLOW EXACTLY:
+
+                1. SCOPE: Ask ONLY for the required fields described in your system prompt. \
+                Do NOT ask about anything else, even if it seems relevant to tenant screening.
+
+                2. ONE QUESTION AT A TIME: Ask for exactly one field per message. \
+                Never bundle multiple unrelated questions in a single message.
+
+                3. RE-ASK IF UNANSWERED: If you asked a field and the user's reply did not answer it \
+                (e.g. they answered something else), politely re-ask the same question once \
+                before moving on.
+
+                4. COMPLETION SIGNAL: When ALL required fields for this step are collected, output \
+                EXACTLY ONE short confirmation sentence (e.g. "Perfetto, ho tutte le informazioni." \
+                or "Perfect, I have everything I need."). Then STOP COMPLETELY. Do NOT:
+                   - Ask any follow-up question
+                   - Say "fammi sapere", "let me know", "dimmi quando sei pronto", \
+                "se vuoi continuare" or any similar invitation
+                   - Mention future steps, documents, or what comes next
+                   - Ask the user if they want to proceed
+
+                5. SKIP HANDLING: If the user says "salta", "prosegui", "avanti", "vai avanti", \
+                "skip", "next", "continua", "passa" or similar, respond with ONLY: \
+                "Va bene, andiamo avanti." (Italian) or "Alright, let's move on." (English). \
+                Do NOT ask any more questions for this step.
+
+                6. NO PROCESS TALK: Do NOT tell the user their profile or onboarding is complete or \
+                finished. The system handles step transitions automatically.
+
+                """;
+
 
         chatClient.prompt()
                 .system(scopeGuard + noGreetPrefix + step.buildSystemPrompt(ctx))
@@ -217,7 +245,13 @@ public class OnboardingService {
                                 boolean stepAdvanced = false;
                                 if (!isInit) {
                                     extractAndMerge(state, step, content, fullResponse, locale);
-                                    stepAdvanced = maybeAdvanceStep(state, step, user, locale);
+                                    // If user explicitly asked to skip/proceed, force-advance
+                                    // regardless of isCompleted (missing fields stay null).
+                                    if (isSkipIntent(content)) {
+                                        stepAdvanced = forceAdvanceStep(state, step, user, locale);
+                                    } else {
+                                        stepAdvanced = maybeAdvanceStep(state, step, user, locale);
+                                    }
                                 }
                                 stateRepository.save(state);
 
@@ -386,9 +420,10 @@ public class OnboardingService {
         OnboardingStep step = stepRegistry.get(state.getCurrentStep());
         OnboardingContext ctx = new OnboardingContext(state, user, locale);
         boolean it = "it".equals(locale.getLanguage());
-        int total  = stepRegistry.totalSteps();
+        int total   = stepRegistry.totalSteps();
         int stepNum = step.getStepNumber();
-        int progress = total > 1 ? (int) ((double) (stepNum - 1) / (total - 1) * 100) : 100;
+        // stepNum/total: step 1 → ~6%, step 16 → 100%
+        int progress = total > 0 ? (int) Math.round((double) stepNum / total * 100) : 100;
 
         List<ChecklistItemDto> checklist = stepRegistry.getAll().stream()
                 .flatMap(s -> s.getChecklistItems().stream())
@@ -474,6 +509,37 @@ public class OnboardingService {
                 .pendingActions(new ArrayList<>())
                 .build();
         return stateRepository.save(s);
+    }
+
+    private static final Set<String> SKIP_KEYWORDS = Set.of(
+            "salta", "prosegui", "avanti", "vai avanti", "skip", "next",
+            "continua", "passa", "prossimo", "procedi", "andiamo avanti"
+    );
+
+    private static boolean isSkipIntent(String message) {
+        if (message == null || message.isBlank()) return false;
+        String lower = message.toLowerCase().strip();
+        return SKIP_KEYWORDS.stream().anyMatch(lower::contains);
+    }
+
+    /**
+     * Force-advances the current step without checking isCompleted().
+     * Used when the user explicitly asks to skip / proceed.
+     */
+    private boolean forceAdvanceStep(OnboardingState state, OnboardingStep step,
+                                     User user, Locale locale) {
+        if (state.getCompletedSteps() == null) state.setCompletedSteps(new ArrayList<>());
+        String nextId = step.resolveNextStep(new OnboardingContext(state, user, locale));
+        if (nextId.equals(step.getStepId())) return false; // terminal self-loop
+
+        if (!state.getCompletedSteps().contains(step.getStepId())) {
+            List<String> updated = new ArrayList<>(state.getCompletedSteps());
+            updated.add(step.getStepId());
+            state.setCompletedSteps(updated);
+        }
+        state.setCurrentStep(nextId);
+        state.setStepStatus(StepStatus.IN_PROGRESS);
+        return true;
     }
 
     private static Locale parseLocale(String lang) {

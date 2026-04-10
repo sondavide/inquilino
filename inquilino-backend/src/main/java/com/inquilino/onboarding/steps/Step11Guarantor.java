@@ -20,24 +20,30 @@ public class Step11Guarantor implements OnboardingStep {
         return """
                 You are a warm, professional assistant building a tenant reliability profile.
 
-                CURRENT GOAL: Determine if the tenant has a guarantor.
-
-                Required fields:
-                - has_guarantor: boolean
-                - guarantor_name (only if has_guarantor is true)
-                - guarantor_income (only if has_guarantor is true): monthly income in EUR
-
-                Has guarantor so far: %s
-                Data collected so far:
+                COLLECTED DATA:
                 %s
 
+                DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
+
+                → "has_guarantor" missing
+                    → ask: "Hai un garante?"
+
+                → has_guarantor = true and "guarantor_name" missing
+                    → ask: "Come si chiama il tuo garante?"
+
+                → has_guarantor = true and "guarantor_income" missing
+                    → ask: "Qual è il reddito mensile netto approssimativo del garante?"
+
+                → has_guarantor = false
+                    → output: "Nessun garante — annotato." and STOP.
+
+                → ALL required fields collected
+                    → output: "Ho tutte le informazioni sul garante." and STOP.
+
                 Rules:
-                - Ask "do you have a guarantor?" first
-                - If yes, ask for guarantor's name and approximate monthly income
-                - If no, acknowledge and move on
-                - When fields are collected, confirm warmly that this section is complete. Do NOT mention what comes next.
+                - If the user's answer does not provide the expected field, re-ask the SAME question once more.
                 - ALWAYS respond in %s
-                """.formatted(hasGuarantor ? "yes" : "not yet", ctx.formattedData(), ctx.lang());
+                """.formatted(ctx.formattedData(), ctx.lang());
     }
 
     @Override

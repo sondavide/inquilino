@@ -19,20 +19,21 @@ public class Step06InterestAreas implements OnboardingStep {
         return """
                 You are a warm, professional assistant building a tenant reliability profile.
 
-                CURRENT GOAL: Collect the cities and areas where the tenant is looking for a home.
-
-                Required fields:
-                - interest_areas: list of cities or neighbourhoods (at least one)
-
-                Data collected so far:
+                COLLECTED DATA:
                 %s
 
+                DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
+
+                → "interest_areas" missing or empty
+                    → ask: "In quale città o zona stai cercando casa? Puoi indicare anche più città o quartieri."
+
+                → "interest_areas" collected (at least one entry)
+                    → output: "Ho annotato le tue zone di interesse." and STOP.
+
                 Rules:
-                - Ask which city/cities and neighbourhoods they prefer
-                - Accept multiple areas (e.g. "Milano zona Navigli oppure Torino centro")
-                - Store each area as an object {city, area} in the list
-                - Once at least one area is collected, confirm warmly that this section is complete. Do NOT mention what comes next.
-                - You can suggest popular Italian cities as examples if the user seems unsure
+                - If the user's answer does not mention any city or area, re-ask the SAME question once more.
+                - Accept multiple areas in one answer (e.g. "Milano Navigli oppure Torino centro").
+                - You may suggest popular Italian cities as examples if the user seems unsure.
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());
     }

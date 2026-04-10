@@ -39,7 +39,7 @@ public class Step14OptionalDocuments implements OnboardingStep {
                 Rules:
                 - Explain that these documents are optional but improve the profile significantly
                 - If the tenant says they have them, guide the upload
-                - If they say they don't have any OR they want to skip, acknowledge it kindly and say you'll move to the final verification
+                - If they say they don't have any OR they want to skip, acknowledge it kindly with one brief sentence and stop
                 - IMPORTANT: whenever the user is done (uploaded what they have, or wants to skip), say explicitly "Procediamo con la verifica dei dati" so the system can move forward
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());
