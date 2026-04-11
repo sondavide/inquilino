@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { resolveMediaUrl } from '@/lib/utils'
 import MatchBadge from './MatchBadge'
 import type { ListingCardDto } from '@/types'
+import { buildTenantListingAnalysis } from '@/lib/tenantAnalysis'
 
 // Fix Leaflet default icon
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -252,13 +253,11 @@ export default function TenantListingCard({ m, onLike, onDislike, isLoading }: P
             ))}
           </div>
 
-          {/* AI summary */}
-          {m.matchSummary && (
-            <div className="bg-blue-50 rounded-xl p-3">
-              <p className="text-xs font-semibold text-blue-700 mb-1">🤖 Analisi compatibilità</p>
-              <p className="text-blue-800 text-xs leading-relaxed">{m.matchSummary}</p>
-            </div>
-          )}
+          {/* Listing compatibility analysis — tenant perspective */}
+          <div className="bg-blue-50 rounded-xl p-3">
+            <p className="text-xs font-semibold text-blue-700 mb-1">🏠 Analisi compatibilità</p>
+            <p className="text-blue-800 text-xs leading-relaxed">{buildTenantListingAnalysis(m)}</p>
+          </div>
 
           {/* Approximate map */}
           {mapLat && mapLng && (

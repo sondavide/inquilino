@@ -8,6 +8,7 @@ import { tenantMatchApi } from '@/api/matching'
 import type { ListingCardDto } from '@/types'
 import MatchBadge from '@/components/matching/MatchBadge'
 import { TenantMatchCTA } from '@/components/matching/MatchStateCTA'
+import { buildTenantListingAnalysis } from '@/lib/tenantAnalysis'
 
 // Fix Leaflet default icon
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -132,15 +133,15 @@ export default function TenantListingDetailPage() {
           {match.timingCompatible && <Badge label={t('match.badge.timing')} color="purple" />}
         </div>
 
-        {/* Listing compatibility analysis */}
-        {match.matchSummary && (
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
-            <p className="text-xs font-semibold text-blue-700 mb-1.5 flex items-center gap-1">
-              🤖 Analisi compatibilità appartamento
-            </p>
-            <p className="text-sm text-blue-800 leading-relaxed">{match.matchSummary}</p>
-          </div>
-        )}
+        {/* Listing compatibility analysis — tenant perspective */}
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+          <p className="text-xs font-semibold text-blue-700 mb-1.5">
+            🏠 Analisi compatibilità
+          </p>
+          <p className="text-sm text-blue-800 leading-relaxed">
+            {buildTenantListingAnalysis(match)}
+          </p>
+        </div>
 
         {/* CTA */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
