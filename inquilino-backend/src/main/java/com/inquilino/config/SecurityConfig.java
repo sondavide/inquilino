@@ -37,6 +37,7 @@ public class SecurityConfig {
 
     @Autowired(required = false)
     private ClientRegistrationRepository clientRegistrationRepository;
+    // Note: may be null if no OAuth2 provider credentials are configured
 
     @Value("${app.cors.allowed-origins:http://localhost:5173,https://localhost:5173,http://192.168.1.61:5173,https://192.168.1.61:5173}")
     private String corsAllowedOrigins;

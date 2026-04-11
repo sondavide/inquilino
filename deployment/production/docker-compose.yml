@@ -100,7 +100,8 @@ services:
       SUPERADMIN_EMAIL:           ${SUPERADMIN_EMAIL}
       SUPERADMIN_PASSWORD:        ${SUPERADMIN_PASSWORD}
 
-      # OAuth2 (optional — only needed if using social login)
+      # OAuth2 — activate the "oauth" Spring profile when credentials are provided
+      SPRING_PROFILES_ACTIVE:     ${SPRING_PROFILES_ACTIVE:-oauth}
       GOOGLE_CLIENT_ID:           ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET:       ${GOOGLE_CLIENT_SECRET:-}
       FACEBOOK_CLIENT_ID:         ${FACEBOOK_CLIENT_ID:-}
