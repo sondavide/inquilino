@@ -1,5 +1,6 @@
 package com.inquilino.config;
 
+import com.inquilino.security.CustomOAuth2AuthorizationRequestResolver;
 import com.inquilino.security.JwtAuthenticationFilter;
 import com.inquilino.security.OAuth2SuccessHandler;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,7 +64,11 @@ public class SecurityConfig {
 
         // Enable OAuth2 login only when credentials are configured (oauth profile)
         if (clientRegistrationRepository != null && oAuth2SuccessHandler != null) {
-            http.oauth2Login(oauth2 -> oauth2.successHandler(oAuth2SuccessHandler));
+            http.oauth2Login(oauth2 -> oauth2
+                    .authorizationEndpoint(ep -> ep
+                            .authorizationRequestResolver(
+                                    new CustomOAuth2AuthorizationRequestResolver(clientRegistrationRepository)))
+                    .successHandler(oAuth2SuccessHandler));
         }
 
         return http.build();

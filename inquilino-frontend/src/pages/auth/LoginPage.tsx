@@ -48,9 +48,8 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-3">
-            <OAuthButtonWip provider="google"   label={t('auth.login.google')} />
-            <OAuthButtonWip provider="facebook" label={t('auth.login.facebook')} />
-            <OAuthButtonWip provider="linkedin" label={t('auth.login.linkedin')} />
+            <OAuthButton provider="google"   label={t('auth.login.google')} />
+            <OAuthButton provider="linkedin" label={t('auth.login.linkedin')} />
 
             <div className="relative flex items-center py-1">
               <div className="flex-1 border-t border-border" />
@@ -89,18 +88,36 @@ export default function LoginPage() {
   )
 }
 
-function OAuthButtonWip({ provider, label }: { provider: string; label: string }) {
-  const icon = provider === 'google' ? '🔵' : provider === 'facebook' ? '🔷' : '🟦'
+function OAuthButton({ provider, label }: { provider: 'google' | 'linkedin'; label: string }) {
   return (
-    <div className={cn(
-      'w-full flex items-center justify-between rounded-lg px-4 py-2.5 text-sm font-medium',
-      'border border-border bg-background opacity-50 cursor-not-allowed select-none'
-    )}>
-      <span className="flex items-center gap-2"><span>{icon}</span>{label}</span>
-      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
-        Prossimamente
-      </span>
-    </div>
+    <button
+      type="button"
+      onClick={() => { window.location.href = `/oauth2/authorization/${provider}` }}
+      className={cn(
+        'w-full flex items-center justify-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors',
+        'border border-border bg-background hover:bg-muted'
+      )}
+    >
+      <ProviderIcon provider={provider} />
+      {label}
+    </button>
+  )
+}
+
+function ProviderIcon({ provider }: { provider: 'google' | 'linkedin' }) {
+  if (provider === 'google') return (
+    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+      <path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+    </svg>
+  )
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+      <rect width="18" height="18" rx="2" fill="#0A66C2"/>
+      <path d="M4.5 7h2v7h-2zM5.5 6a1.1 1.1 0 1 1 0-2.2A1.1 1.1 0 0 1 5.5 6zM8 7h1.9v.96C10.2 7.4 10.9 7 11.8 7c1.9 0 2.2 1.25 2.2 2.88V14h-2v-3.7c0-.88-.02-2-.1-2.27-.1-.35-.35-.63-.78-.63-.57 0-.88.38-1.02.75-.05.14-.1.37-.1.64V14H8V7z" fill="white"/>
+    </svg>
   )
 }
 

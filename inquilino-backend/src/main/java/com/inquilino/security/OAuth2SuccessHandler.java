@@ -45,22 +45,33 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String name      = getAttr(attrs, "name");
         String profileUrl = getAttr(attrs, "picture", "link");
 
+        // Read role saved by CustomOAuth2AuthorizationRequestResolver
+        String roleParam = null;
+        jakarta.servlet.http.HttpSession session = request.getSession(false);
+        if (session != null) {
+            roleParam = (String) session.getAttribute(CustomOAuth2AuthorizationRequestResolver.SESSION_KEY_ROLE);
+            session.removeAttribute(CustomOAuth2AuthorizationRequestResolver.SESSION_KEY_ROLE);
+        }
+        final String role = roleParam;
+
         User user = userRepository.findByProviderAndProviderUserId(provider, providerId)
-                .orElseGet(() -> createUser(provider, providerId, email, name, profileUrl));
+                .orElseGet(() -> createUser(provider, providerId, email, name, profileUrl, role));
 
         String jwt = jwtService.generateToken(user.getId());
         response.sendRedirect(frontendUrl + "/auth/callback?token=" + jwt);
     }
 
     private User createUser(String provider, String providerId,
-                            String email, String name, String profileUrl) {
+                            String email, String name, String profileUrl, String role) {
         // Fallback email for providers that don't share it
         String resolvedEmail = (email != null && !email.isBlank())
                 ? email
                 : provider + "_" + providerId + "@noemail.local";
 
+        UserType userType = "landlord".equals(role) ? UserType.LANDLORD : UserType.TENANT;
+
         User user = User.builder()
-                .type(UserType.TENANT)
+                .type(userType)
                 .email(resolvedEmail)
                 .provider(provider)
                 .providerUserId(providerId)
@@ -69,20 +80,22 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 .build();
         user = userRepository.save(user);
 
-        // Pre-fill onboarding data from OAuth2 profile
-        Map<String, Object> prefilled = new HashMap<>();
-        if (name  != null) prefilled.put("full_name", name);
-        if (email != null) prefilled.put("email", email);
-        prefilled.put("_provider", provider);
+        // Tenant: pre-fill onboarding state from OAuth2 profile
+        if (userType == UserType.TENANT) {
+            Map<String, Object> prefilled = new HashMap<>();
+            if (name  != null) prefilled.put("full_name", name);
+            if (email != null) prefilled.put("email", email);
+            prefilled.put("_provider", provider);
 
-        onboardingStateRepository.save(OnboardingState.builder()
-                .user(user)
-                .currentStep("STEP_03")
-                .stepStatus(StepStatus.IN_PROGRESS)
-                .collectedData(prefilled)
-                .missingFields(new ArrayList<>())
-                .pendingActions(new ArrayList<>())
-                .build());
+            onboardingStateRepository.save(OnboardingState.builder()
+                    .user(user)
+                    .currentStep("STEP_03")
+                    .stepStatus(StepStatus.IN_PROGRESS)
+                    .collectedData(prefilled)
+                    .missingFields(new ArrayList<>())
+                    .pendingActions(new ArrayList<>())
+                    .build());
+        }
 
         return user;
     }
