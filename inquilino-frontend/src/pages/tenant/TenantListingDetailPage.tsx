@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Circle, Marker } from 'react-leaflet'
 import L from 'leaflet'
@@ -25,6 +25,7 @@ export default function TenantListingDetailPage() {
   const [match,   setMatch]   = useState<ListingCardDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [imgIdx,  setImgIdx]  = useState(0)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   const load = useCallback(() => {
     if (!matchId) return
@@ -60,11 +61,30 @@ export default function TenantListingDetailPage() {
 
       {/* Photo gallery */}
       {match.allImageUrls.length > 0 && (
-        <div className="relative bg-black h-64 sm:h-80">
+        <div
+          className="relative bg-black h-64 sm:h-80 touch-pan-y select-none"
+          onPointerDown={e => {
+            swipeStart.current = { x: e.clientX, y: e.clientY }
+            ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+          }}
+          onPointerUp={e => {
+            if (!swipeStart.current) return
+            const dx = e.clientX - swipeStart.current.x
+            const dy = Math.abs(e.clientY - swipeStart.current.y)
+            if (Math.abs(dx) > 40 && dy < 60) {
+              const total = match.allImageUrls.length
+              setImgIdx(i => dx < 0
+                ? Math.min(i + 1, total - 1)
+                : Math.max(i - 1, 0))
+            }
+            swipeStart.current = null
+          }}
+        >
           <img
             src={match.allImageUrls[imgIdx]}
             alt=""
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover pointer-events-none"
+            draggable={false}
           />
           {match.allImageUrls.length > 1 && (
             <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
@@ -111,6 +131,16 @@ export default function TenantListingDetailPage() {
           {match.areaCompatible   && <Badge label={t('match.badge.area')}   color="blue"   />}
           {match.timingCompatible && <Badge label={t('match.badge.timing')} color="purple" />}
         </div>
+
+        {/* Listing compatibility analysis */}
+        {match.matchSummary && (
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+            <p className="text-xs font-semibold text-blue-700 mb-1.5 flex items-center gap-1">
+              🤖 Analisi compatibilità appartamento
+            </p>
+            <p className="text-sm text-blue-800 leading-relaxed">{match.matchSummary}</p>
+          </div>
+        )}
 
         {/* CTA */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">

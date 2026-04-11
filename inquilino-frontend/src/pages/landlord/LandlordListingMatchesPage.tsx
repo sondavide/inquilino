@@ -219,15 +219,6 @@ function ProfileCard({
         )
       })()}
 
-      {/* ── Analisi compatibilità (AI) ────────────────────────────────────── */}
-      {m.matchSummary && (
-        <div className="mx-5 mb-4 bg-blue-50 rounded-xl p-3">
-          <p className="text-xs font-semibold text-blue-700 mb-1 flex items-center gap-1">
-            <span>🤖</span> Compatibilità con questo annuncio
-          </p>
-          <p className="text-blue-800 text-xs leading-relaxed">{m.matchSummary}</p>
-        </div>
-      )}
 
       {/* ── Valutazione ───────────────────────────────────────────────────── */}
       {m.recommendation && (
