@@ -46,7 +46,8 @@ public class LandlordMatchController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID listingId,
             @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
         assertListingOwner(listingId, principal.getUserId());
 
@@ -54,7 +55,7 @@ public class LandlordMatchController {
                 listingId, MatchState.ARCHIVED, PageRequest.of(page, size));
 
         List<TenantProfileCardDto> content = matchPage.getContent().stream()
-                .map(m -> buildCard(m))
+                .map(m -> buildCard(m, resolveLang(lang)))
                 .toList();
 
         return ResponseEntity.ok(new PageImpl<>(content, matchPage.getPageable(), matchPage.getTotalElements()));
@@ -65,14 +66,15 @@ public class LandlordMatchController {
     @GetMapping("/mutual")
     public ResponseEntity<List<TenantProfileCardDto>> getMutualMatches(
             @AuthenticationPrincipal UserPrincipal principal,
-            @PathVariable UUID listingId) {
+            @PathVariable UUID listingId,
+            @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
         assertListingOwner(listingId, principal.getUserId());
 
         List<Match> matches = matchRepo.findMutualListingMatches(listingId,
                 Arrays.asList(MatchState.MUTUAL_INTEREST, MatchState.CONTACT_UNLOCKED));
 
-        return ResponseEntity.ok(matches.stream().map(this::buildCard).toList());
+        return ResponseEntity.ok(matches.stream().map(m -> buildCard(m, resolveLang(lang))).toList());
     }
 
     // ─── GET /api/landlord/listings/{listingId}/matches/{matchId} ────────────
@@ -81,7 +83,8 @@ public class LandlordMatchController {
     public ResponseEntity<TenantProfileCardDto> getMatch(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID listingId,
-            @PathVariable UUID matchId) {
+            @PathVariable UUID matchId,
+            @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
         assertListingOwner(listingId, principal.getUserId());
 
@@ -89,7 +92,7 @@ public class LandlordMatchController {
                 .filter(m -> m.getListingId().equals(listingId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Match not found"));
 
-        return ResponseEntity.ok(buildCard(match));
+        return ResponseEntity.ok(buildCard(match, resolveLang(lang)));
     }
 
     // ─── POST …/interest ─────────────────────────────────────────────────────
@@ -98,11 +101,12 @@ public class LandlordMatchController {
     public ResponseEntity<TenantProfileCardDto> expressInterest(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID listingId,
-            @PathVariable UUID matchId) {
+            @PathVariable UUID matchId,
+            @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
         assertListingOwner(listingId, principal.getUserId());
         Match updated = matchStateService.landlordExpressInterest(matchId, principal.getUserId());
-        return ResponseEntity.ok(buildCard(updated));
+        return ResponseEntity.ok(buildCard(updated, resolveLang(lang)));
     }
 
     // ─── POST …/invite ────────────────────────────────────────────────────────
@@ -111,11 +115,12 @@ public class LandlordMatchController {
     public ResponseEntity<TenantProfileCardDto> invite(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID listingId,
-            @PathVariable UUID matchId) {
+            @PathVariable UUID matchId,
+            @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
         assertListingOwner(listingId, principal.getUserId());
         Match updated = matchStateService.landlordInvite(matchId, principal.getUserId());
-        return ResponseEntity.ok(buildCard(updated));
+        return ResponseEntity.ok(buildCard(updated, resolveLang(lang)));
     }
 
     // ─── POST …/dismiss ──────────────────────────────────────────────────────
@@ -137,16 +142,17 @@ public class LandlordMatchController {
     public ResponseEntity<TenantProfileCardDto> unlockContact(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID listingId,
-            @PathVariable UUID matchId) {
+            @PathVariable UUID matchId,
+            @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
         assertListingOwner(listingId, principal.getUserId());
         Match updated = matchStateService.unlockContact(matchId, principal.getUserId());
-        return ResponseEntity.ok(buildCard(updated));
+        return ResponseEntity.ok(buildCard(updated, resolveLang(lang)));
     }
 
     // ─── Helper ───────────────────────────────────────────────────────────────
 
-    private TenantProfileCardDto buildCard(Match match) {
+    private TenantProfileCardDto buildCard(Match match, String lang) {
         TenantProfile profile = profileRepo.findById(match.getTenantProfileId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile not found"));
         User user = userRepository.findById(profile.getUser().getId())
@@ -158,7 +164,12 @@ public class LandlordMatchController {
                 match, profile, user,
                 score.rentSustainability(),
                 score.incomeStability(),
-                score.documentReliability());
+                score.documentReliability(),
+                lang);
+    }
+
+    private String resolveLang(String acceptLang) {
+        return acceptLang != null && acceptLang.startsWith("en") ? "en" : "it";
     }
 
     private void assertListingOwner(UUID listingId, UUID userId) {

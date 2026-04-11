@@ -585,6 +585,7 @@ export interface ListingCardDto {
   description:        string | null
 
   matchSummary:       string | null
+  tenantMatchSummary: string | null
 
   // Solo in CONTACT_UNLOCKED
   landlordDisplayName:   string | null

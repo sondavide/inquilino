@@ -119,6 +119,7 @@ public record ListingCardDto(
 
         // AI summary
         String matchSummary,
+        String tenantMatchSummary,
 
         // ─── Contatti locatore — solo in CONTACT_UNLOCKED ────────────────────
         String landlordDisplayName,
@@ -274,7 +275,8 @@ public record ListingCardDto(
                 allUrls,
                 desc,
 
-                match.getMatchSummary(),
+                "en".equals(lang) && match.getMatchSummaryEn()       != null ? match.getMatchSummaryEn()       : match.getMatchSummary(),
+                "en".equals(lang) && match.getTenantMatchSummaryEn() != null ? match.getTenantMatchSummaryEn() : match.getTenantMatchSummary(),
 
                 // Contatti
                 displayName,

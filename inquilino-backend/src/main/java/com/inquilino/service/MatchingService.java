@@ -165,19 +165,37 @@ public class MatchingService {
 
         applyCalc(match, calc);
 
-        // Genera summary AI (solo se non esiste già o se il match è stato ricalcolato)
-        if (match.getMatchSummary() == null || existing.isEmpty() ||
-                existing.get().getMatchState() == MatchState.ARCHIVED) {
+        // Genera summary AI in IT + EN (solo se non esiste già o se il match è stato ricalcolato)
+        boolean needsSummary = existing.isEmpty() || existing.get().getMatchState() == MatchState.ARCHIVED;
+        if (match.getMatchSummary() == null || needsSummary) {
             String occupationLabel = tenant.getEmploymentType() != null
                     ? tenant.getEmploymentType().name().toLowerCase().replace("_", " ") : null;
             String municipality = listing.getLocation() != null
                     ? listing.getLocation().getMunicipality() : null;
-            String summary = summaryService.generate(
-                    calc.matchBand() != null ? calc.matchBand().name() : null,
-                    calc.geoScore(), calc.priceScore(), calc.timingScore(),
+            String band = calc.matchBand() != null ? calc.matchBand().name() : null;
+            match.setMatchSummary(summaryService.generate(
+                    band, calc.geoScore(), calc.priceScore(), calc.timingScore(),
                     calc.fitScore(), calc.tenantStrengthScore(),
-                    calc.priceBand(), occupationLabel, municipality);
-            match.setMatchSummary(summary);
+                    calc.priceBand(), occupationLabel, municipality, "it"));
+            match.setMatchSummaryEn(summaryService.generate(
+                    band, calc.geoScore(), calc.priceScore(), calc.timingScore(),
+                    calc.fitScore(), calc.tenantStrengthScore(),
+                    calc.priceBand(), occupationLabel, municipality, "en"));
+        }
+        if (match.getTenantMatchSummary() == null || needsSummary) {
+            String municipality = listing.getLocation() != null
+                    ? listing.getLocation().getMunicipality() : null;
+            ListingAvailability avail = listing.getAvailability();
+            boolean  petsAllowed    = avail != null && avail.isPetsAllowed();
+            Integer  maxOccupants   = avail != null ? avail.getMaxOccupants() : null;
+            String   furnishedStatus = avail != null ? avail.getFurnishedStatus() : null;
+            String   band           = calc.matchBand() != null ? calc.matchBand().name() : null;
+            match.setTenantMatchSummary(summaryService.generateForTenant(
+                    band, calc.geoScore(), calc.priceScore(), calc.timingScore(), calc.fitScore(),
+                    calc.priceBand(), municipality, petsAllowed, maxOccupants, furnishedStatus, "it"));
+            match.setTenantMatchSummaryEn(summaryService.generateForTenant(
+                    band, calc.geoScore(), calc.priceScore(), calc.timingScore(), calc.fitScore(),
+                    calc.priceBand(), municipality, petsAllowed, maxOccupants, furnishedStatus, "en"));
         }
 
         matchRepo.save(match);

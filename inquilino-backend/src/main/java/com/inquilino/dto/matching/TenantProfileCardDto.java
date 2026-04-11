@@ -58,7 +58,8 @@ public record TenantProfileCardDto(
             User user,
             String rentSustainability,
             String incomeStability,
-            String documentReliability) {
+            String documentReliability,
+            String lang) {
 
         boolean unlocked = match.getMatchState() == MatchState.CONTACT_UNLOCKED;
 
@@ -93,7 +94,7 @@ public record TenantProfileCardDto(
                 profile.getProfileCompletion(),
                 profile.getVerificationStatus().name(),
 
-                match.getMatchSummary(),
+                "en".equals(lang) && match.getMatchSummaryEn() != null ? match.getMatchSummaryEn() : match.getMatchSummary(),
                 recommendation,
 
                 // Identità: solo se contact_unlocked

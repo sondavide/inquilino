@@ -87,7 +87,19 @@ public class Match {
 
     // ─── AI summary ───────────────────────────────────────────────────────────
 
-    /** Descrizione AI della compatibilità (2-3 frasi, lingua IT). */
+    /** Descrizione AI della compatibilità dal punto di vista del locatore — IT. */
     @Column(columnDefinition = "TEXT")
     private String matchSummary;
+
+    /** Descrizione AI della compatibilità dal punto di vista del locatore — EN. */
+    @Column(columnDefinition = "TEXT")
+    private String matchSummaryEn;
+
+    /** Descrizione AI della compatibilità dal punto di vista dell'inquilino — IT. */
+    @Column(columnDefinition = "TEXT")
+    private String tenantMatchSummary;
+
+    /** Descrizione AI della compatibilità dal punto di vista dell'inquilino — EN. */
+    @Column(columnDefinition = "TEXT")
+    private String tenantMatchSummaryEn;
 }

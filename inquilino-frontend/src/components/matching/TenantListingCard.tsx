@@ -256,7 +256,7 @@ export default function TenantListingCard({ m, onLike, onDislike, isLoading }: P
           {/* Listing compatibility analysis — tenant perspective */}
           <div className="bg-blue-50 rounded-xl p-3">
             <p className="text-xs font-semibold text-blue-700 mb-1">🏠 Analisi compatibilità</p>
-            <p className="text-blue-800 text-xs leading-relaxed">{buildTenantListingAnalysis(m)}</p>
+            <p className="text-blue-800 text-xs leading-relaxed">{m.tenantMatchSummary ?? buildTenantListingAnalysis(m)}</p>
           </div>
 
           {/* Approximate map */}

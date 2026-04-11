@@ -139,7 +139,7 @@ export default function TenantListingDetailPage() {
             🏠 Analisi compatibilità
           </p>
           <p className="text-sm text-blue-800 leading-relaxed">
-            {buildTenantListingAnalysis(match)}
+            {match.tenantMatchSummary ?? buildTenantListingAnalysis(match)}
           </p>
         </div>
 
