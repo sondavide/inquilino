@@ -55,7 +55,20 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         final String role = roleParam;
 
         User user = userRepository.findByProviderAndProviderUserId(provider, providerId)
-                .orElseGet(() -> createUser(provider, providerId, email, name, profileUrl, role));
+                .orElseGet(() -> {
+                    // Account già esistente con la stessa email → collega il provider
+                    if (email != null) {
+                        var existing = userRepository.findByEmail(email);
+                        if (existing.isPresent()) {
+                            User u = existing.get();
+                            u.setProvider(provider);
+                            u.setProviderUserId(providerId);
+                            if (profileUrl != null) u.setProfileUrl(profileUrl);
+                            return userRepository.save(u);
+                        }
+                    }
+                    return createUser(provider, providerId, email, name, profileUrl, role);
+                });
 
         String jwt = jwtService.generateToken(user.getId());
         response.sendRedirect(frontendUrl + "/auth/callback?token=" + jwt);
