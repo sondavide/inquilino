@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { adminApi } from '@/api/admin'
 import type { AuditLogEntry } from '@/types'
 
@@ -25,18 +25,24 @@ const ACTION_COLOR: Record<string, string> = {
 }
 
 export default function AuditLogPage() {
-  const [entries, setEntries]     = useState<AuditLogEntry[]>([])
-  const [total, setTotal]         = useState(0)
-  const [page, setPage]           = useState(0)
-  const [loading, setLoading]     = useState(true)
+  const [entries, setEntries] = useState<AuditLogEntry[]>([])
+  const [total, setTotal]     = useState(0)
+  const [page, setPage]       = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  // filters
+  const [profileInput, setProfileInput] = useState('')
+  const [textInput, setTextInput]       = useState('')
   const [profileFilter, setProfileFilter] = useState('')
-  const [profileInput, setProfileInput]   = useState('')
+  const [textFilter, setTextFilter]       = useState('')
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const PAGE_SIZE = 50
 
-  const loadData = (p: number, pf?: string) => {
+  const loadData = (p: number, pf: string, q: string) => {
     setLoading(true)
-    adminApi.getAuditLog(pf || undefined, p, PAGE_SIZE)
+    adminApi.getAuditLog(pf || undefined, q || undefined, p, PAGE_SIZE)
       .then(data => {
         setEntries(data.content)
         setTotal(data.totalElements)
@@ -45,56 +51,90 @@ export default function AuditLogPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadData(0) }, [])
+  useEffect(() => { loadData(0, '', '') }, [])
 
-  const handleFilter = (e: React.FormEvent) => {
+  // Debounce text filter — fires 400 ms after user stops typing
+  const handleTextChange = (v: string) => {
+    setTextInput(v)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setTextFilter(v)
+      setPage(0)
+      loadData(0, profileFilter, v)
+    }, 400)
+  }
+
+  const handleProfileFilter = (e: React.FormEvent) => {
     e.preventDefault()
-    const pf = profileInput.trim() || ''
+    const pf = profileInput.trim()
     setProfileFilter(pf)
     setPage(0)
-    loadData(0, pf)
+    loadData(0, pf, textFilter)
+  }
+
+  const handleReset = () => {
+    setProfileInput('')
+    setTextInput('')
+    setProfileFilter('')
+    setTextFilter('')
+    setPage(0)
+    loadData(0, '', '')
   }
 
   const handlePage = (p: number) => {
     setPage(p)
-    loadData(p, profileFilter)
+    loadData(p, profileFilter, textFilter)
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
+  const hasFilter  = !!profileFilter || !!textFilter
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6">
+    <div className="w-full px-4 py-6">
       <h1 className="text-xl font-bold mb-5">Audit Log</h1>
 
-      {/* Filtro per profilo */}
-      <form onSubmit={handleFilter} className="flex gap-2 mb-5">
+      {/* Filtri */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        {/* Ricerca testo libero */}
         <input
-          type="text"
-          value={profileInput}
-          onChange={e => setProfileInput(e.target.value)}
-          placeholder="UUID del profilo tenant (opzionale)"
+          type="search"
+          value={textInput}
+          onChange={e => handleTextChange(e.target.value)}
+          placeholder="Cerca per azione, campo, nota, valore…"
           className="flex-1 text-sm border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-ring bg-background"
         />
-        <button
-          type="submit"
-          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          Filtra
-        </button>
-        {profileFilter && (
+
+        {/* Filtro per UUID profilo */}
+        <form onSubmit={handleProfileFilter} className="flex gap-2">
+          <input
+            type="text"
+            value={profileInput}
+            onChange={e => setProfileInput(e.target.value)}
+            placeholder="UUID profilo (opzionale)"
+            className="w-72 text-sm border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-ring bg-background"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            Filtra
+          </button>
+        </form>
+
+        {hasFilter && (
           <button
             type="button"
-            onClick={() => { setProfileInput(''); setProfileFilter(''); setPage(0); loadData(0) }}
+            onClick={handleReset}
             className="px-3 py-2 rounded-lg border text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Reset
           </button>
         )}
-      </form>
+      </div>
 
-      {/* Stats */}
+      {/* Contatore */}
       <p className="text-xs text-muted-foreground mb-3">
-        {total} eventi totali{profileFilter ? ` per profilo ${profileFilter}` : ''}
+        {total} eventi{hasFilter ? ' (filtrati)' : ' totali'}
       </p>
 
       {loading ? (
@@ -135,11 +175,9 @@ export default function AuditLogPage() {
                       <p className="text-xs text-muted-foreground mt-0.5 italic">"{e.note}"</p>
                     )}
 
-                    <div className="flex items-center gap-3 mt-1">
-                      <p className="text-[10px] text-muted-foreground font-mono truncate">
-                        Profilo: {e.tenantProfileId}
-                      </p>
-                    </div>
+                    <p className="text-[10px] text-muted-foreground font-mono mt-1 truncate">
+                      Profilo: {e.tenantProfileId}
+                    </p>
                   </div>
 
                   <p className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">

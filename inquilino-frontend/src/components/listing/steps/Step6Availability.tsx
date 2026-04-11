@@ -46,7 +46,11 @@ export default function Step6Availability({ data, onChange, validations: vs }: P
         <FieldNote vs={vs} field="availability.availabilityStatus" />
         <div className="grid grid-cols-2 gap-2">
           {AVAIL_STATUS.map(o => (
-            <button key={o.v} type="button" onClick={() => upd({ availabilityStatus: o.v })}
+            <button key={o.v} type="button" onClick={() => {
+              const patch: Partial<ListingAvailabilityData> = { availabilityStatus: o.v }
+              if (o.v === 'available_now') patch.availableFrom = new Date().toISOString().split('T')[0]
+              upd(patch)
+            }}
               className={`p-2.5 text-sm rounded-lg border-2 transition
                 ${avail.availabilityStatus === o.v
                   ? 'border-blue-600 bg-blue-50 text-blue-700 font-medium'
@@ -57,17 +61,20 @@ export default function Step6Availability({ data, onChange, validations: vs }: P
         </div>
       </div>
 
-      {avail.availabilityStatus === 'available_from_date' && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {t('s6.availableFrom.label')} <span className="text-red-500">*</span>
-            <FieldStatusBadge vs={vs} field="availability.availableFrom" />
-          </label>
-          <input type="date" value={avail.availableFrom ?? ''} onChange={e => upd({ availableFrom: e.target.value })}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldBorderClass(vs, 'availability.availableFrom')}`} />
-          <FieldNote vs={vs} field="availability.availableFrom" />
-        </div>
-      )}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {t('s6.availableFrom.label')}
+          {avail.availabilityStatus === 'available_from_date' && <span className="text-red-500"> *</span>}
+          <FieldStatusBadge vs={vs} field="availability.availableFrom" />
+        </label>
+        <input
+          type="date"
+          value={avail.availableFrom ?? ''}
+          onChange={e => upd({ availableFrom: e.target.value })}
+          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldBorderClass(vs, 'availability.availableFrom')}`}
+        />
+        <FieldNote vs={vs} field="availability.availableFrom" />
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         {isShortTerm ? (

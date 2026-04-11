@@ -60,9 +60,10 @@ public class SuperAdminController {
     @GetMapping("/audit-log")
     public Page<ProfileAuditLog> getAuditLog(
             @RequestParam(required = false) UUID profileId,
+            @RequestParam(required = false) String q,
             @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
 
-        return superAdminService.getAuditLog(profileId, pageable);
+        return superAdminService.getAuditLog(profileId, q, pageable);
     }
 }

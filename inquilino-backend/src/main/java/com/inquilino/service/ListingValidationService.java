@@ -28,11 +28,14 @@ public class ListingValidationService {
     @Transactional
     public Listing openListing(UUID listingId, UUID supervisorId) {
         Listing listing = getListing(listingId);
-        if (listing.getStatus() == ListingStatus.IN_REVIEW) {
+        if (listing.getStatus() == ListingStatus.IN_REVIEW
+                || listing.getStatus() == ListingStatus.PUBLISHED) {
+            ListingStatus prev = listing.getStatus();
+            listing.setStatus(ListingStatus.IN_REVIEW);
             listing.setAssignedSupervisorId(supervisorId);
             listingRepo.save(listing);
             audit(listingId, supervisorId, "SUPERVISOR", ListingAuditAction.STATUS_CHANGED,
-                    null, ListingStatus.IN_REVIEW.name(), ListingStatus.IN_REVIEW.name(), "Aperto per revisione");
+                    null, prev.name(), ListingStatus.IN_REVIEW.name(), "Aperto per revisione");
         }
         return listing;
     }
@@ -85,6 +88,14 @@ public class ListingValidationService {
     @Transactional
     public Listing completeValidation(UUID listingId, UUID supervisorId) {
         Listing listing = getListing(listingId);
+        ListingStatus prevStatus = listing.getStatus();
+
+        if (prevStatus != ListingStatus.IN_REVIEW
+                && prevStatus != ListingStatus.PUBLISHED
+                && prevStatus != ListingStatus.REJECTED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot complete validation for listing in status " + prevStatus);
+        }
 
         List<ListingFieldValidation> flagged = fieldValidationRepo
                 .findByListingIdAndStatus(listingId, FieldValidationStatus.FLAGGED);
@@ -96,7 +107,7 @@ public class ListingValidationService {
             listing.setLastValidatedBySupervisorId(supervisorId);
             listingRepo.save(listing);
             audit(listingId, supervisorId, "SUPERVISOR", ListingAuditAction.PUBLISHED,
-                    null, ListingStatus.IN_REVIEW.name(), ListingStatus.PUBLISHED.name(), null);
+                    null, prevStatus.name(), ListingStatus.PUBLISHED.name(), null);
             notificationService.notifyListingPublished(listing.getPublisherUserId());
             // Trigger matching: trova tutti i tenant compatibili
             matchingService.computeMatchesForListing(listingId);
@@ -106,7 +117,7 @@ public class ListingValidationService {
             listing.setLastValidatedBySupervisorId(supervisorId);
             listingRepo.save(listing);
             audit(listingId, supervisorId, "SUPERVISOR", ListingAuditAction.REJECTED,
-                    null, ListingStatus.IN_REVIEW.name(), ListingStatus.REJECTED.name(), null);
+                    null, prevStatus.name(), ListingStatus.REJECTED.name(), null);
             notificationService.notifyListingRejected(listing.getPublisherUserId());
         }
         return listing;

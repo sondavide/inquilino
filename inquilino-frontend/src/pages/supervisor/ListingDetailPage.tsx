@@ -447,7 +447,7 @@ export default function ListingDetailPage() {
       ))}
 
       {/* Complete validation button */}
-      {listing.status === 'IN_REVIEW' && (
+      {(listing.status === 'IN_REVIEW' || listing.status === 'PUBLISHED' || listing.status === 'REJECTED') && (
         <div className="bg-white rounded-2xl border border-gray-200 p-4 mt-4">
           {flaggedCount > 0 && (
             <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">

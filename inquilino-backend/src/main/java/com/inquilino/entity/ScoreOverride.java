@@ -2,6 +2,7 @@ package com.inquilino.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
@@ -41,8 +42,9 @@ public class ScoreOverride {
     @Column(columnDefinition = "TEXT")
     private String reason;
 
+    @CreationTimestamp
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(nullable = false)

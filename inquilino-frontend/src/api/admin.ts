@@ -9,9 +9,9 @@ export const adminApi = {
   listSupervisors: () =>
     apiClient.get<SupervisorUser[]>('/admin/supervisors').then(r => r.data),
 
-  getAuditLog: (profileId?: string, page = 0, size = 50) =>
+  getAuditLog: (profileId?: string, q?: string, page = 0, size = 50) =>
     apiClient.get<{ content: AuditLogEntry[]; totalPages: number; totalElements: number }>(
       '/admin/audit-log',
-      { params: { profileId, page, size } }
+      { params: { profileId, q: q || undefined, page, size } }
     ).then(r => r.data),
 }

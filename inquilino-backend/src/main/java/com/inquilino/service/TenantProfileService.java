@@ -96,7 +96,19 @@ public class TenantProfileService {
             p.setVerificationStatus(VerificationStatus.PENDING_VALIDATION);
         }
 
+        p.setProfileCompletion(100);
         profileRepo.save(p);
+    }
+
+    /**
+     * Persists the current profile-completion percentage (0-100) derived from
+     * the onboarding checklist. Called after every step advance.
+     */
+    public void updateProfileCompletion(UUID userId, int completionPct) {
+        profileRepo.findByUserId(userId).ifPresent(p -> {
+            p.setProfileCompletion(completionPct);
+            profileRepo.save(p);
+        });
     }
 
     // ─── Parsing helpers ──────────────────────────────────────────────────────────

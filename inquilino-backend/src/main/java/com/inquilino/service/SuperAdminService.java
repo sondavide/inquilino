@@ -53,7 +53,10 @@ public class SuperAdminService {
         return userRepository.findByType(UserType.SUPERVISOR);
     }
 
-    public Page<ProfileAuditLog> getAuditLog(UUID profileId, Pageable pageable) {
+    public Page<ProfileAuditLog> getAuditLog(UUID profileId, String q, Pageable pageable) {
+        if (q != null && !q.isBlank()) {
+            return auditLogRepo.search(profileId, "%" + q.toLowerCase() + "%", pageable);
+        }
         if (profileId != null) {
             return auditLogRepo.findByTenantProfileIdOrderByCreatedAtDesc(profileId, pageable);
         }

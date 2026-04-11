@@ -255,6 +255,22 @@ public class OnboardingService {
                                 }
                                 stateRepository.save(state);
 
+                                // Update profile completion percentage after every message
+                                Map<String, Object> collected = state.getCollectedData() != null
+                                        ? state.getCollectedData() : Map.of();
+                                long totalRequired = stepRegistry.getAll().stream()
+                                        .flatMap(s -> s.getChecklistItems().stream())
+                                        .filter(ChecklistItem::required)
+                                        .count();
+                                long collectedRequired = stepRegistry.getAll().stream()
+                                        .flatMap(s -> s.getChecklistItems().stream())
+                                        .filter(ChecklistItem::required)
+                                        .filter(item -> item.isCollected(collected))
+                                        .count();
+                                int completionPct = totalRequired > 0
+                                        ? (int) Math.round((double) collectedRequired / totalRequired * 100) : 0;
+                                tenantProfileService.updateProfileCompletion(user.getId(), completionPct);
+
                                 // Sync profile when onboarding completes
                                 if ("STEP_18".equals(state.getCurrentStep())) {
                                     tenantProfileService.syncOnCompletion(user.getId());
