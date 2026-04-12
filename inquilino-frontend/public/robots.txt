@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# Pagine private — non indicizzare
+Disallow: /onboarding
+Disallow: /profile
+Disallow: /matches
+Disallow: /mutual
+Disallow: /landlord/listings
+Disallow: /landlord/profile
+Disallow: /supervisor/
+Disallow: /admin/
+Disallow: /auth/
+
+Sitemap: https://www.inquilinofacile.it/sitemap.xml

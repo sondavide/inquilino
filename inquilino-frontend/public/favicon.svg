@@ -1,0 +1,50 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Bubble casa (unico path) -->
+  <path d="
+    M30 70
+    Q30 50 50 50
+    H120
+    Q140 50 140 70
+    V110
+    Q140 130 120 130
+    H80
+    L65 145
+    L70 130
+    H50
+    Q30 130 30 110
+    Z
+  " stroke="#1f3a5f" stroke-width="4" fill="none" stroke-linejoin="round"/>
+
+  <!-- Casa (unico path) -->
+  <path d="
+    M65 105
+    L85 85
+    L105 105
+    M70 105
+    V120
+    H100
+    V105
+  " stroke="#1f3a5f" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Bubble utente (unico path) -->
+  <path d="
+    M80 30
+    Q80 10 100 10
+    H160
+    Q180 10 180 30
+    V70
+    Q180 90 160 90
+    H130
+    L140 105
+    L115 90
+    H100
+    Q80 90 80 70
+    Z
+  " stroke="#ff7a00" stroke-width="4" fill="none" stroke-linejoin="round"/>
+
+  <!-- Utente -->
+  <circle cx="130" cy="45" r="10" stroke="#ff7a00" stroke-width="4"/>
+  <path d="M110 70 Q130 55 150 70" stroke="#ff7a00" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+</svg>

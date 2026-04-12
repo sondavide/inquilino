@@ -100,6 +100,80 @@
       }
     }
     </script>
+
+    <!-- JSON-LD: FAQPage — rich results nei SERP di Google -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Il servizio è davvero gratuito per gli inquilini?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sì, il profilo inquilino è completamente gratuito e lo rimarrà. Puoi creare il tuo profilo verificato, caricare documenti e candidarti agli immobili senza nessun costo."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Come vengono verificati i documenti?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "I documenti vengono analizzati tramite intelligenza artificiale (GPT-4o) per verificarne la coerenza e estrarre i dati principali. Il sistema confronta i dati dichiarati con quelli estratti. Non è una verifica legale, ma un controllo di coerenza documentale."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "I miei dati sono al sicuro?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sì. Tutti i documenti sono cifrati a riposo (AES-256) e in transito (TLS 1.3). I locatori vedono solo il profilo sintetico — mai i documenti originali. La piattaforma è certificata GDPR e AI Act compliant."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Cosa vede il locatore del mio profilo?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Il locatore vede: le tue preferenze abitative (zone, budget, data ingresso), gli indicatori di affidabilità (ALTA/MEDIA/BASSA) per sostenibilità del canone, stabilità reddituale e completezza documentale. Non vede i documenti originali né il reddito esatto senza il tuo consenso."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Come funziona lo scoring di affidabilità?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Lo scoring è composto da tre indicatori categoriali: sostenibilità del canone (rapporto affitto/reddito), stabilità reddituale (tipo e anzianità contratto) e affidabilità documentale (completezza e coerenza dei documenti). Non esiste un punteggio numerico globale. Tutto è spiegabile e contestabile."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Posso cancellare il mio account e tutti i miei dati?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sì, in qualsiasi momento. Dalle impostazioni puoi richiedere la cancellazione completa. I dati vengono eliminati entro 30 giorni dalla richiesta, in conformità al GDPR."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Come fa un locatore a contattarmi?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Il locatore invia una richiesta di contatto tramite la piattaforma. Tu ricevi una notifica e decidi se accettare o meno. I tuoi dati di contatto non vengono mai condivisi automaticamente."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Cosa succede se i miei dati cambiano (es. cambio lavoro)?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Puoi aggiornare il tuo profilo in qualsiasi momento. Ti consigliamo di aggiornare le informazioni entro 30 giorni da ogni variazione significativa (cambio lavoro, variazione reddito, ecc.)."
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
