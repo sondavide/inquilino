@@ -816,9 +816,10 @@ const translations = {
     'landing.agency.close':             'Chiudi',
 
     // ── Landing — cookie notice ───────────────────────────────────────────────
-    'landing.cookie.message':           'Utilizziamo solo cookie tecnici necessari per il funzionamento del servizio.',
+    'landing.cookie.message':           'Usiamo cookie tecnici (necessari) e, con il tuo consenso, cookie analitici di Google Analytics per migliorare il servizio.',
     'landing.cookie.link':              'Cookie Policy',
-    'landing.cookie.accept':            'Ho capito',
+    'landing.cookie.accept':            'Accetta tutto',
+    'landing.cookie.reject':            'Solo necessari',
 
     // ── Landing — footer ──────────────────────────────────────────────────────
     'landing.footer.tagline':           'La piattaforma che rende l\'affitto sicuro e trasparente per tutti.',
@@ -1632,9 +1633,10 @@ const translations = {
     'landing.agency.close':             'Close',
 
     // ── Landing — cookie notice ───────────────────────────────────────────────
-    'landing.cookie.message':           'We use only technical cookies necessary for the service.',
+    'landing.cookie.message':           'We use necessary technical cookies and, with your consent, Google Analytics cookies to improve the service.',
     'landing.cookie.link':              'Cookie Policy',
-    'landing.cookie.accept':            'Got it',
+    'landing.cookie.accept':            'Accept all',
+    'landing.cookie.reject':            'Necessary only',
 
     // ── Landing — footer ──────────────────────────────────────────────────────
     'landing.footer.tagline':           'The platform that makes renting safe and transparent for everyone.',

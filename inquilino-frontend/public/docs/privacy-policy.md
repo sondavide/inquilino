@@ -3,7 +3,7 @@
 
 **Piattaforma:** InquilinoFacile.it  
 **Versione:** 1.0  
-**Data ultimo aggiornamento:** 08 aprile 2026  
+**Data ultimo aggiornamento:** 13 aprile 2026  
 
 ---
 
@@ -98,6 +98,18 @@ Raccogliamo le seguenti categorie di dati nel corso della registrazione e dell'o
 - Cookie di sessione (JWT) — vedi [Cookie Policy](cookie-policy.md)
 - Log di accesso e attività sulla piattaforma (audit log)
 
+### 3.4 Dati Analitici (solo con consenso)
+
+Se l'utente acconsente all'uso dei cookie analitici tramite il banner di scelta cookie, vengono raccolti tramite Google Analytics 4:
+
+- Identificativo utente anonimo (ID casuale, non collegabile all'identità reale)
+- Pagine visitate e percorsi di navigazione
+- Tipo di dispositivo, browser e sistema operativo
+- Paese/regione di provenienza (non l'indirizzo IP completo)
+- Durata della sessione e interazioni con la pagina
+
+Questi dati sono trattati in forma aggregata e anonimizzata. L'indirizzo IP viene anonimizzato prima di qualsiasi trasmissione a Google.
+
 ---
 
 ## 4. Finalità e Basi Giuridiche del Trattamento
@@ -111,6 +123,7 @@ Raccogliamo le seguenti categorie di dati nel corso della registrazione e dell'o
 | Matching con locatori e visibilità del profilo | Consenso esplicito (art. 6.1.a) |
 | Condivisione del profilo sintetico con locatori | Consenso esplicito (art. 6.1.a) |
 | Sicurezza della piattaforma e audit log | Legittimo interesse (art. 6.1.f) |
+| Analisi statistica del traffico (Google Analytics) | Consenso (art. 6.1.a) — solo se accettato tramite banner cookie |
 | Adempimento obblighi di legge | Obbligo legale (art. 6.1.c) |
 
 ### Trattamento relativo alla profilazione automatizzata
@@ -157,6 +170,7 @@ Il Titolare si avvale di fornitori che agiscono come Responsabili del Trattament
 | Fornitore | Ruolo | Trasferimento extra-UE |
 |-----------|-------|------------------------|
 | OpenAI (GPT-4o / GPT-4o-mini) | Elaborazione AI conversazionale e verifica documenti | Sì — USA, con Standard Contractual Clauses (SCC) |
+| Google LLC (Google Analytics 4) | Analisi statistica del traffico (solo con consenso) | Sì — USA, con Standard Contractual Clauses (SCC) |
 | [PROVIDER_HOSTING] (es. Hetzner) | Hosting infrastruttura | No (UE) |
 | [PROVIDER_EMAIL] | Email transazionale | Da valutare |
 
@@ -170,7 +184,10 @@ I dati possono essere comunicati ad autorità giudiziarie o amministrative ove p
 
 ## 7. Trasferimenti di Dati Extra-UE
 
-Il trasferimento di dati verso OpenAI (USA) avviene sulla base delle **Clausole Contrattuali Standard (SCC)** adottate dalla Commissione Europea (Decisione 2021/914/UE), che garantiscono un livello di protezione adeguato ai sensi del GDPR.
+I trasferimenti di dati verso USA avvengono sulla base delle **Clausole Contrattuali Standard (SCC)** adottate dalla Commissione Europea (Decisione 2021/914/UE), che garantiscono un livello di protezione adeguato ai sensi del GDPR. I fornitori coinvolti sono:
+
+- **OpenAI** — elaborazione AI
+- **Google LLC** — analisi del traffico tramite Google Analytics 4 (solo con consenso)
 
 ---
 

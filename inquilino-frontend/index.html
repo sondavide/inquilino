@@ -42,6 +42,30 @@
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
+    <!-- Google Analytics — Consent Mode v2 -->
+    <!-- Step 1: inizializza dataLayer e imposta il default NEGATO prima che GA si carichi -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        analytics_storage:    'denied',
+        ad_storage:           'denied',
+        ad_user_data:         'denied',
+        ad_personalization:   'denied'
+      });
+      // Step 2: se l'utente ha già accettato in una visita precedente, ripristina il consenso
+      // prima che GA si carichi, così la sessione viene tracciata correttamente
+      if (localStorage.getItem('cookie_consent') === 'granted') {
+        gtag('consent', 'update', { analytics_storage: 'granted' });
+      }
+    </script>
+    <!-- Step 3: carica lo script GA (non traccia nulla finché analytics_storage è 'denied') -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-YZQTSGQ7GM"></script>
+    <script>
+      gtag('js', new Date());
+      gtag('config', 'G-YZQTSGQ7GM');
+    </script>
+
     <!-- Inter font -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
