@@ -303,23 +303,38 @@ function DocumentsTab({ docs, validations, onDelete, onAdd }: {
       {docs.map(doc => {
         const docVal = vmap[`doc.${doc.type}`]
         const canDelete = !doc.verified && docVal?.status !== 'APPROVED'
+        const quickCheckPassed = doc.extractedData?.quick_check_passed as boolean | undefined
+        const quickCheckNote   = doc.extractedData?.quick_check_note   as string | undefined
+        const aiFailed = quickCheckPassed === false
+
+        const cardBg = docVal?.status === 'APPROVED'     ? 'bg-emerald-50 dark:bg-emerald-950/20' :
+                       docVal?.status === 'FLAGGED'      ? 'bg-red-50 dark:bg-red-950/20' :
+                       aiFailed                          ? 'bg-orange-50 dark:bg-orange-950/20' : 'bg-card'
+
         return (
-          <div key={doc.id} className={`rounded-xl border p-4 flex items-start gap-3 ${
-            docVal?.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/20' :
-            docVal?.status === 'FLAGGED'  ? 'bg-red-50 dark:bg-red-950/20' : 'bg-card'
+          <div key={doc.id} className={`rounded-xl border p-4 flex items-start gap-3 ${cardBg} ${
+            aiFailed && docVal?.status !== 'APPROVED' ? 'border-orange-300 dark:border-orange-700' : ''
           }`}>
-            <span className="text-2xl shrink-0">📄</span>
+            <span className="text-2xl shrink-0">{aiFailed && docVal?.status !== 'APPROVED' ? '⚠️' : '📄'}</span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground">{docLabel(doc.type)}</p>
               <p className="text-xs text-muted-foreground">{fmtDate(doc.uploadedAt)}</p>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                  doc.verified
-                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                    : 'bg-amber-100 text-amber-700 border-amber-200'
-                }`}>
-                  {doc.verified ? t('doc.verified') : t('doc.pending')}
-                </span>
+                {quickCheckPassed === true && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">
+                    {t('doc.ai_check_ok')}
+                  </span>
+                )}
+                {quickCheckPassed === false && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-red-100 text-red-700 border-red-200">
+                    {t('doc.ai_check_fail')}
+                  </span>
+                )}
+                {quickCheckPassed === undefined && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200">
+                    {t('doc.ai_check_pending')}
+                  </span>
+                )}
                 {docVal?.status === 'APPROVED' && (
                   <span className="text-[10px] font-semibold text-emerald-600">✓ Validato</span>
                 )}
@@ -334,6 +349,11 @@ function DocumentsTab({ docs, validations, onDelete, onAdd }: {
                   {previewingId === doc.id ? '…' : 'Visualizza'}
                 </button>
               </div>
+              {aiFailed && quickCheckNote && docVal?.status !== 'APPROVED' && (
+                <p className="text-xs text-orange-700 dark:text-orange-400 mt-1.5 bg-orange-100/60 dark:bg-orange-900/20 rounded-lg px-2 py-1">
+                  {quickCheckNote}
+                </p>
+              )}
               {docVal?.status === 'FLAGGED' && docVal.note && (
                 <p className="text-xs text-red-600 italic mt-1">{docVal.note}</p>
               )}

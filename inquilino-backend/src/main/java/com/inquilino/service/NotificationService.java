@@ -110,6 +110,18 @@ public class NotificationService {
         webPushService.sendToUser(userId, title, message);
     }
 
+    /**
+     * Notifica il superadmin al termine del ricalcolo bulk dei match
+     * seguito all'aggiornamento di un template di scoring.
+     */
+    public void notifySuperadminBulkRecalcComplete(UUID superadminId, String templateName, int profileCount) {
+        String title   = "Ricalcolo completato";
+        String message = String.format(
+                "Template \"%s\": %d profili ricalcolati con i nuovi pesi.",
+                templateName, profileCount);
+        saveInApp(superadminId, "BULK_RECALC_COMPLETE", title, message);
+    }
+
     private void saveInApp(UUID userId, String type, String title, String message) {
         notificationRepo.save(ProfileNotification.builder()
                 .userId(userId)

@@ -29,6 +29,7 @@ public record SupervisorProfileDetailDto(
         String  verificationStatus,
         int     profileCompletion,
         UUID    assignedSupervisorId,
+        UUID    scoringTemplateId,
         ScoreDetailDto score
 ) {
     public static SupervisorProfileDetailDto from(TenantProfile p, ScoreDetailDto score) {
@@ -57,6 +58,7 @@ public record SupervisorProfileDetailDto(
                 p.getVerificationStatus().name(),
                 p.getProfileCompletion(),
                 p.getAssignedSupervisorId(),
+                p.getScoringTemplateId(),
                 score
         );
     }

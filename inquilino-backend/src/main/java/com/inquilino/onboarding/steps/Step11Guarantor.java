@@ -7,6 +7,7 @@ import com.inquilino.onboarding.Suggestion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class Step11Guarantor implements OnboardingStep {
@@ -26,23 +27,23 @@ public class Step11Guarantor implements OnboardingStep {
                 DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
 
                 → "has_guarantor" missing
-                    → ask: "Hai un garante?"
+                    → ask whether they have a guarantor (a person who guarantees the rent)
 
                 → has_guarantor = true and "guarantor_name" missing
-                    → ask: "Come si chiama il tuo garante?"
+                    → ask for the guarantor's full name
 
                 → has_guarantor = true and "guarantor_income" missing
-                    → ask: "Qual è il reddito mensile netto approssimativo del garante?"
+                    → ask for the guarantor's approximate net monthly income in EUR
 
                 → has_guarantor = false
-                    → output: "Nessun garante — annotato." and STOP.
+                    → output a brief acknowledgment that no guarantor was noted, then stop.
 
                 → ALL required fields collected
-                    → output: "Ho tutte le informazioni sul garante." and STOP.
+                    → output a brief, warm confirmation sentence and stop.
 
                 Rules:
                 - If the user's answer does not provide the expected field, re-ask the SAME question once more.
-                - ALWAYS respond in %s
+                - ALWAYS respond in %s.
                 """.formatted(ctx.formattedData(), ctx.lang());
     }
 
@@ -90,4 +91,23 @@ public class Step11Guarantor implements OnboardingStep {
 
     @Override
     public String resolveNextStep(OnboardingContext ctx) { return "STEP_12"; }
+
+    @Override
+    public Optional<String> nextMissingField(OnboardingContext ctx) {
+        if (!ctx.hasData("has_guarantor")) return Optional.of("has_guarantor");
+        if (!ctx.getBooleanData("has_guarantor")) return Optional.empty(); // no guarantor → done
+        if (!ctx.hasData("guarantor_name"))   return Optional.of("guarantor_name");
+        if (!ctx.hasData("guarantor_income")) return Optional.of("guarantor_income");
+        return Optional.empty();
+    }
+
+    @Override
+    public String fieldHint(String field, OnboardingContext ctx) {
+        return switch (field) {
+            case "has_guarantor"    -> "Ask whether they have a guarantor (a person who guarantees the rent payments). Yes/no.";
+            case "guarantor_name"   -> "Ask for the guarantor's full name.";
+            case "guarantor_income" -> "Ask for the guarantor's approximate net monthly income in EUR.";
+            default -> "Ask for: " + field;
+        };
+    }
 }

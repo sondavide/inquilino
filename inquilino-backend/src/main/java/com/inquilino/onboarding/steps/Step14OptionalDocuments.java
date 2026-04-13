@@ -8,6 +8,7 @@ import com.inquilino.onboarding.Suggestion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class Step14OptionalDocuments implements OnboardingStep {
@@ -39,8 +40,8 @@ public class Step14OptionalDocuments implements OnboardingStep {
                 Rules:
                 - Explain that these documents are optional but improve the profile significantly
                 - If the tenant says they have them, guide the upload
-                - If they say they don't have any OR they want to skip, acknowledge it kindly with one brief sentence and stop
-                - IMPORTANT: whenever the user is done (uploaded what they have, or wants to skip), say explicitly "Procediamo con la verifica dei dati" so the system can move forward
+                - If they say they don't have any OR they want to skip, acknowledge it kindly with one brief sentence
+                - When the user is done (uploaded what they have, or wants to skip), acknowledge with one brief sentence and stop
                 - ALWAYS respond in %s
                 """.formatted(ctx.formattedData(), ctx.lang());
     }
@@ -82,4 +83,16 @@ public class Step14OptionalDocuments implements OnboardingStep {
 
     @Override
     public String resolveNextStep(OnboardingContext ctx) { return "STEP_15"; }
+
+    @Override
+    public Optional<String> nextMissingField(OnboardingContext ctx) {
+        if (!ctx.hasData("optional_docs_step_done")) return Optional.of("optional_docs_step_done");
+        return Optional.empty();
+    }
+
+    @Override
+    public String fieldHint(String field, OnboardingContext ctx) {
+        return "Offer to let the user upload optional documents (landlord reference, bank statement, employment contract). " +
+               "Explain they are optional but improve the profile. Ask if they have any to upload, or if they want to skip.";
+    }
 }

@@ -1,9 +1,15 @@
 package com.inquilino.controller;
 
 import com.inquilino.dto.admin.CreateSupervisorRequest;
+import com.inquilino.dto.admin.OnboardingAnalyticsResponse;
+import com.inquilino.dto.admin.ScoringTemplateDto;
+import com.inquilino.dto.admin.ScoringTemplateRequest;
+import com.inquilino.dto.admin.StepConfigDto;
 import com.inquilino.entity.ProfileAuditLog;
 import com.inquilino.entity.User;
 import com.inquilino.security.UserPrincipal;
+import com.inquilino.service.OnboardingPromptService;
+import com.inquilino.service.ScoringTemplateService;
 import com.inquilino.service.SuperAdminService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +30,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SuperAdminController {
 
-    private final SuperAdminService superAdminService;
+    private final SuperAdminService       superAdminService;
+    private final OnboardingPromptService onboardingPromptService;
+    private final ScoringTemplateService  scoringTemplateService;
 
     // ─── Supervisori ──────────────────────────────────────────────────────────
 
@@ -53,6 +61,91 @@ public class SuperAdminController {
                         "phone", u.getPhone() != null ? u.getPhone() : ""
                 ))
                 .toList();
+    }
+
+    // ─── Onboarding prompt configs ────────────────────────────────────────────
+
+    /** Lists prompt config for all steps (null overrides = code defaults are active). */
+    @GetMapping("/onboarding/configs")
+    public List<StepConfigDto> listOnboardingConfigs() {
+        return onboardingPromptService.listConfigs();
+    }
+
+    /** Returns the config for a single step. */
+    @GetMapping("/onboarding/configs/{stepId}")
+    public StepConfigDto getOnboardingConfig(@PathVariable String stepId) {
+        return onboardingPromptService.getConfig(stepId);
+    }
+
+    /**
+     * Saves (upserts) prompt overrides for a step. Takes effect within ~30 s — no restart needed.
+     * Pass null or empty string for a field to revert it to the code default.
+     */
+    @PutMapping("/onboarding/configs/{stepId}")
+    public StepConfigDto saveOnboardingConfig(
+            @PathVariable String stepId,
+            @RequestBody StepConfigDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        return onboardingPromptService.saveConfig(stepId, dto, principal.getEmail());
+    }
+
+    /**
+     * Deletes the override for a step, fully reverting to the hardcoded Java default.
+     */
+    @DeleteMapping("/onboarding/configs/{stepId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteOnboardingConfig(@PathVariable String stepId) {
+        onboardingPromptService.deleteConfig(stepId);
+    }
+
+    // ─── Onboarding analytics ─────────────────────────────────────────────────
+
+    /**
+     * Returns per-step completion/stuck rates and per-field population rates.
+     * Computes live from onboarding_states — intended for low-frequency admin access.
+     */
+    @GetMapping("/onboarding/analytics")
+    public OnboardingAnalyticsResponse getOnboardingAnalytics() {
+        return onboardingPromptService.computeAnalytics();
+    }
+
+    // ─── Scoring templates ────────────────────────────────────────────────────
+
+    @GetMapping("/scoring-templates")
+    public List<ScoringTemplateDto> listScoringTemplates() {
+        return scoringTemplateService.listAll();
+    }
+
+    @GetMapping("/scoring-templates/{id}")
+    public ScoringTemplateDto getScoringTemplate(@PathVariable UUID id) {
+        return scoringTemplateService.getById(id);
+    }
+
+    @PostMapping("/scoring-templates")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ScoringTemplateDto createScoringTemplate(
+            @RequestBody @Valid ScoringTemplateRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return scoringTemplateService.create(req, principal.getUserId());
+    }
+
+    /**
+     * Aggiorna i pesi del template e avvia il ricalcolo in background
+     * per tutti i profili VERIFIED collegati. Al termine arriva una notifica.
+     */
+    @PutMapping("/scoring-templates/{id}")
+    public ScoringTemplateDto updateScoringTemplate(
+            @PathVariable UUID id,
+            @RequestBody @Valid ScoringTemplateRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return scoringTemplateService.update(id, req, principal.getUserId());
+    }
+
+    @DeleteMapping("/scoring-templates/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteScoringTemplate(@PathVariable UUID id) {
+        scoringTemplateService.delete(id);
     }
 
     // ─── Audit log ────────────────────────────────────────────────────────────

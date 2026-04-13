@@ -12,7 +12,9 @@ import TenantMutualPage     from '@/pages/tenant/TenantMutualPage'
 import ProfileListPage      from '@/pages/supervisor/ProfileListPage'
 import ProfileDetailPage    from '@/pages/supervisor/ProfileDetailPage'
 import SupervisorManagementPage from '@/pages/admin/SupervisorManagementPage'
-import AuditLogPage         from '@/pages/admin/AuditLogPage'
+import AuditLogPage             from '@/pages/admin/AuditLogPage'
+import OnboardingConfigPage     from '@/pages/admin/OnboardingConfigPage'
+import ScoringTemplatesPage     from '@/pages/admin/ScoringTemplatesPage'
 import AppLayout            from '@/components/layout/AppLayout'
 import { UserType }         from '@/types'
 // Landlord
@@ -202,6 +204,16 @@ function AppRoutes() {
           <Route path="/admin/audit-log" element={
             <RoleGuard roles={[UserType.SUPERADMIN]}>
               <AuditLogPage />
+            </RoleGuard>
+          } />
+          <Route path="/admin/onboarding" element={
+            <RoleGuard roles={[UserType.SUPERADMIN]}>
+              <OnboardingConfigPage />
+            </RoleGuard>
+          } />
+          <Route path="/admin/scoring-templates" element={
+            <RoleGuard roles={[UserType.SUPERADMIN]}>
+              <ScoringTemplatesPage />
             </RoleGuard>
           } />
         </Route>

@@ -31,7 +31,12 @@
       "Bash(xargs grep:*)",
       "Bash(xargs -I {} bash -c 'echo \"=== {} ===\" && head -5 {}')",
       "Bash(npm run:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(./mvnw compile:*)",
+      "Bash(mvn compile:*)",
+      "Bash(java -version)",
+      "Read(//c/Users/Davide.Noviello/.m2/**)",
+      "Bash(xargs ls:*)"
     ]
   }
 }

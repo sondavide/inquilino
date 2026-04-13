@@ -82,4 +82,12 @@ public class TenantProfile {
     /** Supervisore che ha effettuato l'ultima validazione (notificato quando l'utente corregge) */
     @Column(name = "last_validated_by_supervisor_id")
     private UUID lastValidatedBySupervisorId;
+
+    /**
+     * Template di scoring assegnato al profilo dal supervisore.
+     * Se null vengono usati i pesi di default (20/20/20/20/20).
+     * Live-link: quando il template viene aggiornato, i match vengono ricalcolati in background.
+     */
+    @Column(name = "scoring_template_id")
+    private UUID scoringTemplateId;
 }

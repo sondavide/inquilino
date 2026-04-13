@@ -7,6 +7,7 @@ import com.inquilino.onboarding.Suggestion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class Step15CoherenceCheck implements OnboardingStep {
@@ -75,4 +76,16 @@ public class Step15CoherenceCheck implements OnboardingStep {
 
     @Override
     public String resolveNextStep(OnboardingContext ctx) { return "STEP_16"; }
+
+    @Override
+    public Optional<String> nextMissingField(OnboardingContext ctx) {
+        if (!ctx.hasData("coherence_check_done")) return Optional.of("coherence_check_done");
+        return Optional.empty();
+    }
+
+    @Override
+    public String fieldHint(String field, OnboardingContext ctx) {
+        return "Review all collected data for inconsistencies. Flag any issues and ask the user to confirm or correct them. " +
+               "Once they confirm, the step is complete.";
+    }
 }

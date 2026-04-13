@@ -3,25 +3,39 @@ package com.inquilino.service;
 import com.inquilino.dto.supervisor.ScoreDetailDto;
 import com.inquilino.dto.tenant.ScoreDto;
 import com.inquilino.entity.Document;
+import com.inquilino.entity.FieldValidation;
 import com.inquilino.entity.ScoreOverride;
 import com.inquilino.entity.TenantProfile;
 import com.inquilino.enums.EmploymentType;
+import com.inquilino.enums.FieldValidationStatus;
+import com.inquilino.repository.FieldValidationRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Calculates the three categorical reliability scores for a tenant.
  * All thresholds come from descrizione.md — do not change them without updating the spec.
+ *
+ * Document reliability counts ONLY supervisor-approved documents (FieldValidation APPROVED
+ * with fieldName starting with "doc."). AI quick-check is for supervisor guidance only.
  */
 @Service
+@RequiredArgsConstructor
 public class ScoringService {
 
+    private final FieldValidationRepository fieldValidationRepo;
+
     public ScoreDto calculate(TenantProfile profile, List<Document> documents) {
+        UUID profileId = profile != null ? profile.getId() : null;
         return new ScoreDto(
                 rentSustainability(profile),
                 incomeStability(profile),
-                documentReliability(documents),
+                documentReliability(documents, profileId),
                 profile != null ? profile.getProfileCompletion() : 0
         );
     }
@@ -32,10 +46,12 @@ public class ScoringService {
      */
     public ScoreDetailDto calculateDetail(TenantProfile profile, List<Document> documents,
                                           ScoreOverride override) {
-        String algoRent = rentSustainability(profile);
-        String algoIncome = incomeStability(profile);
-        String algoDoc = documentReliability(documents);
-        int algoCompletion = profile != null ? profile.getProfileCompletion() : 0;
+        UUID profileId = profile != null ? profile.getId() : null;
+
+        String algoRent      = rentSustainability(profile);
+        String algoIncome    = incomeStability(profile);
+        String algoDoc       = documentReliability(documents, profileId);
+        int    algoCompletion = profile != null ? profile.getProfileCompletion() : 0;
 
         String overrideRent   = override != null ? override.getRentSustainability()   : null;
         String overrideIncome = override != null ? override.getIncomeStability()       : null;
@@ -45,7 +61,7 @@ public class ScoringService {
         return new ScoreDetailDto(
                 algoRent,    rentSustainabilityExplanation(profile),
                 algoIncome,  incomeStabilityExplanation(profile),
-                algoDoc,     documentReliabilityExplanation(documents),
+                algoDoc,     documentReliabilityExplanation(documents, profileId),
                 algoCompletion,
                 overrideRent, overrideIncome, overrideDoc, overrideReason,
                 overrideRent   != null ? overrideRent   : algoRent,
@@ -87,20 +103,40 @@ public class ScoringService {
     }
 
     // ─── Document reliability ─────────────────────────────────────────────────────
-    // Based on ratio of verified documents to total
+    // Conta solo i documenti approvati dal supervisore (FieldValidation APPROVED).
+    // Il quick-check AI è solo un ausilio per il supervisore, non conta nel punteggio.
 
     /** Public accessor used by MatchingService for tenant_strength_score. */
-    public String documentReliabilityCategory(List<Document> docs) {
-        return documentReliability(docs);
+    public String documentReliabilityCategory(List<Document> docs, UUID tenantProfileId) {
+        return documentReliability(docs, tenantProfileId);
     }
 
-    private String documentReliability(List<Document> docs) {
+    private String documentReliability(List<Document> docs, UUID tenantProfileId) {
         if (docs == null || docs.isEmpty()) return "LOW";
-        long verified = docs.stream().filter(Document::isVerified).count();
-        double ratio  = (double) verified / docs.size();
+
+        Set<String> approvedFields = getSupervisorApprovedDocFields(tenantProfileId);
+        long approved = docs.stream()
+                .filter(d -> approvedFields.contains("doc." + d.getType().name()))
+                .count();
+
+        double ratio = (double) approved / docs.size();
         if (ratio >= 0.7) return "HIGH";
         if (ratio >= 0.3) return "MEDIUM";
         return "LOW";
+    }
+
+    /**
+     * Returns the set of field names (e.g. "doc.PAYSLIP") that the supervisor has
+     * explicitly approved for the given profile.
+     */
+    public Set<String> getSupervisorApprovedDocFields(UUID tenantProfileId) {
+        if (tenantProfileId == null) return Set.of();
+        return fieldValidationRepo
+                .findByTenantProfileIdAndStatus(tenantProfileId, FieldValidationStatus.APPROVED)
+                .stream()
+                .map(FieldValidation::getFieldName)
+                .filter(f -> f.startsWith("doc."))
+                .collect(Collectors.toSet());
     }
 
     // ─── Explanation builders ────────────────────────────────────────────────────
@@ -122,24 +158,28 @@ public class ScoringService {
         if (p == null || p.getEmploymentType() == null)
             return "Tipo di impiego non dichiarato → LOW";
         String label = switch (p.getEmploymentType()) {
-            case EMPLOYEE    -> "Dipendente (EMPLOYEE) → HIGH";
+            case EMPLOYEE      -> "Dipendente (EMPLOYEE) → HIGH";
             case SELF_EMPLOYED -> "Autonomo (SELF_EMPLOYED) → MEDIUM";
-            case RETIRED     -> "Pensionato (RETIRED) → MEDIUM";
-            case STUDENT     -> "Studente (STUDENT) → LOW";
-            case OTHER       -> "Altro (OTHER) → LOW";
+            case RETIRED       -> "Pensionato (RETIRED) → MEDIUM";
+            case STUDENT       -> "Studente (STUDENT) → LOW";
+            case OTHER         -> "Altro (OTHER) → LOW";
         };
         return "Tipo di impiego: " + label
                 + " — regola: EMPLOYEE→HIGH · SELF_EMPLOYED/RETIRED→MEDIUM · STUDENT/OTHER→LOW";
     }
 
-    private String documentReliabilityExplanation(List<Document> docs) {
+    private String documentReliabilityExplanation(List<Document> docs, UUID tenantProfileId) {
         if (docs == null || docs.isEmpty())
             return "Nessun documento caricato → LOW";
-        long verified = docs.stream().filter(Document::isVerified).count();
-        double ratio  = (double) verified / docs.size() * 100;
+        Set<String> approvedFields = getSupervisorApprovedDocFields(tenantProfileId);
+        long approved = docs.stream()
+                .filter(d -> approvedFields.contains("doc." + d.getType().name()))
+                .count();
+        double ratio = (double) approved / docs.size() * 100;
         return String.format(
-                "%d documento/i verificato/i su %d totali (%.0f%%) "
-                + "— soglie: ≥70%% HIGH · 30–69%% MEDIUM · <30%% LOW",
-                verified, docs.size(), ratio);
+                "%d documento/i approvato/i dal supervisore su %d totali (%.0f%%) "
+                + "— soglie: ≥70%% HIGH · 30–69%% MEDIUM · <30%% LOW "
+                + "(solo approvazioni supervisore contano; il check AI è ausiliario)",
+                approved, docs.size(), ratio);
     }
 }

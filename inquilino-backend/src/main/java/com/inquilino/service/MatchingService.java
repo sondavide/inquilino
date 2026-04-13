@@ -40,6 +40,8 @@ public class MatchingService {
     private final ListingLocationRepository  locationRepo;
     private final InterestAreaRepository     interestAreaRepo;
     private final DocumentRepository         documentRepo;
+    private final FieldValidationRepository  fieldValidationRepo;
+    private final ScoringTemplateRepository  scoringTemplateRepo;
     private final ScoringService             scoringService;
     private final MatchSummaryService        summaryService;
 
@@ -352,31 +354,56 @@ public class MatchingService {
     }
 
     private double calcTenantStrength(TenantProfile tenant, List<Document> docs) {
-        int score = 0;
+        // Carica il template assegnato al profilo (null → pesi default 20/20/20/20/20)
+        com.inquilino.entity.ScoringTemplate tpl = tenant.getScoringTemplateId() != null
+                ? scoringTemplateRepo.findById(tenant.getScoringTemplateId()).orElse(null)
+                : null;
 
-        // Identità verificata
-        boolean identityVerified = docs.stream()
-                .anyMatch(d -> d.getType() == DocumentType.IDENTITY && d.isVerified());
-        if (identityVerified) score += 20;
+        int wId  = tpl != null ? tpl.getWeightIdentity()  : 20;
+        int wInc = tpl != null ? tpl.getWeightIncome()    : 20;
+        int wStb = tpl != null ? tpl.getWeightStability() : 20;
+        int wDoc = tpl != null ? tpl.getWeightDocuments() : 20;
+        int wGua = tpl != null ? tpl.getWeightGuarantor() : 20;
+        int total = wId + wInc + wStb + wDoc + wGua;
+        if (total == 0) return 0.0;
 
-        // Reddito verificato (busta paga o 730)
-        boolean incomeVerified = docs.stream()
-                .anyMatch(d -> (d.getType() == DocumentType.PAYSLIP
-                             || d.getType() == DocumentType.TAX_RETURN) && d.isVerified());
-        if (incomeVerified) score += 20;
+        // Normalizza a 100 così la somma massima è sempre 100
+        double nId  = 100.0 * wId  / total;
+        double nInc = 100.0 * wInc / total;
+        double nStb = 100.0 * wStb / total;
+        double nDoc = 100.0 * wDoc / total;
+        double nGua = 100.0 * wGua / total;
 
-        // Stabilità lavorativa
+        // Solo documenti approvati dal supervisore contano per il punteggio
+        java.util.Set<String> approvedDocFields =
+                scoringService.getSupervisorApprovedDocFields(tenant.getId());
+
+        double score = 0;
+
+        // Identità approvata dal supervisore
+        boolean identityApproved = approvedDocFields.contains("doc.IDENTITY")
+                && docs.stream().anyMatch(d -> d.getType() == DocumentType.IDENTITY);
+        if (identityApproved) score += nId;
+
+        // Reddito approvato dal supervisore (busta paga o 730)
+        boolean incomeApproved = (approvedDocFields.contains("doc.PAYSLIP")
+                                  || approvedDocFields.contains("doc.TAX_RETURN"))
+                && docs.stream().anyMatch(d -> d.getType() == DocumentType.PAYSLIP
+                                           || d.getType() == DocumentType.TAX_RETURN);
+        if (incomeApproved) score += nInc;
+
+        // Stabilità lavorativa (HIGH = peso pieno, MEDIUM = metà peso)
         String stability = scoringService.incomeStabilityCategory(tenant);
-        if ("HIGH".equals(stability))   score += 20;
-        else if ("MEDIUM".equals(stability)) score += 10;
+        if ("HIGH".equals(stability))        score += nStb;
+        else if ("MEDIUM".equals(stability)) score += nStb / 2.0;
 
-        // Affidabilità documentale
-        String docRel = scoringService.documentReliabilityCategory(docs);
-        if ("HIGH".equals(docRel))   score += 20;
-        else if ("MEDIUM".equals(docRel)) score += 10;
+        // Affidabilità documentale (solo approvazioni supervisore)
+        String docRel = scoringService.documentReliabilityCategory(docs, tenant.getId());
+        if ("HIGH".equals(docRel))        score += nDoc;
+        else if ("MEDIUM".equals(docRel)) score += nDoc / 2.0;
 
         // Garante
-        if (tenant.isHasGuarantor()) score += 20;
+        if (tenant.isHasGuarantor()) score += nGua;
 
         return Math.min(score, 100.0);
     }

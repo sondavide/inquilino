@@ -7,6 +7,7 @@ import com.inquilino.onboarding.Suggestion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class Step17FinalReview implements OnboardingStep {
@@ -74,4 +75,16 @@ public class Step17FinalReview implements OnboardingStep {
 
     @Override
     public String resolveNextStep(OnboardingContext ctx) { return "STEP_18"; }
+
+    @Override
+    public Optional<String> nextMissingField(OnboardingContext ctx) {
+        if (!ctx.getBooleanData("final_review_confirmed")) return Optional.of("final_review_confirmed");
+        return Optional.empty();
+    }
+
+    @Override
+    public String fieldHint(String field, OnboardingContext ctx) {
+        return "Present a clear, well-formatted summary of all collected data grouped by section. " +
+               "Ask the user to confirm everything is correct and to submit the profile.";
+    }
 }

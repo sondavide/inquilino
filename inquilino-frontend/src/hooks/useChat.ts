@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { getToken } from './useAuth'
 import { getStoredLang } from '@/i18n'
 import { onboardingApi } from '@/api/onboarding'
@@ -7,6 +7,25 @@ import { MessageRole } from '@/types'
 
 function uuid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
+}
+
+/**
+ * Used during live streaming: as soon as a '~' appears in the accumulated
+ * content, everything from that character onwards is hidden. This prevents
+ * any part of ~[STEP_COMPLETE] from ever being visible on screen.
+ */
+function truncateAtSignal(text: string): string {
+  const idx = text.indexOf('~')
+  return idx !== -1 ? text.slice(0, idx).trimEnd() : text
+}
+
+/**
+ * Used when restoring history from the server: the signal has already been
+ * stripped server-side before saving, but as a safety net we remove any
+ * remnant with a simple replace.
+ */
+function stripSignalFromHistory(text: string): string {
+  return text.replace(/~\[STEP_COMPLETE\]/g, '').trimEnd()
 }
 
 function getLang(): string {
@@ -19,8 +38,7 @@ export function useChat() {
   const [onboardingState, setOnboardingState] = useState<OnboardingStateDto | null>(null)
   const [banUntil,       setBanUntil]       = useState<string | null>(null) // ISO datetime or 'permanent'
   const abortRef        = useRef<AbortController | null>(null)
-  const prevStepRef     = useRef<string | null>(null)  // tracks last known step
-  const pendingInitRef  = useRef(false)                // true when step advanced and needs bot greeting
+  const signalSeenRef   = useRef(false)                // true once '~' detected — stops all further token appending
 
   const sendMessage = useCallback(async (content: string, meta?: { isDocument?: boolean }) => {
     if (isStreaming || banUntil) return
@@ -35,6 +53,9 @@ export function useChat() {
         isDocument: meta?.isDocument,
       }])
     }
+
+    // Reset signal flag for this new stream
+    signalSeenRef.current = false
 
     // Placeholder for streaming assistant bubble
     const assistantId = uuid()
@@ -87,14 +108,26 @@ export function useChat() {
               try {
                 // Backend JSON-encodes each token to preserve spaces unambiguously
                 const tokenText: string = JSON.parse(data)
-                setMessages(prev => prev.map(m =>
-                  m.id === assistantId ? { ...m, content: m.content + tokenText } : m
-                ))
+                if (!signalSeenRef.current) {
+                  const candidate = tokenText.includes('~')
+                  if (candidate) signalSeenRef.current = true
+                  setMessages(prev => prev.map(m =>
+                    m.id === assistantId
+                      ? { ...m, content: candidate ? truncateAtSignal(m.content + tokenText) : m.content + tokenText }
+                      : m
+                  ))
+                }
               } catch {
                 // Fallback: use raw data if somehow not valid JSON
-                setMessages(prev => prev.map(m =>
-                  m.id === assistantId ? { ...m, content: m.content + data } : m
-                ))
+                if (!signalSeenRef.current) {
+                  const candidate = data.includes('~')
+                  if (candidate) signalSeenRef.current = true
+                  setMessages(prev => prev.map(m =>
+                    m.id === assistantId
+                      ? { ...m, content: candidate ? truncateAtSignal(m.content + data) : m.content + data }
+                      : m
+                  ))
+                }
               }
             } else if (currentEvent === 'state') {
               try { setOnboardingState(JSON.parse(data)) } catch { /* ignore */ }
@@ -137,7 +170,6 @@ export function useChat() {
         onboardingApi.getHistory(),
       ])
       setOnboardingState(state)
-      if (state.currentStep) prevStepRef.current = state.currentStep
 
       if (history.length > 0) {
         // Restore previous messages (filter out empty assistant placeholders)
@@ -146,7 +178,7 @@ export function useChat() {
           .map(m => ({
             id:        m.id,
             role:      m.role === 'USER' ? MessageRole.USER : MessageRole.ASSISTANT,
-            content:   m.content,
+            content:   stripSignalFromHistory(m.content),
             createdAt: m.createdAt,
           }))
         setMessages(restored)
@@ -164,23 +196,6 @@ export function useChat() {
       sendMessage('')
     }
   }, [sendMessage])
-
-  // Detect step changes: set pending flag when step advances mid-stream
-  const currentStep = onboardingState?.currentStep
-  useEffect(() => {
-    if (prevStepRef.current !== null && currentStep && currentStep !== prevStepRef.current) {
-      pendingInitRef.current = true
-    }
-    if (currentStep) prevStepRef.current = currentStep
-  }, [currentStep])
-
-  // When streaming ends and a step advancement is pending, auto-trigger the new step's greeting
-  useEffect(() => {
-    if (!isStreaming && pendingInitRef.current) {
-      pendingInitRef.current = false
-      sendMessage('')
-    }
-  }, [isStreaming, sendMessage])
 
   return { messages, isStreaming, onboardingState, banUntil, sendMessage, init }
 }

@@ -7,6 +7,7 @@ import com.inquilino.onboarding.Suggestion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class Step09Employment implements OnboardingStep {
@@ -25,25 +26,25 @@ public class Step09Employment implements OnboardingStep {
                 DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
 
                 → "employment_type" missing
-                    → ask: "Qual è la tua attuale situazione lavorativa? (dipendente, autonomo/libero professionista, studente, pensionato, altro)"
+                    → ask about their current employment situation (employed / self-employed / student / retired / other)
 
                 → employment_type = EMPLOYEE and "contract_type" missing
-                    → ask: "Che tipo di contratto hai? (indeterminato, determinato, a progetto)"
+                    → ask about their contract type (permanent / fixed-term / project-based)
 
                 → employment_type in [EMPLOYEE, SELF_EMPLOYED] and "employment_start_date" missing
-                    → ask: "Da quando lavori in questa posizione?"
+                    → ask when they started their current position
 
                 → employment_type in [STUDENT, RETIRED, OTHER]
-                    → output one brief acknowledgment and STOP (no further fields needed)
+                    → output one brief acknowledgment and stop. No further fields are needed.
 
                 → ALL required fields collected
-                    → output: "Ho tutte le informazioni sul tuo lavoro." and STOP.
+                    → output a brief, warm confirmation sentence and stop.
 
                 Rules:
                 - If the user's answer does not provide the expected field, re-ask the SAME question once more.
                 - Do NOT ask about income — that is handled in the next step.
                 - Do NOT ask about job title, sector, or any detail not listed above.
-                - ALWAYS respond in %s
+                - ALWAYS respond in %s.
                 """.formatted(ctx.formattedData(), ctx.lang());
     }
 
@@ -116,4 +117,32 @@ public class Step09Employment implements OnboardingStep {
 
     @Override
     public String resolveNextStep(OnboardingContext ctx) { return "STEP_10"; }
+
+    @Override
+    public Optional<String> nextMissingField(OnboardingContext ctx) {
+        if (!ctx.hasData("employment_type")) return Optional.of("employment_type");
+        String empType = String.valueOf(ctx.data().get("employment_type"));
+        return switch (empType) {
+            case "EMPLOYEE" -> {
+                if (!ctx.hasData("contract_type"))         yield Optional.of("contract_type");
+                if (!ctx.hasData("employment_start_date")) yield Optional.of("employment_start_date");
+                yield Optional.empty();
+            }
+            case "SELF_EMPLOYED" -> {
+                if (!ctx.hasData("employment_start_date")) yield Optional.of("employment_start_date");
+                yield Optional.empty();
+            }
+            default -> Optional.empty(); // STUDENT, RETIRED, OTHER — no further fields
+        };
+    }
+
+    @Override
+    public String fieldHint(String field, OnboardingContext ctx) {
+        return switch (field) {
+            case "employment_type"       -> "Ask about their current employment situation. Options: employed (employee), self-employed, student, retired, other.";
+            case "contract_type"         -> "Ask about the type of employment contract. Options: permanent, fixed-term, project-based.";
+            case "employment_start_date" -> "Ask when they started their current job or self-employment. Example: 'March 2022' or '2 years ago'.";
+            default -> "Ask for: " + field;
+        };
+    }
 }

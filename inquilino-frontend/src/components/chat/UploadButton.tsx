@@ -4,6 +4,11 @@ import { useLang } from '@/i18n'
 import { onboardingApi } from '@/api/onboarding'
 import { CameraCapture } from '@/components/camera/CameraCapture'
 
+const ALL_DOC_TYPES = [
+  'IDENTITY', 'PAYSLIP', 'EMPLOYMENT_CONTRACT',
+  'TAX_RETURN', 'BANK_STATEMENT', 'LANDLORD_REFERENCE', 'GUARANTOR_DOCUMENT', 'OTHER',
+]
+
 interface UploadButtonProps {
   expectedTypes: string[]
   onUploaded?:  (filename: string, passed: boolean) => void
@@ -15,6 +20,8 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight }:
   const { t } = useLang()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [showTypePicker, setShowTypePicker] = useState(false)
+  const [selectedDocType, setSelectedDocType] = useState<string | null>(null)
   const [showMenu,   setShowMenu]   = useState(false)
   const [showCamera, setShowCamera] = useState(false)
   const [uploading,  setUploading]  = useState(false)
@@ -22,12 +29,15 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight }:
 
   const hasCamera = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
 
+  // Doc types to show in picker: expectedTypes if not empty, else all
+  const pickerTypes = expectedTypes.length > 0 ? expectedTypes : ALL_DOC_TYPES
+
   // ─── Upload logic ─────────────────────────────────────────────────────────
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = async (file: File, docType: string) => {
     setUploading(true)
     try {
-      const result = await onboardingApi.uploadDocument(file, expectedTypes[0] ?? 'IDENTITY')
+      const result = await onboardingApi.uploadDocument(file, docType)
       const name = file.name.length > 28 ? file.name.slice(0, 26) + '…' : file.name
       setLastFile({ name, passed: result.quickVerificationPassed })
       onUploaded?.(file.name, result.quickVerificationPassed)
@@ -36,23 +46,37 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight }:
       alert(t('upload.error'))
     } finally {
       setUploading(false)
+      setSelectedDocType(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) uploadFile(file)
+    if (file && selectedDocType) uploadFile(file, selectedDocType)
   }
 
   const handleCameraCapture = async (file: File) => {
     setShowCamera(false)
-    await uploadFile(file)
+    if (selectedDocType) await uploadFile(file, selectedDocType)
   }
 
   const handleButtonClick = () => {
     if (disabled || uploading) return
-    if (hasCamera) setShowMenu(v => !v)
+    if (expectedTypes.length === 1) {
+      // Single expected type: auto-select and proceed directly
+      setSelectedDocType(expectedTypes[0])
+      if (hasCamera) setShowMenu(true)
+      else fileInputRef.current?.click()
+    } else {
+      setShowTypePicker(true)
+    }
+  }
+
+  const handleTypeSelected = (type: string) => {
+    setSelectedDocType(type)
+    setShowTypePicker(false)
+    if (hasCamera) setShowMenu(true)
     else fileInputRef.current?.click()
   }
 
@@ -70,12 +94,44 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight }:
       />
 
       {/* Camera modal */}
-      {showCamera && (
+      {showCamera && selectedDocType && (
         <CameraCapture
-          expectedTypes={expectedTypes}
+          expectedTypes={[selectedDocType]}
           onCapture={handleCameraCapture}
           onClose={() => setShowCamera(false)}
         />
+      )}
+
+      {/* Document type picker modal */}
+      {showTypePicker && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/40"
+            onClick={() => setShowTypePicker(false)}
+          />
+          <div className="fixed inset-x-4 bottom-4 sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 z-50 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border p-4 max-w-sm w-full">
+            <p className="text-sm font-semibold text-center mb-3">
+              {t('upload.choose_type')}
+            </p>
+            <div className="space-y-1.5">
+              {pickerTypes.map(type => (
+                <button
+                  key={type}
+                  onClick={() => handleTypeSelected(type)}
+                  className="w-full text-left px-4 py-2.5 text-sm rounded-xl hover:bg-accent transition-colors border"
+                >
+                  {t(`doc.type.${type}` as Parameters<typeof t>[0])}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowTypePicker(false)}
+              className="w-full mt-3 text-xs text-muted-foreground text-center py-1"
+            >
+              {t('profile.cancel')}
+            </button>
+          </div>
+        </>
       )}
 
       {/* Button + menu wrapper */}
@@ -113,10 +169,9 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight }:
           }
         </button>
 
-        {/* Choice dropdown menu */}
+        {/* Choice dropdown (camera vs file) */}
         {showMenu && !uploading && (
           <>
-            {/* Backdrop to close on outside click */}
             <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
             <div className="absolute bottom-full left-0 mb-2 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]">
               <button

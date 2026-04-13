@@ -20,10 +20,12 @@ function getNavItems(role: string, t: TFn): NavItem[] {
   switch (role) {
     case UserType.SUPERADMIN:
       return [
-        { label: t('nav.admin.supervisors'),   icon: '👥', path: '/admin/supervisors',   match: '/admin/supervisors' },
-        { label: t('nav.admin.auditlog'),       icon: '📋', path: '/admin/audit-log',      match: '/admin/audit-log' },
-        { label: t('nav.supervisor.profiles'), icon: '🔍', path: '/supervisor/profiles',  match: '/supervisor/profiles' },
-        { label: t('nav.supervisor.listings'), icon: '🏠', path: '/supervisor/listings',  match: '/supervisor/listings' },
+        { label: t('nav.admin.supervisors'),   icon: '👥', path: '/admin/supervisors',        match: '/admin/supervisors' },
+        { label: t('nav.admin.auditlog'),       icon: '📋', path: '/admin/audit-log',           match: '/admin/audit-log' },
+        { label: t('nav.admin.onboarding'),     icon: '🤖', path: '/admin/onboarding',          match: '/admin/onboarding' },
+        { label: t('nav.admin.scoring'),        icon: '⚖️', path: '/admin/scoring-templates',   match: '/admin/scoring-templates' },
+        { label: t('nav.supervisor.profiles'), icon: '🔍', path: '/supervisor/profiles',       match: '/supervisor/profiles' },
+        { label: t('nav.supervisor.listings'), icon: '🏠', path: '/supervisor/listings',       match: '/supervisor/listings' },
       ]
     case UserType.SUPERVISOR:
       return [

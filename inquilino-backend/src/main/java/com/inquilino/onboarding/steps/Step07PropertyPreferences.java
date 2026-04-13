@@ -7,6 +7,7 @@ import com.inquilino.onboarding.Suggestion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class Step07PropertyPreferences implements OnboardingStep {
@@ -23,15 +24,15 @@ public class Step07PropertyPreferences implements OnboardingStep {
                 %s
 
                 DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
-                → "max_budget" missing           → ask: "Qual è il budget massimo mensile che puoi permetterti per l'affitto?"
-                → "property_type" missing        → ask: "Che tipo di immobile stai cercando? (appartamento, monolocale, stanza, villa, altro)"
-                → "furnished_preference" missing → ask: "Preferisci un immobile arredato, non arredato, o sei indifferente?"
-                → ALL collected                  → output: "Ho tutte le informazioni sulle tue preferenze." and STOP.
+                → "max_budget" missing           → ask for their maximum monthly rent budget (in EUR)
+                → "property_type" missing        → ask what type of property they are looking for (apartment, studio, room, villa, other)
+                → "furnished_preference" missing → ask whether they prefer furnished, unfurnished, or have no preference
+                → ALL collected                  → output a brief, warm confirmation sentence and stop.
 
                 Rules:
                 - If the user's answer does not provide the expected field, re-ask the SAME question once more.
-                - For max_budget: accept natural language like "non più di 900 euro" and extract the number.
-                - ALWAYS respond in %s
+                - For max_budget: accept natural language like "no more than €900" and extract the number.
+                - ALWAYS respond in %s.
                 """.formatted(ctx.formattedData(), ctx.lang());
     }
 
@@ -97,4 +98,22 @@ public class Step07PropertyPreferences implements OnboardingStep {
 
     @Override
     public String resolveNextStep(OnboardingContext ctx) { return "STEP_08"; }
+
+    @Override
+    public Optional<String> nextMissingField(OnboardingContext ctx) {
+        if (!ctx.hasData("max_budget"))           return Optional.of("max_budget");
+        if (!ctx.hasData("property_type"))        return Optional.of("property_type");
+        if (!ctx.hasData("furnished_preference")) return Optional.of("furnished_preference");
+        return Optional.empty();
+    }
+
+    @Override
+    public String fieldHint(String field, OnboardingContext ctx) {
+        return switch (field) {
+            case "max_budget"           -> "Ask for their maximum monthly rent budget in EUR. Example: '900'";
+            case "property_type"        -> "Ask what type of property they are looking for: apartment, studio, room, villa, or other.";
+            case "furnished_preference" -> "Ask whether they prefer furnished, unfurnished, or have no preference.";
+            default -> "Ask for: " + field;
+        };
+    }
 }

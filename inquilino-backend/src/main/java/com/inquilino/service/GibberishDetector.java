@@ -5,6 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.regex.Pattern;
+
 /**
  * Classifica l'input dell'utente come spam/gibberish delegando a GPT-4o-mini.
  *
@@ -40,11 +43,37 @@ public class GibberishDetector {
             """;
 
     /**
+     * Patterns that must never be classified as spam regardless of their appearance.
+     * Checked before the LLM call to avoid false positives and save tokens.
+     */
+    private static final List<Pattern> WHITELIST_PATTERNS = List.of(
+            // Italian fiscal code: 6 letters + 2 digits + 1 letter + 2 digits + 1 letter + 3 digits + 1 letter
+            Pattern.compile("^[A-Z]{6}\\d{2}[A-Z]\\d{2}[A-Z]\\d{3}[A-Z]$", Pattern.CASE_INSENSITIVE),
+            // Pure numeric input (dates, amounts, phone numbers, counts)
+            Pattern.compile("^[\\d\\s.,:/-]+$"),
+            // Date-like patterns: dd/mm/yyyy, dd-mm-yyyy, yyyy-mm-dd
+            Pattern.compile("^\\d{1,4}[/\\-.]\\d{1,2}[/\\-.]\\d{1,4}$"),
+            // Short word-only answers (city names, country names, single words)
+            Pattern.compile("^[\\p{L}\\s''-]{2,50}$"),
+            // IBAN / account codes: letters+digits mix typical of banking codes
+            Pattern.compile("^[A-Z]{2}\\d{2}[A-Z0-9]{10,30}$", Pattern.CASE_INSENSITIVE),
+            // "sì", "no", "si", "non so" and other short affirmative/negative answers
+            Pattern.compile("^(s[iì]|no|forse|ok|okay|non lo so|non so|va bene|certo|esatto|corretto|sbagliato)$",
+                    Pattern.CASE_INSENSITIVE)
+    );
+
+    /**
      * Returns true when the message is classified as spam/gibberish by the LLM.
      * Falls back to false (permissive) if the API call fails.
      */
     public boolean isGibberish(String text) {
         if (text == null || text.isBlank() || text.length() < 4) return false;
+
+        // Fast path: if the message matches a known-valid pattern, skip the LLM call
+        String trimmed = text.strip();
+        for (Pattern p : WHITELIST_PATTERNS) {
+            if (p.matcher(trimmed).matches()) return false;
+        }
         try {
             String response = chatClient.prompt()
                     .user(PROMPT.formatted(sanitize(text)))

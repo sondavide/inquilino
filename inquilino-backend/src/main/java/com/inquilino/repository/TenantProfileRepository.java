@@ -29,4 +29,11 @@ public interface TenantProfileRepository extends JpaRepository<TenantProfile, UU
     /** Matching: profili verificati e attivi i cui user_id sono nella lista. */
     List<TenantProfile> findByUserIdInAndVerificationStatusAndActiveTrue(
             List<UUID> userIds, VerificationStatus verificationStatus);
+
+    /** Scoring templates: profili verificati collegati a un dato template. */
+    List<TenantProfile> findByScoringTemplateIdAndVerificationStatus(
+            UUID scoringTemplateId, VerificationStatus verificationStatus);
+
+    /** Scoring templates: conteggio profili collegati a un dato template (qualsiasi stato). */
+    long countByScoringTemplateId(UUID scoringTemplateId);
 }

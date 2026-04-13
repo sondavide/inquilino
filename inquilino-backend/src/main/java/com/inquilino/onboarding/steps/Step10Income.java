@@ -7,6 +7,7 @@ import com.inquilino.onboarding.Suggestion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class Step10Income implements OnboardingStep {
@@ -27,18 +28,18 @@ public class Step10Income implements OnboardingStep {
                 DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
 
                 → "monthly_income" missing
-                    → ask: "Qual è il tuo reddito netto mensile in euro?"%s
+                    → ask for their net monthly income in EUR%s
 
                 → "income_variability" missing
-                    → ask: "Il tuo reddito è fisso, variabile, o al momento non hai reddito?"
+                    → ask whether their income is stable, variable, or they currently have no income
 
                 → ALL collected
-                    → output: "Ho tutte le informazioni sul tuo reddito." and STOP.
+                    → output a brief, warm confirmation sentence and stop.
 
                 Rules:
                 - If the user's answer does not provide the expected field, re-ask the SAME question once more.
                 - Do NOT ask about savings, other income sources, or anything not listed above.
-                - ALWAYS respond in %s
+                - ALWAYS respond in %s.
                 """.formatted(ctx.formattedData(), budgetHint, ctx.lang());
     }
 
@@ -92,4 +93,22 @@ public class Step10Income implements OnboardingStep {
 
     @Override
     public String resolveNextStep(OnboardingContext ctx) { return "STEP_11"; }
+
+    @Override
+    public Optional<String> nextMissingField(OnboardingContext ctx) {
+        if (!ctx.hasData("income_variability")) return Optional.of("income_variability");
+        // If income_variability=none, monthly_income defaults to 0 — no need to ask
+        if ("none".equals(String.valueOf(ctx.data().get("income_variability")))) return Optional.empty();
+        if (!ctx.hasData("monthly_income")) return Optional.of("monthly_income");
+        return Optional.empty();
+    }
+
+    @Override
+    public String fieldHint(String field, OnboardingContext ctx) {
+        return switch (field) {
+            case "monthly_income"    -> "Ask for their net monthly income in EUR. Example: '2000'";
+            case "income_variability" -> "Ask whether their income is stable, variable, or they have no income.";
+            default -> "Ask for: " + field;
+        };
+    }
 }

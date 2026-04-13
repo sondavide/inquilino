@@ -172,6 +172,7 @@ export interface SupervisorProfileDetail {
   verificationStatus:   string
   profileCompletion:    number
   assignedSupervisorId: string
+  scoringTemplateId:    string | null
   score:                ScoreDetailDto | null
 }
 
@@ -216,6 +217,21 @@ export interface ScoreOverrideRequest {
   incomeStability:       ScoreLevel | null
   documentReliability:   ScoreLevel | null
   reason:                string | null
+}
+
+export interface ScoringTemplate {
+  id:                 string
+  name:               string
+  description:        string | null
+  weightIdentity:     number
+  weightIncome:       number
+  weightStability:    number
+  weightDocuments:    number
+  weightGuarantor:    number
+  isDefault:          boolean
+  createdAt:          string
+  updatedAt:          string
+  linkedProfileCount: number
 }
 
 export interface OnboardingStateInfo {

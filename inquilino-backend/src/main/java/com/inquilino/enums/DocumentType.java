@@ -7,5 +7,6 @@ public enum DocumentType {
     TAX_RETURN,
     BANK_STATEMENT,
     LANDLORD_REFERENCE,
-    GUARANTOR_DOCUMENT
+    GUARANTOR_DOCUMENT,
+    OTHER
 }

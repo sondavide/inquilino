@@ -18,6 +18,7 @@ import com.inquilino.repository.*;
 import com.inquilino.security.UserPrincipal;
 import com.inquilino.service.FiscalCodeAnalysisService;
 import com.inquilino.service.ScoringService;
+import com.inquilino.service.ScoringTemplateService;
 import com.inquilino.service.SupervisorService;
 import com.inquilino.service.TenantProfileService;
 import lombok.RequiredArgsConstructor;
@@ -54,7 +55,8 @@ public class SupervisorController {
 
     private final SupervisorService supervisorService;
     private final FiscalCodeAnalysisService fiscalCodeAnalysisService;
-    private final ScoringService scoringService;
+    private final ScoringService         scoringService;
+    private final ScoringTemplateService scoringTemplateService;
     private final TenantProfileService tenantProfileService;
     private final StepRegistry stepRegistry;
     private final TenantProfileRepository profileRepo;
@@ -394,6 +396,24 @@ public class SupervisorController {
         result.put("totalSteps", stepRegistry.totalSteps());
         result.put("onboardingCompleted", completed);
         return result;
+    }
+
+    // ─── Scoring template ─────────────────────────────────────────────────────
+
+    /**
+     * Assegna un template di scoring al profilo. Passa templateId=null per tornare
+     * ai pesi di default. Se il profilo è già VERIFIED, i match vengono ricalcolati subito.
+     */
+    @PutMapping("/profiles/{profileId}/scoring-template")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void assignScoringTemplate(
+            @PathVariable UUID profileId,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        Object raw = body.get("templateId");
+        UUID templateId = raw != null ? UUID.fromString(raw.toString()) : null;
+        scoringTemplateService.assignToProfile(profileId, templateId, principal.getUserId());
     }
 
     // ─── Helper ───────────────────────────────────────────────────────────────

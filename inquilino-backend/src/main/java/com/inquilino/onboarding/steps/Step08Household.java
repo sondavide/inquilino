@@ -7,6 +7,7 @@ import com.inquilino.onboarding.Suggestion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class Step08Household implements OnboardingStep {
@@ -23,13 +24,15 @@ public class Step08Household implements OnboardingStep {
                 %s
 
                 DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
-                → "occupants_count" missing → ask: "Quante persone abiteranno nell'immobile, te incluso/a?"
-                → "has_pets" missing        → ask: "Hai animali domestici?"
-                → ALL collected             → output: "Ho tutte le informazioni sul nucleo familiare." and STOP.
+                → "occupants_count" missing → ask how many people (including themselves) will live in the property
+                → "occupants_count" collected AND "has_pets" missing
+                    → ask whether they have any pets (optional — accept any answer, including a non-answer)
+                → ALL fields collected/asked → output a brief, warm confirmation sentence and stop.
 
                 Rules:
                 - If the user's answer does not provide the expected field, re-ask the SAME question once more.
-                - ALWAYS respond in %s
+                - has_pets is optional; do NOT block completion if the user does not answer it.
+                - ALWAYS respond in %s.
                 """.formatted(ctx.formattedData(), ctx.lang());
     }
 
@@ -67,10 +70,30 @@ public class Step08Household implements OnboardingStep {
 
     @Override
     public boolean isCompleted(OnboardingContext ctx) {
-        // has_pets is optional (required=false in checklist); occupants_count is mandatory.
-        return ctx.hasData("occupants_count");
+        // occupants_count is mandatory; has_pets is optional and only required to
+        // have been asked at least once (tracked by the _asked_ marker).
+        return ctx.hasData("occupants_count")
+                && (ctx.hasData("has_pets") || ctx.hasData("_asked_has_pets"));
     }
 
     @Override
     public String resolveNextStep(OnboardingContext ctx) { return "STEP_09"; }
+
+    @Override
+    public Optional<String> nextMissingField(OnboardingContext ctx) {
+        if (!ctx.hasData("occupants_count")) return Optional.of("occupants_count");
+        // has_pets: ask once; the service sets _asked_has_pets before streaming,
+        // so on the very next turn this will return empty and the step will advance.
+        if (!ctx.hasData("has_pets") && !ctx.hasData("_asked_has_pets")) return Optional.of("has_pets");
+        return Optional.empty();
+    }
+
+    @Override
+    public String fieldHint(String field, OnboardingContext ctx) {
+        return switch (field) {
+            case "occupants_count" -> "Ask how many people (including themselves) will live in the property. Example: '2'";
+            case "has_pets"        -> "Ask whether they have any pets. This is optional — accept any answer including no answer.";
+            default -> "Ask for: " + field;
+        };
+    }
 }

@@ -63,7 +63,17 @@ public class TenantProfileService {
         // Identity (Step 03)
         p.setFullName(str(d.get("full_name")));
         p.setBirthDate(parseDate(d.get("birth_date")));
-        p.setBirthPlace(str(d.get("birth_place")));
+        // birth_country + birth_city are collected separately; combine into birth_place for storage.
+        // Also fall back to legacy "birth_place" key if data was collected before the split.
+        String birthCity    = str(d.get("birth_city"));
+        String birthCountry = str(d.get("birth_country"));
+        if (birthCity != null && birthCountry != null) {
+            p.setBirthPlace(birthCity + ", " + birthCountry);
+        } else if (birthCity != null) {
+            p.setBirthPlace(birthCity);
+        } else {
+            p.setBirthPlace(str(d.get("birth_place")));
+        }
         p.setResidence(str(d.get("residence")));
         p.setFiscalCode(str(d.get("fiscal_code")));
 

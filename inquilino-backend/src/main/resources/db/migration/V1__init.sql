@@ -1,6 +1,27 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS postgis;
 
+-- ─── Scoring templates ────────────────────────────────────────────────────────
+-- Named templates that override the default equal-weight (20/20/20/20/20)
+-- formula used in MatchingService.calcTenantStrength().
+-- Live-link: profiles reference the template by FK; when a template is updated
+-- a background job recalculates all linked VERIFIED profiles.
+
+CREATE TABLE scoring_templates (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name             VARCHAR(100) NOT NULL,
+    description      TEXT,
+    weight_identity  INT NOT NULL DEFAULT 20 CHECK (weight_identity  >= 0),
+    weight_income    INT NOT NULL DEFAULT 20 CHECK (weight_income    >= 0),
+    weight_stability INT NOT NULL DEFAULT 20 CHECK (weight_stability >= 0),
+    weight_documents INT NOT NULL DEFAULT 20 CHECK (weight_documents >= 0),
+    weight_guarantor INT NOT NULL DEFAULT 20 CHECK (weight_guarantor >= 0),
+    is_default       BOOLEAN NOT NULL DEFAULT false,
+    created_by       UUID,
+    created_at       TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMP NOT NULL DEFAULT now()
+);
+
 -- ─── Users ────────────────────────────────────────────────────────────────────
 
 CREATE TABLE users (
@@ -51,6 +72,7 @@ CREATE TABLE tenant_profiles (
     active                           BOOLEAN      NOT NULL DEFAULT TRUE,
     assigned_supervisor_id           UUID         NULL,
     last_validated_by_supervisor_id  UUID         NULL,
+    scoring_template_id              UUID         NULL REFERENCES scoring_templates(id) ON DELETE SET NULL,
     UNIQUE (user_id)
 );
 
@@ -87,7 +109,7 @@ CREATE INDEX idx_chat_messages_user_id ON chat_messages(user_id);
 CREATE TABLE documents (
     id             UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id        UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type           VARCHAR(50) NOT NULL,  -- IDENTITY | PAYSLIP | EMPLOYMENT_CONTRACT | TAX_RETURN | BANK_STATEMENT | LANDLORD_REFERENCE | GUARANTOR_DOCUMENT
+    type           VARCHAR(50) NOT NULL,  -- IDENTITY | PAYSLIP | EMPLOYMENT_CONTRACT | TAX_RETURN | BANK_STATEMENT | LANDLORD_REFERENCE | GUARANTOR_DOCUMENT | OTHER
     file_url       TEXT        NOT NULL,
     uploaded_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
     verified       BOOLEAN     NOT NULL DEFAULT FALSE,
@@ -434,8 +456,11 @@ CREATE TABLE matches (
     -- Macchina a stati
     match_state             VARCHAR(30) NOT NULL DEFAULT 'ALGORITHMIC',
 
-    -- AI summary
+    -- AI summary (ex V2: tenant_match_summary, match_summary_en, tenant_match_summary_en)
     match_summary           TEXT,
+    tenant_match_summary    TEXT,
+    match_summary_en        TEXT,
+    tenant_match_summary_en TEXT,
 
     -- Timestamps azioni
     tenant_interest_at      TIMESTAMP,
@@ -465,4 +490,58 @@ CREATE TABLE score_overrides (
     reason               TEXT,
     created_at           TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at           TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- ─── Onboarding step configs (prompt overrides editabili dal superadmin) ──────
+-- Se esiste una riga per step_id, i suoi prompt sostituiscono i default Java.
+-- Variabili template supportate: {{collected_data}}, {{lang}}
+-- Le modifiche sono attive entro ~30 secondi senza restart.
+
+CREATE TABLE onboarding_step_configs (
+    step_id                    VARCHAR(20)  PRIMARY KEY,
+    system_prompt_override     TEXT,           -- sostituisce buildSystemPrompt() se valorizzato
+    extraction_prompt_override TEXT,           -- sostituisce buildExtractionPrompt() se valorizzato
+    admin_notes                TEXT,           -- note interne, non inviate al LLM
+    updated_at                 TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_by                 VARCHAR(255)
+);
+
+COMMENT ON TABLE onboarding_step_configs IS
+    'Runtime-editable LLM prompt overrides per onboarding step. '
+    'Changes take effect within 30 seconds without restart.';
+
+-- ─── Seed: scoring templates ──────────────────────────────────────────────────
+
+INSERT INTO scoring_templates
+    (name, description, weight_identity, weight_income, weight_stability, weight_documents, weight_guarantor, is_default)
+VALUES
+(
+    'Standard',
+    'Pesi bilanciati per il profilo inquilino generico. Tutti i fattori hanno uguale importanza. Usato come default quando nessun template è assegnato al profilo.',
+    20, 20, 20, 20, 20, true
+),
+(
+    'Pensionato d''oro',
+    'Per pensionati con reddito elevato e stabile. L''algoritmo standard penalizza i pensionati sulla stabilità (RETIRED → MEDIUM), ma un reddito da pensione è in realtà continuativo e affidabile. Si dà più peso al reddito documentato e ai documenti finanziari; meno peso alla stabilità contrattuale e al garante.',
+    12, 30, 10, 33, 15, false
+),
+(
+    'Studente con garante',
+    'Per studenti con garante d''eccellenza. Il garante compensa completamente la mancanza di reddito personale e la scarsa stabilità lavorativa. Reddito e stabilità propri quasi irrilevanti; il peso si sposta quasi interamente sul garante.',
+    15, 5, 5, 20, 55, false
+),
+(
+    'Dipendente a tempo indeterminato',
+    'Per lavoratori dipendenti con contratto stabile. Massimizza il vantaggio della stabilità EMPLOYEE → HIGH dell''algoritmo. Il reddito documentato è importante; il garante è quasi superfluo quando il contratto è a tempo indeterminato.',
+    15, 25, 35, 20, 5, false
+),
+(
+    'Freelancer consolidato',
+    'Per professionisti autonomi con attività avviata da almeno 2 anni. L''algoritmo classifica SELF_EMPLOYED come MEDIUM sulla stabilità, ma se il reddito è documentato e abbondante vale più della forma contrattuale. Peso alto su reddito verificato e documenti fiscali.',
+    15, 35, 10, 35, 5, false
+),
+(
+    'Lavoratore autonomo alle prime armi',
+    'Per freelancer o partite IVA aperte di recente (meno di 12 mesi). Stabilità contrattuale bassa per definizione. Il garante diventa importante; la documentazione bancaria compensa l''assenza di storico reddituale consolidato.',
+    15, 20, 5, 30, 30, false
 );

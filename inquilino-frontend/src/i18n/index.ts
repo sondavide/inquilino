@@ -33,10 +33,14 @@ const translations = {
     'progress.step':                'Step {n} / {total}',
     // Upload button
     'upload.title':                 'Carica documento',
+    'upload.choose_type':           'Che tipo di documento vuoi caricare?',
     'upload.input_hint':            'Usa il pulsante 📎 per caricare il documento',
     'upload.camera':                'Fotocamera',
     'upload.file':                  'File',
     'upload.error':                 'Upload fallito. Riprova.',
+    'doc.ai_check_ok':              '✓ Check AI',
+    'doc.ai_check_fail':            '⚠ Check AI fallito',
+    'doc.ai_check_pending':         'In attesa AI',
     // Camera capture
     'camera.doc.identity_card':     "Carta d'identità",
     'camera.doc.passport':          'Passaporto',
@@ -167,6 +171,7 @@ const translations = {
     'doc.type.BANK_STATEMENT':      'Estratto conto',
     'doc.type.LANDLORD_REFERENCE':  'Referenza locatore',
     'doc.type.GUARANTOR_DOCUMENT':  'Documento garante',
+    'doc.type.OTHER':               'Altro documento',
     'doc.delete.confirm':           'Eliminare questo documento?',
     // Areas
     'area.type.POLYGON':            'Area personalizzata',
@@ -593,6 +598,8 @@ const translations = {
     'nav.supervisor.listings':          'Annunci',
     'nav.admin.supervisors':            'Supervisori',
     'nav.admin.auditlog':               'Audit Log',
+    'nav.admin.onboarding':             'Chatbot',
+    'nav.admin.scoring':                'Template scoring',
     'nav.role.superadmin':              'Super Admin',
     'nav.role.supervisor':              'Supervisore',
     'nav.role.landlord':                'Locatore',
@@ -850,10 +857,14 @@ const translations = {
     'progress.step':                'Step {n} / {total}',
     // Upload button
     'upload.title':                 'Upload document',
+    'upload.choose_type':           'What type of document are you uploading?',
     'upload.input_hint':            'Use the 📎 button to upload the document',
     'upload.camera':                'Camera',
     'upload.file':                  'File',
     'upload.error':                 'Upload failed. Please try again.',
+    'doc.ai_check_ok':              '✓ AI check',
+    'doc.ai_check_fail':            '⚠ AI check failed',
+    'doc.ai_check_pending':         'Pending AI',
     // Camera capture
     'camera.doc.identity_card':     'ID Card',
     'camera.doc.passport':          'Passport',
@@ -984,6 +995,7 @@ const translations = {
     'doc.type.BANK_STATEMENT':      'Bank statement',
     'doc.type.LANDLORD_REFERENCE':  'Landlord reference',
     'doc.type.GUARANTOR_DOCUMENT':  'Guarantor document',
+    'doc.type.OTHER':               'Other document',
     'doc.delete.confirm':           'Delete this document?',
     // Areas
     'area.type.POLYGON':            'Custom area',
@@ -1410,6 +1422,8 @@ const translations = {
     'nav.supervisor.listings':          'Listings',
     'nav.admin.supervisors':            'Supervisors',
     'nav.admin.auditlog':               'Audit Log',
+    'nav.admin.onboarding':             'Chatbot',
+    'nav.admin.scoring':                'Scoring templates',
     'nav.role.superadmin':              'Super Admin',
     'nav.role.supervisor':              'Supervisor',
     'nav.role.landlord':                'Landlord',

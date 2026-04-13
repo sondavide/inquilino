@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supervisorApi } from '@/api/supervisor'
+import { scoringTemplateApi } from '@/api/scoringTemplates'
 import type {
   SupervisorProfileDetail,
   FieldValidationDto,
@@ -11,6 +12,7 @@ import type {
   OnboardingStateInfo,
   ScoreDetailDto,
   ScoreLevel,
+  ScoringTemplate,
 } from '@/types'
 import { AreaPreviewMap } from '@/components/map/AreaPreviewMap'
 import { MapSelector } from '@/components/map/MapSelector'
@@ -292,6 +294,7 @@ const DOC_LABELS: Record<string, string> = {
   EMPLOYMENT_CONTRACT: 'Contratto di lavoro', TAX_RETURN: 'Dichiarazione dei redditi',
   BANK_STATEMENT: 'Estratto conto', LANDLORD_REFERENCE: 'Referenza locatore',
   GUARANTOR_DOCUMENT: 'Documento garante',
+  OTHER:              'Altro documento',
 }
 
 function DocumentsTab({
@@ -335,26 +338,52 @@ function DocumentsTab({
       {docs.map(doc => {
         const field = `doc.${doc.type}`
         const val   = vmap[field]
-        const bg    = val?.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/20' :
-                      val?.status === 'FLAGGED'  ? 'bg-red-50 dark:bg-red-950/20' : ''
+        const quickCheckPassed = doc.extractedData?.quick_check_passed as boolean | undefined
+        const quickCheckNote   = doc.extractedData?.quick_check_note   as string | undefined
+        const aiFailed = quickCheckPassed === false
+
+        const bg = val?.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/20' :
+                   val?.status === 'FLAGGED'  ? 'bg-red-50 dark:bg-red-950/20' :
+                   aiFailed                  ? 'bg-orange-50 dark:bg-orange-950/20' : ''
+
+        const borderAccent = aiFailed && val?.status !== 'APPROVED'
+          ? 'border-l-4 border-l-orange-400'
+          : ''
+
         const [showNote, setShowNote] = useState(false)
         const [note, setNote]         = useState('')
 
         return (
-          <div key={doc.id} className={`rounded-xl border p-4 ${bg}`}>
+          <div key={doc.id} className={`rounded-xl border p-4 ${bg} ${borderAccent}`}>
             <div className="flex items-start gap-3">
-              <span className="text-2xl shrink-0">📄</span>
+              <span className="text-2xl shrink-0">{aiFailed && val?.status !== 'APPROVED' ? '⚠️' : '📄'}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{DOC_LABELS[doc.type] ?? doc.type}</p>
                 <p className="text-xs text-muted-foreground">{fmtDate(doc.uploadedAt)}</p>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                    doc.verified
-                      ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                      : 'bg-amber-100 text-amber-700 border-amber-200'
-                  }`}>
-                    {doc.verified ? 'Verif. AI' : 'Non verif.'}
-                  </span>
+                  {quickCheckPassed === true && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">
+                      ✓ Check AI
+                    </span>
+                  )}
+                  {quickCheckPassed === false && (
+                    <div className="relative group">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-red-100 text-red-700 border-red-200 cursor-help">
+                        ⚠ Check AI fallito
+                      </span>
+                      {quickCheckNote && (
+                        <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 w-64 whitespace-normal shadow-lg leading-relaxed pointer-events-none">
+                          <span className="font-semibold block mb-0.5">Feedback AI:</span>
+                          {quickCheckNote}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {quickCheckPassed === undefined && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200">
+                      In attesa AI
+                    </span>
+                  )}
                   {val?.status === 'APPROVED' && (
                     <span className="text-[10px] font-semibold text-emerald-600">✓ Approvato</span>
                   )}
@@ -369,6 +398,11 @@ function DocumentsTab({
                     {previewingId === doc.id ? '…' : 'Visualizza'}
                   </button>
                 </div>
+                {aiFailed && quickCheckNote && val?.status !== 'APPROVED' && (
+                  <p className="text-xs text-orange-700 dark:text-orange-400 mt-1.5 italic">
+                    AI: {quickCheckNote}
+                  </p>
+                )}
                 {val?.status === 'FLAGGED' && val.note && (
                   <p className="text-xs text-red-600 mt-1 italic">{val.note}</p>
                 )}
@@ -662,9 +696,10 @@ function ScoreLevelSelect({ value, onChange }: {
   )
 }
 
-function ScoreTab({ profileId, initialScore }: {
-  profileId: string
-  initialScore: ScoreDetailDto | null
+function ScoreTab({ profileId, initialScore, initialTemplateId }: {
+  profileId:         string
+  initialScore:      ScoreDetailDto | null
+  initialTemplateId: string | null
 }) {
   const [score, setScore]   = useState<ScoreDetailDto | null>(initialScore)
   const [overrides, setOverrides] = useState({
@@ -675,6 +710,32 @@ function ScoreTab({ profileId, initialScore }: {
   const [reason, setReason] = useState(initialScore?.overrideReason ?? '')
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty]   = useState(false)
+
+  // ── Template picker state ──────────────────────────────────────────────────
+  const [templates,    setTemplates]    = useState<ScoringTemplate[]>([])
+  const [templateId,   setTemplateId]   = useState<string | null>(initialTemplateId)
+  const [savingTpl,    setSavingTpl]    = useState(false)
+  const [templateDirty, setTemplateDirty] = useState(false)
+
+  useEffect(() => {
+    scoringTemplateApi.list().then(setTemplates).catch(() => {})
+  }, [])
+
+  const handleTemplateChange = (id: string | null) => {
+    setTemplateId(id)
+    setTemplateDirty(true)
+  }
+
+  const handleSaveTemplate = async () => {
+    setSavingTpl(true)
+    try {
+      await scoringTemplateApi.assignToProfile(profileId, templateId)
+      setTemplateDirty(false)
+    } catch { /* ignore */ }
+    finally { setSavingTpl(false) }
+  }
+
+  const selectedTpl = templates.find(t => t.id === templateId) ?? null
 
   const anyOverride = overrides.rentSustainability !== null
     || overrides.incomeStability !== null
@@ -752,6 +813,58 @@ function ScoreTab({ profileId, initialScore }: {
 
   return (
     <div className="space-y-4 pb-4">
+
+      {/* ── Template di scoring ─────────────────────────────────────────── */}
+      <div className="rounded-xl border bg-card p-3 space-y-2">
+        <span className="text-xs font-semibold text-foreground">Template di scoring</span>
+        <p className="text-[11px] text-muted-foreground">
+          Ridistribuisce i pesi dei 5 fattori nel calcolo forza-tenant.
+          I template sono gestiti dal superadmin.
+        </p>
+        <select
+          value={templateId ?? ''}
+          onChange={e => handleTemplateChange(e.target.value || null)}
+          className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-1 focus:ring-ring"
+        >
+          <option value="">Standard (default)</option>
+          {templates.filter(t => !t.isDefault).map(t => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+        {selectedTpl?.description && (
+          <p className="text-[11px] text-muted-foreground italic leading-relaxed">
+            {selectedTpl.description}
+          </p>
+        )}
+        {selectedTpl && (
+          <div className="flex gap-3 text-[10px] text-muted-foreground flex-wrap">
+            {[
+              ['Identità', selectedTpl.weightIdentity],
+              ['Reddito',  selectedTpl.weightIncome],
+              ['Stabilità',selectedTpl.weightStability],
+              ['Documenti',selectedTpl.weightDocuments],
+              ['Garante',  selectedTpl.weightGuarantor],
+            ].map(([label, w]) => {
+              const total = selectedTpl.weightIdentity + selectedTpl.weightIncome
+                          + selectedTpl.weightStability + selectedTpl.weightDocuments
+                          + selectedTpl.weightGuarantor
+              const pct = total > 0 ? Math.round((Number(w) / total) * 100) : 0
+              return <span key={label as string} className="bg-muted rounded px-1.5 py-0.5">{label}: {pct}%</span>
+            })}
+          </div>
+        )}
+        {templateDirty && (
+          <button
+            onClick={handleSaveTemplate}
+            disabled={savingTpl}
+            className="w-full py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-40 hover:bg-primary/90 transition-colors"
+          >
+            {savingTpl ? 'Salvataggio…' : 'Applica template'}
+          </button>
+        )}
+      </div>
+
+      {/* ── Override categorici ─────────────────────────────────────────── */}
       {indicators.map(ind => {
         const ov = overrides[ind.key]
         const effective = ov ?? ind.algo
@@ -1006,7 +1119,11 @@ export default function ProfileDetailPage() {
             onApprove={handleApprove} onFlag={handleFlag} onReset={handleReset} working={working} />
         )}
         {tab === 'score' && (
-          <ScoreTab profileId={profile.profileId} initialScore={profile.score ?? null} />
+          <ScoreTab
+            profileId={profile.profileId}
+            initialScore={profile.score ?? null}
+            initialTemplateId={profile.scoringTemplateId ?? null}
+          />
         )}
       </div>
 

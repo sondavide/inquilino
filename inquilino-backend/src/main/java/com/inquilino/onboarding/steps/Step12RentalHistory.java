@@ -7,6 +7,7 @@ import com.inquilino.onboarding.Suggestion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class Step12RentalHistory implements OnboardingStep {
@@ -25,20 +26,20 @@ public class Step12RentalHistory implements OnboardingStep {
                 DECISION TREE — follow strictly, top to bottom, ask the FIRST missing field and STOP:
 
                 → "had_previous_rentals" missing
-                    → ask: "Hai già affittato in passato?"
+                    → ask whether they have rented before
 
                 → had_previous_rentals = true and "has_references" missing
-                    → ask: "Hai referenze da un locatore precedente? Aiutano a rafforzare il profilo."
+                    → ask whether they have a reference from a previous landlord (mention it strengthens the profile)
 
                 → had_previous_rentals = false
-                    → output: "Prima esperienza come inquilino — annotato." and STOP.
+                    → output a brief acknowledgment that this is their first rental experience, then stop.
 
                 → ALL required fields collected
-                    → output: "Ho tutte le informazioni sullo storico affitti." and STOP.
+                    → output a brief, warm confirmation sentence and stop.
 
                 Rules:
                 - If the user's answer does not provide the expected field, re-ask the SAME question once more.
-                - ALWAYS respond in %s
+                - ALWAYS respond in %s.
                 """.formatted(ctx.formattedData(), ctx.lang());
     }
 
@@ -89,4 +90,21 @@ public class Step12RentalHistory implements OnboardingStep {
 
     @Override
     public String resolveNextStep(OnboardingContext ctx) { return "STEP_13"; }
+
+    @Override
+    public Optional<String> nextMissingField(OnboardingContext ctx) {
+        if (!ctx.hasData("had_previous_rentals")) return Optional.of("had_previous_rentals");
+        if (!ctx.getBooleanData("had_previous_rentals")) return Optional.empty(); // first-time renter → done
+        if (!ctx.hasData("has_references")) return Optional.of("has_references");
+        return Optional.empty();
+    }
+
+    @Override
+    public String fieldHint(String field, OnboardingContext ctx) {
+        return switch (field) {
+            case "had_previous_rentals" -> "Ask whether they have rented a property before. Yes/no.";
+            case "has_references"       -> "Ask whether they have a reference letter from a previous landlord. Mention it strengthens the profile.";
+            default -> "Ask for: " + field;
+        };
+    }
 }
