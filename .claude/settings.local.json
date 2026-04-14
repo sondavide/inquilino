@@ -36,7 +36,8 @@
       "Bash(mvn compile:*)",
       "Bash(java -version)",
       "Read(//c/Users/Davide.Noviello/.m2/**)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(grep -E \"\\\\.\\(md|html|tsx|ts\\)$\")"
     ]
   }
 }

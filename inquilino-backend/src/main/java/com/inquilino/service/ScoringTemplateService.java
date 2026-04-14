@@ -53,6 +53,22 @@ public class ScoringTemplateService {
                 .weightStability(req.weightStability())
                 .weightDocuments(req.weightDocuments())
                 .weightGuarantor(req.weightGuarantor())
+                .docWeightIdentity(req.docWeightIdentity())
+                .docWeightPayslip(req.docWeightPayslip())
+                .docWeightPayslipTripleBonus(req.docWeightPayslipTripleBonus())
+                .docWeightTaxReturn(req.docWeightTaxReturn())
+                .docWeightEmploymentContract(req.docWeightEmploymentContract())
+                .docWeightBankStatement(req.docWeightBankStatement())
+                .docWeightLandlordReference(req.docWeightLandlordReference())
+                .docWeightGuarantorDocument(req.docWeightGuarantorDocument())
+                .docReliabilityHighThreshold(req.docReliabilityHighThreshold())
+                .docReliabilityMediumThreshold(req.docReliabilityMediumThreshold())
+                .stabilityHighThreshold(req.stabilityHighThreshold())
+                .stabilityMediumThreshold(req.stabilityMediumThreshold())
+                .studentFamilyWeightPct(req.studentFamilyWeightPct())
+                .rentHighThresholdPct(req.rentHighThresholdPct())
+                .rentMediumThresholdPct(req.rentMediumThresholdPct())
+                .guarantorIncomeCreditPct(req.guarantorIncomeCreditPct())
                 .isDefault(req.isDefault())
                 .createdBy(superadminId)
                 .build();
@@ -80,6 +96,22 @@ public class ScoringTemplateService {
         tpl.setWeightStability(req.weightStability());
         tpl.setWeightDocuments(req.weightDocuments());
         tpl.setWeightGuarantor(req.weightGuarantor());
+        tpl.setDocWeightIdentity(req.docWeightIdentity());
+        tpl.setDocWeightPayslip(req.docWeightPayslip());
+        tpl.setDocWeightPayslipTripleBonus(req.docWeightPayslipTripleBonus());
+        tpl.setDocWeightTaxReturn(req.docWeightTaxReturn());
+        tpl.setDocWeightEmploymentContract(req.docWeightEmploymentContract());
+        tpl.setDocWeightBankStatement(req.docWeightBankStatement());
+        tpl.setDocWeightLandlordReference(req.docWeightLandlordReference());
+        tpl.setDocWeightGuarantorDocument(req.docWeightGuarantorDocument());
+        tpl.setDocReliabilityHighThreshold(req.docReliabilityHighThreshold());
+        tpl.setDocReliabilityMediumThreshold(req.docReliabilityMediumThreshold());
+        tpl.setStabilityHighThreshold(req.stabilityHighThreshold());
+        tpl.setStabilityMediumThreshold(req.stabilityMediumThreshold());
+        tpl.setStudentFamilyWeightPct(req.studentFamilyWeightPct());
+        tpl.setRentHighThresholdPct(req.rentHighThresholdPct());
+        tpl.setRentMediumThresholdPct(req.rentMediumThresholdPct());
+        tpl.setGuarantorIncomeCreditPct(req.guarantorIncomeCreditPct());
         tpl.setDefault(req.isDefault());
 
         ScoringTemplate saved = templateRepo.save(tpl);

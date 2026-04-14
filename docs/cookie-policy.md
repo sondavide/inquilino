@@ -2,8 +2,8 @@
 ### ai sensi dell'art. 122 D.Lgs. 196/2003, del Provvedimento Garante 10 giugno 2021 e del GDPR
 
 **Piattaforma:** InquilinoFacile.it  
-**Versione:** 1.0  
-**Data ultimo aggiornamento:** 08 aprile 2026  
+**Versione:** 1.1  
+**Data ultimo aggiornamento:** 14 aprile 2026  
 
 ---
 

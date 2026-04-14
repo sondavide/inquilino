@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLang }       from '@/i18n'
 import { tenantApi, type TenantUpdatePayload } from '@/api/tenant'
 import { onboardingApi } from '@/api/onboarding'
-import type { TenantProfileDto, DocumentDto, InterestAreaDto, InterestArea, ScoreLevel, FieldValidationDto } from '@/types'
+import type { TenantProfileDto, DocumentDto, InterestAreaDto, InterestArea, ScoreLevel, FieldValidationDto, GuarantorDto, GuarantorRequest, SupervisorNoteDto } from '@/types'
 import { MapSelector }    from '@/components/map/MapSelector'
 import { AreaPreviewMap } from '@/components/map/AreaPreviewMap'
 import { UploadButton }  from '@/components/chat/UploadButton'
@@ -463,9 +463,340 @@ function AreasTab({ areas, onSaved }: {
   )
 }
 
+// ─── Checklist labels (must match supervisor side) ────────────────────────────
+
+const CHECKLIST_LABELS: Record<string, string> = {
+  PAYSLIP:                    'Buste paga (ultimi 3 mesi)',
+  TAX_RETURN:                 '730 / CU',
+  EMPLOYMENT_CONTRACT:        'Contratto di lavoro',
+  BANK_STATEMENT:             'Estratto conto bancario',
+  IDENTITY:                   "Documento d'identità",
+  LANDLORD_REFERENCE:         'Referenza da locatore precedente',
+  GUARANTOR_DATA:             'Dati del garante (nome, reddito, impiego)',
+  GUARANTOR_PAYSLIP:          'Buste paga garante',
+  GUARANTOR_TAX_RETURN:       '730 / CU garante',
+  GUARANTOR_EMPLOYMENT_CONTRACT: 'Contratto lavoro garante',
+  INCOME_CORRECTION:          'Correzione reddito dichiarato',
+  CONTRACT_TYPE:              'Tipo contratto lavoro',
+  EMPLOYMENT_DATES:           'Date inizio/fine contratto',
+}
+
+// ─── Pending actions from supervisor ─────────────────────────────────────────
+
+function PendingActionsSection() {
+  const [notes,   setNotes]   = useState<SupervisorNoteDto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [replying, setReplying] = useState<string | null>(null)
+
+  useEffect(() => {
+    tenantApi.getPendingActions()
+      .then(setNotes)
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleReply = async (noteId: string) => {
+    setReplying(noteId)
+    try {
+      const updated = await tenantApi.markActionReplied(noteId)
+      setNotes(ns => ns.map(n => n.id === noteId ? updated : n))
+    } finally { setReplying(null) }
+  }
+
+  if (loading) return <div className="text-sm text-muted-foreground text-center py-8">Caricamento…</div>
+
+  if (notes.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">
+        Nessuna richiesta dal supervisore.
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Il supervisore ti ha inviato le seguenti richieste. Carica i documenti mancanti nella sezione Documenti, poi premi "Ho completato".
+      </p>
+      {notes.map(note => {
+        const isPending  = note.status === 'PENDING'
+        const isReplied  = note.status === 'REPLIED'
+        const isResolved = note.status === 'RESOLVED'
+        const items = (note.requestedItems ?? [])
+          .map(v => CHECKLIST_LABELS[v] ?? v)
+
+        const borderCls = isResolved ? 'border-emerald-200' : isPending ? 'border-amber-300' : 'border-blue-200'
+        const bgCls     = isResolved ? 'bg-emerald-50 dark:bg-emerald-950/20' : isPending ? 'bg-amber-50 dark:bg-amber-950/20' : 'bg-blue-50 dark:bg-blue-950/20'
+
+        return (
+          <div key={note.id} className={`rounded-xl border p-4 space-y-3 ${borderCls} ${bgCls}`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  isResolved ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                  isReplied  ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                               'bg-amber-100 text-amber-700 border-amber-200'
+                }`}>
+                  {isResolved ? 'Chiuso' : isReplied ? 'Risposto' : 'Da completare'}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(note.sentAt).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+              {isPending && (
+                <button
+                  onClick={() => handleReply(note.id)}
+                  disabled={replying === note.id}
+                  className="shrink-0 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 hover:bg-primary/90 font-semibold"
+                >
+                  {replying === note.id ? '…' : 'Ho completato ✓'}
+                </button>
+              )}
+            </div>
+
+            {note.message && (
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{note.message}</p>
+            )}
+
+            {items.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] text-muted-foreground uppercase font-semibold">Documenti / dati richiesti</p>
+                <ul className="space-y-1">
+                  {items.map((label, i) => (
+                    <li key={i} className="text-xs flex items-center gap-2">
+                      <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center text-[9px] shrink-0 ${
+                        isResolved ? 'border-emerald-500 bg-emerald-100 text-emerald-700' : 'border-muted-foreground/40'
+                      }`}>
+                        {isResolved ? '✓' : ''}
+                      </span>
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Tenant guarantor section ─────────────────────────────────────────────────
+
+const EMPLOYMENT_LABELS: Record<string, string> = {
+  EMPLOYEE: 'Dipendente', SELF_EMPLOYED: 'Autonomo', RETIRED: 'Pensionato',
+  STUDENT: 'Studente', OTHER: 'Altro',
+}
+const CONTRACT_LABELS: Record<string, string> = {
+  PERMANENT: 'Indeterminato', FIXED_TERM: 'Determinato',
+  APPRENTICESHIP: 'Apprendistato', INTERNSHIP: 'Stage', FREELANCE: 'Freelance', OTHER: 'Altro',
+}
+
+function TenantGuarantorSection({ isStudent }: { isStudent: boolean }) {
+  const [guarantors, setGuarantors] = useState<GuarantorDto[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [adding,     setAdding]     = useState(false)
+  const [saving,     setSaving]     = useState(false)
+  const [form, setForm] = useState<Partial<GuarantorRequest>>({})
+
+  useEffect(() => {
+    tenantApi.listGuarantors()
+      .then(setGuarantors)
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleAdd = async () => {
+    if (!form.fullName?.trim() && !form.declaredMonthlyIncome) return
+    setSaving(true)
+    try {
+      const req: GuarantorRequest = {
+        roleLabel:            form.roleLabel ?? (isStudent ? 'Genitore' : 'Garante'),
+        fullName:             form.fullName ?? null,
+        fiscalCode:           form.fiscalCode ?? null,
+        employmentType:       form.employmentType ?? null,
+        contractType:         form.contractType ?? null,
+        employmentStartDate:  form.employmentStartDate ?? null,
+        employmentEndDate:    form.employmentEndDate ?? null,
+        declaredMonthlyIncome: form.declaredMonthlyIncome ?? null,
+      }
+      const created = await tenantApi.addGuarantor(req)
+      setGuarantors(gs => [...gs, created])
+      setForm({})
+      setAdding(false)
+    } finally { setSaving(false) }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Eliminare questo garante?')) return
+    await tenantApi.deleteGuarantor(id)
+    setGuarantors(gs => gs.filter(g => g.id !== id))
+  }
+
+  if (loading) return <div className="text-sm text-muted-foreground text-center py-8">Caricamento…</div>
+
+  const addLabel = isStudent ? '+ Aggiungi genitore/garante' : '+ Aggiungi garante'
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        {isStudent
+          ? 'Aggiungi i dati dei tuoi genitori o di chi farà da garante per te. Questi dati migliorano il tuo profilo.'
+          : 'Se hai un garante, aggiungilo qui. I suoi dati migliorano il calcolo degli indici di affidabilità.'}
+      </p>
+
+      {guarantors.length === 0 && !adding && (
+        <div className="rounded-xl border border-dashed py-8 text-center text-sm text-muted-foreground">
+          Nessun garante aggiunto.
+        </div>
+      )}
+
+      {guarantors.map(g => (
+        <div key={g.id} className="rounded-xl border bg-card p-4 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold">{g.fullName || '—'}</p>
+              <p className="text-xs text-muted-foreground">{g.roleLabel}</p>
+            </div>
+            <button
+              onClick={() => handleDelete(g.id)}
+              className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+            >✕</button>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            {g.employmentType && (
+              <div><span className="text-muted-foreground">Impiego</span><br />{EMPLOYMENT_LABELS[g.employmentType] ?? g.employmentType}</div>
+            )}
+            {g.contractType && (
+              <div><span className="text-muted-foreground">Contratto</span><br />{CONTRACT_LABELS[g.contractType] ?? g.contractType}</div>
+            )}
+            {g.declaredMonthlyIncome != null && (
+              <div><span className="text-muted-foreground">Reddito dichiarato</span><br />€ {g.declaredMonthlyIncome.toLocaleString('it-IT')}</div>
+            )}
+            {g.incomeVerified && g.verifiedMonthlyIncome != null && (
+              <div><span className="text-muted-foreground">Reddito verificato</span><br />
+                <span className="text-emerald-600 font-semibold">€ {g.verifiedMonthlyIncome.toLocaleString('it-IT')}</span>
+              </div>
+            )}
+          </div>
+          {g.incomeVerified && (
+            <p className="text-[10px] text-emerald-600 font-medium">✓ Reddito verificato dal supervisore</p>
+          )}
+        </div>
+      ))}
+
+      {adding ? (
+        <div className="rounded-xl border bg-card p-4 space-y-3">
+          <p className="text-xs font-semibold">{isStudent ? 'Aggiungi genitore / garante' : 'Aggiungi garante'}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="text-[11px] text-muted-foreground uppercase font-semibold block mb-1">Ruolo</label>
+              <input
+                type="text"
+                value={form.roleLabel ?? ''}
+                onChange={e => setForm(f => ({ ...f, roleLabel: e.target.value }))}
+                placeholder={isStudent ? 'Es. Madre, Padre' : 'Es. Garante'}
+                className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="text-[11px] text-muted-foreground uppercase font-semibold block mb-1">Nome completo</label>
+              <input
+                type="text"
+                value={form.fullName ?? ''}
+                onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+                className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="text-[11px] text-muted-foreground uppercase font-semibold block mb-1">Codice fiscale</label>
+              <input
+                type="text"
+                value={form.fiscalCode ?? ''}
+                onChange={e => setForm(f => ({ ...f, fiscalCode: e.target.value }))}
+                className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground uppercase font-semibold block mb-1">Tipo impiego</label>
+              <select
+                value={form.employmentType ?? ''}
+                onChange={e => setForm(f => ({ ...f, employmentType: e.target.value || null }))}
+                className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="">—</option>
+                {Object.entries(EMPLOYMENT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground uppercase font-semibold block mb-1">Tipo contratto</label>
+              <select
+                value={form.contractType ?? ''}
+                onChange={e => setForm(f => ({ ...f, contractType: e.target.value || null }))}
+                className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="">—</option>
+                {Object.entries(CONTRACT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground uppercase font-semibold block mb-1">Inizio lavoro</label>
+              <input
+                type="date"
+                value={form.employmentStartDate ?? ''}
+                onChange={e => setForm(f => ({ ...f, employmentStartDate: e.target.value || null }))}
+                className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground uppercase font-semibold block mb-1">Fine contratto</label>
+              <input
+                type="date"
+                value={form.employmentEndDate ?? ''}
+                onChange={e => setForm(f => ({ ...f, employmentEndDate: e.target.value || null }))}
+                className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="text-[11px] text-muted-foreground uppercase font-semibold block mb-1">Reddito mensile netto (€)</label>
+              <input
+                type="number"
+                value={form.declaredMonthlyIncome ?? ''}
+                onChange={e => setForm(f => ({ ...f, declaredMonthlyIncome: e.target.value ? Number(e.target.value) : null }))}
+                className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleAdd}
+              disabled={saving || (!form.fullName?.trim() && form.declaredMonthlyIncome == null)}
+              className="flex-1 py-2 text-sm font-semibold bg-primary text-primary-foreground rounded-lg disabled:opacity-50 hover:bg-primary/90"
+            >
+              {saving ? 'Salvataggio…' : 'Salva'}
+            </button>
+            <button
+              onClick={() => { setAdding(false); setForm({}) }}
+              className="px-4 py-2 text-sm border rounded-lg text-muted-foreground hover:text-foreground"
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="w-full py-3 rounded-xl border border-primary/30 text-primary text-sm font-medium hover:bg-primary/5 transition-colors"
+        >
+          {addLabel}
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type Tab = 'profile' | 'documents' | 'areas'
+type Tab = 'profile' | 'documents' | 'areas' | 'guarantors' | 'actions'
 
 export default function TenantProfilePage() {
   const { t }    = useLang()
@@ -618,27 +949,26 @@ export default function TenantProfilePage() {
         </button>
 
         {/* ── Tab bar ── */}
-        <div className="flex rounded-xl border overflow-hidden bg-muted/20 mb-5">
-          {(['profile', 'documents', 'areas'] as Tab[]).map(tabId => {
-            const labels: Record<Tab, string> = {
-              profile:   t('profile.section.personal').split(' ')[0],
-              documents: t('profile.section.documents'),
-              areas:     t('profile.section.areas').split(' ')[0],
-            }
-            return (
-              <button
-                key={tabId}
-                onClick={() => setTab(tabId)}
-                className={`flex-1 py-2.5 text-xs font-medium transition-colors
-                  ${tab === tabId
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                  }`}
-              >
-                {labels[tabId]}
-              </button>
-            )
-          })}
+        <div className="flex gap-1 overflow-x-auto pb-1 mb-5 scrollbar-none">
+          {([
+            { id: 'profile' as Tab,    label: t('profile.section.personal').split(' ')[0] },
+            { id: 'documents' as Tab,  label: t('profile.section.documents') },
+            { id: 'areas' as Tab,      label: t('profile.section.areas').split(' ')[0] },
+            { id: 'guarantors' as Tab, label: 'Garanti' },
+            { id: 'actions' as Tab,    label: 'Richieste' },
+          ]).map(({ id: tabId, label }) => (
+            <button
+              key={tabId}
+              onClick={() => setTab(tabId)}
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
+                ${tab === tabId
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/70'
+                }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -736,8 +1066,10 @@ export default function TenantProfilePage() {
               />
               <EditableFieldRow
                 label={t('profile.contractType')}
-                displayValue={data.contractType ?? ''}
+                displayValue={CONTRACT_LABELS[data.contractType ?? ''] ?? data.contractType ?? ''}
                 rawValue={data.contractType}
+                type="select"
+                options={Object.entries(CONTRACT_LABELS).map(([value, label]) => ({ value, label }))}
                 validation={vmap['contractType']}
                 lockWhenApproved={false}
                 warning="Modificando i dati lavorativi il profilo sarà inviato nuovamente in validazione. Ti consigliamo di caricare nuova documentazione reddituale per supportare le modifiche."
@@ -853,6 +1185,18 @@ export default function TenantProfilePage() {
             areas={data.interestAreas}
             onSaved={handleAreaSaved}
           />
+        )}
+
+        {/* ── GUARANTORS tab ── */}
+        {tab === 'guarantors' && (
+          <TenantGuarantorSection
+            isStudent={data.employmentType === 'STUDENT'}
+          />
+        )}
+
+        {/* ── ACTIONS tab ── */}
+        {tab === 'actions' && (
+          <PendingActionsSection />
         )}
 
       </div>

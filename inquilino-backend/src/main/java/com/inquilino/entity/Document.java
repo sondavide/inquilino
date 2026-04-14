@@ -42,6 +42,13 @@ public class Document {
     @Column(nullable = false)
     private boolean verified = false;
 
+    /**
+     * Se valorizzato, questo documento appartiene al garante indicato (non al tenant direttamente).
+     * FK logica verso guarantors.id — non è un @ManyToOne per semplicità di gestione.
+     */
+    @Column(name = "guarantor_id")
+    private UUID guarantorId;
+
     // Structured fields extracted via GPT-4o multimodal
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")

@@ -19,7 +19,27 @@ CREATE TABLE scoring_templates (
     is_default       BOOLEAN NOT NULL DEFAULT false,
     created_by       UUID,
     created_at       TIMESTAMP NOT NULL DEFAULT now(),
-    updated_at       TIMESTAMP NOT NULL DEFAULT now()
+    updated_at       TIMESTAMP NOT NULL DEFAULT now(),
+    -- Document weights
+    doc_weight_identity             INT NOT NULL DEFAULT 10,
+    doc_weight_payslip              INT NOT NULL DEFAULT 15,
+    doc_weight_payslip_triple_bonus INT NOT NULL DEFAULT 15,
+    doc_weight_tax_return           INT NOT NULL DEFAULT 25,
+    doc_weight_employment_contract  INT NOT NULL DEFAULT 20,
+    doc_weight_bank_statement       INT NOT NULL DEFAULT 15,
+    doc_weight_landlord_reference   INT NOT NULL DEFAULT 20,
+    doc_weight_guarantor_document   INT NOT NULL DEFAULT 15,
+    -- Document reliability thresholds
+    doc_reliability_high_threshold   INT NOT NULL DEFAULT 60,
+    doc_reliability_medium_threshold INT NOT NULL DEFAULT 30,
+    -- Income stability thresholds
+    stability_high_threshold   INT NOT NULL DEFAULT 65,
+    stability_medium_threshold INT NOT NULL DEFAULT 35,
+    student_family_weight_pct  INT NOT NULL DEFAULT 70,
+    -- Rent sustainability thresholds
+    rent_high_threshold_pct    INT NOT NULL DEFAULT 30,
+    rent_medium_threshold_pct  INT NOT NULL DEFAULT 50,
+    guarantor_income_credit_pct INT NOT NULL DEFAULT 40
 );
 
 -- ─── Users ────────────────────────────────────────────────────────────────────
@@ -58,6 +78,7 @@ CREATE TABLE tenant_profiles (
     monthly_income        NUMERIC(10, 2),
     contract_type         VARCHAR(50),
     employment_start_date DATE,
+    employment_end_date   DATE,
     has_guarantor         BOOLEAN      NOT NULL DEFAULT FALSE,
     guarantor_income      NUMERIC(10, 2),
     max_budget            NUMERIC(10, 2),
@@ -113,7 +134,8 @@ CREATE TABLE documents (
     file_url       TEXT        NOT NULL,
     uploaded_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
     verified       BOOLEAN     NOT NULL DEFAULT FALSE,
-    extracted_data JSONB       DEFAULT '{}'
+    extracted_data JSONB       DEFAULT '{}',
+    guarantor_id   UUID        NULL
 );
 
 CREATE INDEX idx_documents_user_id ON documents(user_id);
@@ -149,6 +171,7 @@ CREATE TABLE field_validations (
     supervisor_id       UUID,
     validated_at        TIMESTAMP    NOT NULL DEFAULT NOW(),
     corrected_at        TIMESTAMP,
+    verified_value      VARCHAR(255),
     UNIQUE (tenant_profile_id, field_name)
 );
 
@@ -509,6 +532,46 @@ CREATE TABLE onboarding_step_configs (
 COMMENT ON TABLE onboarding_step_configs IS
     'Runtime-editable LLM prompt overrides per onboarding step. '
     'Changes take effect within 30 seconds without restart.';
+
+-- ─── Guarantors ──────────────────────────────────────────────────────────────
+
+CREATE TABLE guarantors (
+    id                      UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_profile_id       UUID         NOT NULL REFERENCES tenant_profiles(id) ON DELETE CASCADE,
+    role_label              VARCHAR(100),
+    full_name               VARCHAR(255),
+    fiscal_code             VARCHAR(16),
+    employment_type         VARCHAR(50),
+    contract_type           VARCHAR(50),
+    employment_start_date   DATE,
+    employment_end_date     DATE,
+    declared_monthly_income NUMERIC(10,2),
+    verified_monthly_income NUMERIC(10,2),
+    income_verified         BOOLEAN      NOT NULL DEFAULT FALSE,
+    entered_by              UUID,
+    entered_by_role         VARCHAR(50),
+    created_at              TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_guarantors_profile ON guarantors(tenant_profile_id);
+
+-- ─── Supervisor notes ─────────────────────────────────────────────────────────
+
+CREATE TABLE supervisor_notes (
+    id                  UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_profile_id   UUID         NOT NULL REFERENCES tenant_profiles(id) ON DELETE CASCADE,
+    supervisor_id       UUID         NOT NULL,
+    message             TEXT,
+    requested_items     JSONB        NOT NULL DEFAULT '[]',
+    status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING',  -- PENDING | REPLIED | RESOLVED
+    sent_at             TIMESTAMP    NOT NULL DEFAULT NOW(),
+    tenant_replied_at   TIMESTAMP,
+    resolved_at         TIMESTAMP
+);
+
+CREATE INDEX idx_supervisor_notes_profile ON supervisor_notes(tenant_profile_id);
+CREATE INDEX idx_supervisor_notes_status  ON supervisor_notes(tenant_profile_id, status);
 
 -- ─── Seed: scoring templates ──────────────────────────────────────────────────
 

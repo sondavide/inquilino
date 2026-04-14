@@ -17,6 +17,9 @@ import type {
 import { AreaPreviewMap } from '@/components/map/AreaPreviewMap'
 import { MapSelector } from '@/components/map/MapSelector'
 import type { InterestArea } from '@/types'
+import { GuarantorSection } from '@/components/supervisor/GuarantorSection'
+import { ScoreBreakdownPanel } from '@/components/supervisor/ScoreBreakdownPanel'
+import { SupervisorNotesSection, NotesFab } from '@/components/supervisor/SupervisorNotesSection'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -931,7 +934,7 @@ function ScoreTab({ profileId, initialScore, initialTemplateId }: {
   )
 }
 
-type Tab = 'profile' | 'documents' | 'chat' | 'areas' | 'score'
+type Tab = 'profile' | 'documents' | 'chat' | 'areas' | 'score' | 'guarantors' | 'breakdown' | 'notes'
 
 export default function ProfileDetailPage() {
   const { profileId }          = useParams<{ profileId: string }>()
@@ -948,6 +951,17 @@ export default function ProfileDetailPage() {
   const [working, setWorking]  = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
   const [advancing, setAdvancing] = useState(false)
+  const [notes, setNotes] = useState<import('@/types').SupervisorNoteDto[]>([])
+  const [notesLoading, setNotesLoading] = useState(true)
+  const [guideOpen, setGuideOpen] = useState(
+    () => localStorage.getItem('sv_guide_collapsed') !== '1'
+  )
+
+  const toggleGuide = () => {
+    const next = !guideOpen
+    setGuideOpen(next)
+    localStorage.setItem('sv_guide_collapsed', next ? '0' : '1')
+  }
 
   useEffect(() => {
     if (!profileId) return
@@ -968,6 +982,10 @@ export default function ProfileDetailPage() {
           .catch(() => {})
       }
     }).catch(console.error).finally(() => setLoading(false))
+
+    supervisorApi.listNotes(profileId)
+      .then(setNotes)
+      .finally(() => setNotesLoading(false))
   }, [profileId])
 
   const handleApprove = async (fieldName: string) => {
@@ -1041,11 +1059,14 @@ export default function ProfileDetailPage() {
   const approvedCount  = validations.filter(v => v.status === 'APPROVED').length
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'profile',   label: 'Profilo' },
-    { id: 'score',     label: 'Indici' },
-    { id: 'documents', label: 'Documenti' },
-    { id: 'chat',      label: 'Chat' },
-    { id: 'areas',     label: 'Aree' },
+    { id: 'profile',    label: '① Profilo' },
+    { id: 'documents',  label: '② Documenti' },
+    { id: 'guarantors', label: '③ Garanti' },
+    { id: 'breakdown',  label: '④ Dettaglio' },
+    { id: 'notes',      label: notes.filter(n => n.status === 'PENDING').length > 0 ? `⑤ Note · ${notes.filter(n => n.status === 'PENDING').length}` : '⑤ Note' },
+    { id: 'score',      label: '⑥ Indici' },
+    { id: 'chat',       label: 'Chat' },
+    { id: 'areas',      label: 'Aree' },
   ]
 
   return (
@@ -1081,14 +1102,63 @@ export default function ProfileDetailPage() {
         </div>
       </div>
 
+      {/* Validation guide */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/20 mb-4 overflow-hidden">
+        <button
+          onClick={toggleGuide}
+          className="w-full flex items-center justify-between px-4 py-2.5 text-left"
+        >
+          <span className="text-xs font-semibold text-blue-700">Guida alla validazione</span>
+          <span className="text-blue-500 text-xs">{guideOpen ? '▲' : '▼'}</span>
+        </button>
+        {guideOpen && (
+          <div className="px-4 pb-3 space-y-2">
+            <ol className="space-y-1.5">
+              {[
+                { tab: 'profile' as Tab,    n: '1', label: 'Profilo',    desc: 'Approva o segnala ogni campo: dati anagrafici, tipo di impiego, reddito dichiarato, tipo contratto.' },
+                { tab: 'documents' as Tab,  n: '2', label: 'Documenti',  desc: 'Verifica ogni documento caricato. Controlla il check AI e approva manualmente. Segnala incongruenze.' },
+                { tab: 'guarantors' as Tab, n: '3', label: 'Garanti',    desc: 'Aggiungi o verifica i garanti. Per studenti è essenziale: il reddito del garante cambia significativamente gli indici.' },
+                { tab: 'breakdown' as Tab,  n: '4', label: 'Dettaglio',  desc: 'Leggi il breakdown completo degli indici e i suggerimenti: mostra esattamente cosa farebbe salire ogni indicatore.' },
+                { tab: 'notes' as Tab,      n: '5', label: 'Note',       desc: 'Invia una nota al tenant con i documenti o dati mancanti prima di completare. Il tenant vedrà la richiesta nella propria dashboard.' },
+                { tab: 'score' as Tab,      n: '6', label: 'Indici',     desc: 'Se necessario, applica un override manuale su uno o più indicatori con motivazione esplicita.' },
+              ].map(step => (
+                <li key={step.n} className="flex gap-2.5">
+                  <button
+                    onClick={() => setTab(step.tab)}
+                    className="shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center hover:bg-blue-200 transition-colors"
+                  >
+                    {step.n}
+                  </button>
+                  <div className="min-w-0">
+                    <button
+                      onClick={() => setTab(step.tab)}
+                      className="text-xs font-semibold text-blue-700 hover:underline"
+                    >
+                      {step.label}
+                    </button>
+                    <p className="text-[11px] text-blue-600/80 leading-snug">{step.desc}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <p className="text-[11px] text-blue-600 border-t border-blue-200 pt-2 mt-1">
+              Alla fine premi <strong>Completa validazione</strong> in fondo alla pagina.
+              Se ci sono campi segnalati, il tenant riceverà una notifica per correggerli.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Tab bar */}
-      <div className="flex rounded-xl border overflow-hidden bg-muted/20 mb-4">
+      <div className="flex gap-1 overflow-x-auto pb-1 mb-4 scrollbar-none">
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 py-2 text-xs font-medium transition-colors
-              ${tab === t.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
+              ${tab === t.id
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/70'}`}
           >
             {t.label}
           </button>
@@ -1125,7 +1195,33 @@ export default function ProfileDetailPage() {
             initialTemplateId={profile.scoringTemplateId ?? null}
           />
         )}
+        {tab === 'breakdown' && (
+          <ScoreBreakdownPanel profileId={profile.profileId} />
+        )}
+        {tab === 'guarantors' && (
+          <GuarantorSection
+            profileId={profile.profileId}
+            employmentType={profile.employmentType}
+          />
+        )}
+        {tab === 'notes' && (
+          <SupervisorNotesSection
+            profileId={profile.profileId}
+            notes={notes}
+            loading={notesLoading}
+            onResolved={updated => setNotes(ns => ns.map(n => n.id === updated.id ? updated : n))}
+            onDeleted={id => setNotes(ns => ns.filter(n => n.id !== id))}
+          />
+        )}
       </div>
+
+      {/* Notes FAB — visible on all tabs except 'notes' */}
+      {tab !== 'notes' && (
+        <NotesFab
+          profileId={profile.profileId}
+          onSent={note => setNotes(ns => [note, ...ns])}
+        />
+      )}
 
       {/* Bottom action bar — completa validazione */}
       {(profile.verificationStatus === 'IN_VALIDATION' ||

@@ -129,13 +129,133 @@ export interface TenantProfileDto {
 // ─── Supervisor types ─────────────────────────────────────────────────────────
 
 export interface FieldValidationDto {
-  id:           string
-  fieldName:    string
-  status:       'PENDING' | 'APPROVED' | 'FLAGGED'
-  note:         string | null
-  supervisorId: string | null
-  validatedAt:  string
-  correctedAt:  string | null
+  id:            string
+  fieldName:     string
+  status:        'PENDING' | 'APPROVED' | 'FLAGGED'
+  note:          string | null
+  verifiedValue: string | null
+  supervisorId:  string | null
+  validatedAt:   string
+  correctedAt:   string | null
+}
+
+// ─── Guarantor ────────────────────────────────────────────────────────────────
+
+export interface GuarantorDto {
+  id:                   string
+  tenantProfileId:      string
+  roleLabel:            string | null
+  fullName:             string | null
+  fiscalCode:           string | null
+  employmentType:       string | null
+  contractType:         string | null
+  employmentStartDate:  string | null
+  employmentEndDate:    string | null
+  declaredMonthlyIncome: number | null
+  verifiedMonthlyIncome: number | null
+  incomeVerified:        boolean
+  enteredByRole:         string | null
+  createdAt:             string | null
+}
+
+export interface GuarantorRequest {
+  roleLabel?:           string | null
+  fullName?:            string | null
+  fiscalCode?:          string | null
+  employmentType?:      string | null
+  contractType?:        string | null
+  employmentStartDate?: string | null
+  employmentEndDate?:   string | null
+  declaredMonthlyIncome?: number | null
+}
+
+// ─── Supervisor notes ─────────────────────────────────────────────────────────
+
+export interface SupervisorNoteDto {
+  id:               string
+  tenantProfileId:  string
+  supervisorId:     string
+  message:          string
+  requestedItems:   string[]
+  status:           'PENDING' | 'REPLIED' | 'RESOLVED'
+  sentAt:           string
+  tenantRepliedAt:  string | null
+  resolvedAt:       string | null
+}
+
+// ─── Score breakdown ──────────────────────────────────────────────────────────
+
+export interface ScoreBreakdownDto {
+  rent:   RentBreakdown
+  income: IncomeBreakdown
+  docs:   DocBreakdown
+  overrideRentSustainability:  ScoreLevel | null
+  overrideIncomeStability:     ScoreLevel | null
+  overrideDocumentReliability: ScoreLevel | null
+  overrideReason:              string | null
+  profileCompletion:           number
+  suggestions:                 ScoreSuggestion[]
+}
+
+export interface RentBreakdown {
+  declaredIncome:      number | null
+  verifiedIncome:      number | null
+  incomeUsed:          number | null
+  guarantorTotalIncome: number | null
+  guarantorCredit:     number | null
+  effectiveIncome:     number | null
+  maxBudget:           number | null
+  ratioPercent:        number | null
+  level:               ScoreLevel
+  explanation:         string
+}
+
+export interface IncomeBreakdown {
+  employmentType: string | null
+  contractType:   string | null
+  factorA:        number
+  factorAExplanation: string
+  factorB:        number
+  factorBExplanation: string
+  factorC:        number
+  factorCExplanation: string
+  factorD:        number
+  factorDExplanation: string
+  totalScore:     number
+  level:          ScoreLevel
+  isStudent:      boolean
+  familyScore:    number | null
+  familyScoreA:   number | null
+  familyScoreB:   number | null
+  familyScoreC:   number | null
+  familyScoreD:   number | null
+  familyExplanation: string | null
+  combinedScore:  number | null
+  studentWeightPct: number | null
+  familyWeightPct:  number | null
+}
+
+export interface DocBreakdown {
+  lines:       DocLine[]
+  totalScore:  number
+  level:       ScoreLevel
+  explanation: string
+}
+
+export interface DocLine {
+  type:        string
+  count:       number
+  approved:    boolean
+  pointsEarned: number
+  maxPoints:   number
+  isBonus:     boolean
+}
+
+export interface ScoreSuggestion {
+  category:         string
+  action:           string
+  projectedLevel:   ScoreLevel | null
+  estimatedPointGain: number | null
 }
 
 export interface SupervisorProfileSummary {
@@ -162,6 +282,7 @@ export interface SupervisorProfileDetail {
   monthlyIncome:        number | null
   contractType:         string
   employmentStartDate:  string
+  employmentEndDate:    string
   hasGuarantor:         boolean
   guarantorIncome:      number | null
   maxBudget:            number | null
@@ -223,11 +344,32 @@ export interface ScoringTemplate {
   id:                 string
   name:               string
   description:        string | null
+  // Pesi forza-tenant (matching)
   weightIdentity:     number
   weightIncome:       number
   weightStability:    number
   weightDocuments:    number
   weightGuarantor:    number
+  // Pesi per tipo documento
+  docWeightIdentity:              number
+  docWeightPayslip:               number
+  docWeightPayslipTripleBonus:    number
+  docWeightTaxReturn:             number
+  docWeightEmploymentContract:    number
+  docWeightBankStatement:         number
+  docWeightLandlordReference:     number
+  docWeightGuarantorDocument:     number
+  // Soglie document_reliability
+  docReliabilityHighThreshold:    number
+  docReliabilityMediumThreshold:  number
+  // Soglie income_stability
+  stabilityHighThreshold:         number
+  stabilityMediumThreshold:       number
+  studentFamilyWeightPct:         number
+  // Soglie rent_sustainability
+  rentHighThresholdPct:           number
+  rentMediumThresholdPct:         number
+  guarantorIncomeCreditPct:       number
   isDefault:          boolean
   createdAt:          string
   updatedAt:          string

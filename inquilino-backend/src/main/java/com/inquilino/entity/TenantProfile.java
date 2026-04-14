@@ -1,5 +1,6 @@
 package com.inquilino.entity;
 
+import com.inquilino.enums.ContractType;
 import com.inquilino.enums.EmploymentType;
 import com.inquilino.enums.VerificationStatus;
 import jakarta.persistence.*;
@@ -41,8 +42,16 @@ public class TenantProfile {
     private EmploymentType employmentType;
 
     private BigDecimal monthlyIncome;
-    private String contractType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "contract_type", length = 30)
+    private ContractType contractType;
+
     private LocalDate employmentStartDate;
+
+    /** Data di scadenza del contratto. Valorizzata solo per contractType = FIXED_TERM. */
+    @Column(name = "employment_end_date")
+    private LocalDate employmentEndDate;
 
     @Builder.Default
     private boolean hasGuarantor = false;

@@ -1,17 +1,23 @@
 package com.inquilino.controller;
 
+import com.inquilino.dto.guarantor.GuarantorDto;
+import com.inquilino.dto.guarantor.GuarantorRequest;
+import com.inquilino.dto.supervisor.SupervisorNoteDto;
 import com.inquilino.dto.tenant.*;
 import com.inquilino.entity.Document;
 import com.inquilino.entity.TenantInterestArea;
 import com.inquilino.entity.TenantProfile;
 import com.inquilino.entity.User;
+import com.inquilino.enums.ContractType;
 import com.inquilino.enums.EmploymentType;
 import com.inquilino.enums.VerificationStatus;
 import com.inquilino.repository.*;
 import com.inquilino.security.UserPrincipal;
 import com.inquilino.security.UserService;
+import com.inquilino.service.GuarantorService;
 import com.inquilino.service.MatchingService;
 import com.inquilino.service.ScoringService;
+import com.inquilino.service.SupervisorNoteService;
 import com.inquilino.service.SupervisorService;
 import com.inquilino.service.TenantProfileService;
 import jakarta.transaction.Transactional;
@@ -47,6 +53,8 @@ public class TenantController {
     private final TenantProfileService      tenantProfileService;
     private final SupervisorService         supervisorService;
     private final MatchingService           matchingService;
+    private final GuarantorService          guarantorService;
+    private final SupervisorNoteService     supervisorNoteService;
     private final S3Client                  s3Client;
 
     @Value("${minio.bucket}")
@@ -144,7 +152,7 @@ public class TenantController {
         }
         // Dati lavorativi — sempre editabili, resettano la validazione del campo
         if (req.contractType() != null) {
-            profile.setContractType(req.contractType());
+            profile.setContractType(ContractType.valueOf(req.contractType()));
             supervisorService.markFieldChangedByTenant(profileId, "contractType", userId);
         }
         if (req.employmentStartDate() != null) {
@@ -299,7 +307,7 @@ public class TenantController {
                 profile.getFiscalCode(),
                 profile.getEmploymentType() != null ? profile.getEmploymentType().name() : null,
                 profile.getMonthlyIncome(),
-                profile.getContractType(),
+                profile.getContractType() != null ? profile.getContractType().name() : null,
                 profile.getEmploymentStartDate(),
                 profile.isHasGuarantor(),
                 profile.getGuarantorIncome(),
@@ -335,6 +343,64 @@ public class TenantController {
         if (docs  != null && !docs.isEmpty())  filled++;
         if (areas != null && !areas.isEmpty()) filled++;
         return filled * 100 / 12;
+    }
+
+    // ─── Garanti (tenant può aggiungere/modificare i propri garanti) ──────────
+
+    @GetMapping("/guarantors")
+    public List<GuarantorDto> listGuarantors(@AuthenticationPrincipal UserPrincipal principal) {
+        TenantProfile p = requireProfile(principal.getUserId());
+        return guarantorService.list(p.getId()).stream().map(GuarantorDto::from).toList();
+    }
+
+    @PostMapping("/guarantors")
+    @ResponseStatus(HttpStatus.CREATED)
+    public GuarantorDto addGuarantor(
+            @RequestBody GuarantorRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        TenantProfile p = requireProfile(principal.getUserId());
+        return GuarantorDto.from(
+                guarantorService.create(p.getId(), req, principal.getUserId(), "TENANT"));
+    }
+
+    @PutMapping("/guarantors/{guarantorId}")
+    public GuarantorDto updateGuarantor(
+            @PathVariable UUID guarantorId,
+            @RequestBody GuarantorRequest req,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        TenantProfile p = requireProfile(principal.getUserId());
+        return GuarantorDto.from(guarantorService.update(guarantorId, p.getId(), req));
+    }
+
+    @DeleteMapping("/guarantors/{guarantorId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteGuarantor(
+            @PathVariable UUID guarantorId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        TenantProfile p = requireProfile(principal.getUserId());
+        guarantorService.delete(guarantorId, p.getId());
+    }
+
+    // ─── Note del supervisore (azioni pending per il tenant) ─────────────────
+
+    @GetMapping("/pending-actions")
+    public List<SupervisorNoteDto> getPendingActions(@AuthenticationPrincipal UserPrincipal principal) {
+        TenantProfile p = requireProfile(principal.getUserId());
+        return supervisorNoteService.listPending(p.getId())
+                .stream().map(SupervisorNoteDto::from).toList();
+    }
+
+    @PostMapping("/pending-actions/{noteId}/reply")
+    public SupervisorNoteDto markReplied(
+            @PathVariable UUID noteId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        TenantProfile p = requireProfile(principal.getUserId());
+        return SupervisorNoteDto.from(supervisorNoteService.markReplied(noteId, p.getId()));
+    }
+
+    private TenantProfile requireProfile(UUID userId) {
+        return profileRepo.findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile not found"));
     }
 
     /** Extracts the MinIO object key from a full URL: http://host:port/bucket/key */

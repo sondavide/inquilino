@@ -12,6 +12,10 @@ import type {
   OnboardingStateInfo,
   ScoreDetailDto,
   ScoreOverrideRequest,
+  ScoreBreakdownDto,
+  GuarantorDto,
+  GuarantorRequest,
+  SupervisorNoteDto,
 } from '@/types'
 
 export const supervisorApi = {
@@ -89,4 +93,54 @@ export const supervisorApi = {
 
   deleteScoreOverride: (profileId: string) =>
     apiClient.delete(`/supervisor/profiles/${profileId}/score-override`),
+
+  // Score breakdown completo
+  getScoreBreakdown: (profileId: string) =>
+    apiClient.get<ScoreBreakdownDto>(`/supervisor/profiles/${profileId}/score-breakdown`)
+      .then(r => r.data),
+
+  // Verified value su campo
+  setVerifiedValue: (profileId: string, fieldName: string, verifiedValue: string | null) =>
+    apiClient.patch<FieldValidationDto>(
+      `/supervisor/profiles/${profileId}/fields/${fieldName}/verified-value`,
+      { verifiedValue })
+      .then(r => r.data),
+
+  // Garanti
+  listGuarantors: (profileId: string) =>
+    apiClient.get<GuarantorDto[]>(`/supervisor/profiles/${profileId}/guarantors`)
+      .then(r => r.data),
+
+  addGuarantor: (profileId: string, req: GuarantorRequest) =>
+    apiClient.post<GuarantorDto>(`/supervisor/profiles/${profileId}/guarantors`, req)
+      .then(r => r.data),
+
+  updateGuarantor: (profileId: string, guarantorId: string, req: GuarantorRequest) =>
+    apiClient.put<GuarantorDto>(`/supervisor/profiles/${profileId}/guarantors/${guarantorId}`, req)
+      .then(r => r.data),
+
+  verifyGuarantorIncome: (profileId: string, guarantorId: string, verifiedMonthlyIncome: number | null) =>
+    apiClient.put<GuarantorDto>(
+      `/supervisor/profiles/${profileId}/guarantors/${guarantorId}/verify-income`,
+      { verifiedMonthlyIncome })
+      .then(r => r.data),
+
+  deleteGuarantor: (profileId: string, guarantorId: string) =>
+    apiClient.delete(`/supervisor/profiles/${profileId}/guarantors/${guarantorId}`),
+
+  // Note al tenant
+  listNotes: (profileId: string) =>
+    apiClient.get<SupervisorNoteDto[]>(`/supervisor/profiles/${profileId}/notes`)
+      .then(r => r.data),
+
+  sendNote: (profileId: string, message: string, requestedItems: string[]) =>
+    apiClient.post<SupervisorNoteDto>(`/supervisor/profiles/${profileId}/notes`, { message, requestedItems })
+      .then(r => r.data),
+
+  resolveNote: (profileId: string, noteId: string) =>
+    apiClient.put<SupervisorNoteDto>(`/supervisor/profiles/${profileId}/notes/${noteId}/resolve`)
+      .then(r => r.data),
+
+  deleteNote: (profileId: string, noteId: string) =>
+    apiClient.delete(`/supervisor/profiles/${profileId}/notes/${noteId}`),
 }

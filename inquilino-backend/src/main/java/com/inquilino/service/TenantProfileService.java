@@ -3,6 +3,7 @@ package com.inquilino.service;
 import com.inquilino.entity.OnboardingState;
 import com.inquilino.entity.TenantProfile;
 import com.inquilino.entity.User;
+import com.inquilino.enums.ContractType;
 import com.inquilino.enums.EmploymentType;
 import com.inquilino.enums.VerificationStatus;
 import com.inquilino.repository.OnboardingStateRepository;
@@ -79,7 +80,7 @@ public class TenantProfileService {
 
         // Employment (Step 09)
         p.setEmploymentType(parseEmploymentType(d.get("employment_type")));
-        p.setContractType(str(d.get("contract_type")));
+        p.setContractType(parseEnum(ContractType.class, d.get("contract_type")));
         p.setEmploymentStartDate(parseDate(d.get("employment_start_date")));
 
         // Income (Step 10)
@@ -156,8 +157,12 @@ public class TenantProfileService {
     }
 
     private EmploymentType parseEmploymentType(Object v) {
+        return parseEnum(EmploymentType.class, v);
+    }
+
+    private <E extends Enum<E>> E parseEnum(Class<E> clazz, Object v) {
         if (v == null) return null;
-        try { return EmploymentType.valueOf(v.toString().toUpperCase().trim()); }
+        try { return Enum.valueOf(clazz, v.toString().toUpperCase().trim()); }
         catch (Exception e) { return null; }
     }
 }

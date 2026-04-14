@@ -1,6 +1,7 @@
 import { ScoringTemplate } from '@/types'
 
 const base = '/api/admin/scoring-templates'
+const supervisorBase = '/api/supervisor/scoring-templates'
 
 function authHeaders() {
   const token = localStorage.getItem('auth_token')
@@ -9,7 +10,7 @@ function authHeaders() {
 
 export const scoringTemplateApi = {
   list: (): Promise<ScoringTemplate[]> =>
-    fetch(base, { headers: authHeaders() }).then(r => r.json()),
+    fetch(supervisorBase, { headers: authHeaders() }).then(r => r.ok ? r.json() : Promise.resolve([])),
 
   get: (id: string): Promise<ScoringTemplate> =>
     fetch(`${base}/${id}`, { headers: authHeaders() }).then(r => r.json()),
@@ -25,7 +26,7 @@ export const scoringTemplateApi = {
 
   /** Assegna un template a un profilo (supervisor). templateId=null = torna ai default. */
   assignToProfile: (profileId: string, templateId: string | null): Promise<void> =>
-    fetch(`/api/supervisor/profiles/${profileId}/scoring-template`, {
+    fetch(`/api/supervisor/profiles/${profileId}/scoring-template`, {  // endpoint supervisore
       method: 'PUT',
       headers: authHeaders(),
       body: JSON.stringify({ templateId }),

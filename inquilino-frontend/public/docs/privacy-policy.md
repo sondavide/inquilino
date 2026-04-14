@@ -2,8 +2,8 @@
 ### ai sensi degli artt. 13–14 Regolamento (UE) 2016/679 (GDPR)
 
 **Piattaforma:** InquilinoFacile.it  
-**Versione:** 1.0  
-**Data ultimo aggiornamento:** 13 aprile 2026  
+**Versione:** 1.1  
+**Data ultimo aggiornamento:** 14 aprile 2026  
 
 ---
 
@@ -14,10 +14,10 @@ Il Titolare del trattamento dei dati personali raccolti tramite la piattaforma I
 > **[RAGIONE_SOCIALE]**  
 > Sede legale: [INDIRIZZO_COMPLETO]  
 > C.F. / P.IVA: [CODICE_FISCALE_PIVA]  
-> Email privacy: info@inquilinofacile.it  
+> Email privacy: privacy@inquilinofacile.it  
 > PEC: [INDIRIZZO_PEC]  
 
-Per qualsiasi questione relativa al trattamento dei tuoi dati personali puoi contattarci all'indirizzo **info@inquilinofacile.it**.
+Per qualsiasi questione relativa al trattamento dei tuoi dati personali puoi contattarci all'indirizzo **privacy@inquilinofacile.it**.
 
 > **Nota sul DPO:** Al momento non è stato nominato un Responsabile della Protezione dei Dati (DPO). Prima dell'avvio di operazioni di trattamento su larga scala, sarà condotta una Valutazione d'Impatto sulla Protezione dei Dati (DPIA) ai sensi dell'art. 35 GDPR e sarà valutata la nomina di un DPO ai sensi dell'art. 37 GDPR.
 
@@ -98,18 +98,6 @@ Raccogliamo le seguenti categorie di dati nel corso della registrazione e dell'o
 - Cookie di sessione (JWT) — vedi [Cookie Policy](cookie-policy.md)
 - Log di accesso e attività sulla piattaforma (audit log)
 
-### 3.4 Dati Analitici (solo con consenso)
-
-Se l'utente acconsente all'uso dei cookie analitici tramite il banner di scelta cookie, vengono raccolti tramite Google Analytics 4:
-
-- Identificativo utente anonimo (ID casuale, non collegabile all'identità reale)
-- Pagine visitate e percorsi di navigazione
-- Tipo di dispositivo, browser e sistema operativo
-- Paese/regione di provenienza (non l'indirizzo IP completo)
-- Durata della sessione e interazioni con la pagina
-
-Questi dati sono trattati in forma aggregata e anonimizzata. L'indirizzo IP viene anonimizzato prima di qualsiasi trasmissione a Google.
-
 ---
 
 ## 4. Finalità e Basi Giuridiche del Trattamento
@@ -123,7 +111,6 @@ Questi dati sono trattati in forma aggregata e anonimizzata. L'indirizzo IP vien
 | Matching con locatori e visibilità del profilo | Consenso esplicito (art. 6.1.a) |
 | Condivisione del profilo sintetico con locatori | Consenso esplicito (art. 6.1.a) |
 | Sicurezza della piattaforma e audit log | Legittimo interesse (art. 6.1.f) |
-| Analisi statistica del traffico (Google Analytics) | Consenso (art. 6.1.a) — solo se accettato tramite banner cookie |
 | Adempimento obblighi di legge | Obbligo legale (art. 6.1.c) |
 
 ### Trattamento relativo alla profilazione automatizzata
@@ -170,7 +157,6 @@ Il Titolare si avvale di fornitori che agiscono come Responsabili del Trattament
 | Fornitore | Ruolo | Trasferimento extra-UE |
 |-----------|-------|------------------------|
 | OpenAI (GPT-4o / GPT-4o-mini) | Elaborazione AI conversazionale e verifica documenti | Sì — USA, con Standard Contractual Clauses (SCC) |
-| Google LLC (Google Analytics 4) | Analisi statistica del traffico (solo con consenso) | Sì — USA, con Standard Contractual Clauses (SCC) |
 | [PROVIDER_HOSTING] (es. Hetzner) | Hosting infrastruttura | No (UE) |
 | [PROVIDER_EMAIL] | Email transazionale | Da valutare |
 
@@ -184,10 +170,7 @@ I dati possono essere comunicati ad autorità giudiziarie o amministrative ove p
 
 ## 7. Trasferimenti di Dati Extra-UE
 
-I trasferimenti di dati verso USA avvengono sulla base delle **Clausole Contrattuali Standard (SCC)** adottate dalla Commissione Europea (Decisione 2021/914/UE), che garantiscono un livello di protezione adeguato ai sensi del GDPR. I fornitori coinvolti sono:
-
-- **OpenAI** — elaborazione AI
-- **Google LLC** — analisi del traffico tramite Google Analytics 4 (solo con consenso)
+Il trasferimento di dati verso OpenAI (USA) avviene sulla base delle **Clausole Contrattuali Standard (SCC)** adottate dalla Commissione Europea (Decisione 2021/914/UE), che garantiscono un livello di protezione adeguato ai sensi del GDPR.
 
 ---
 
@@ -204,7 +187,7 @@ La piattaforma **non prende decisioni completamente automatizzate** con effetti 
 - **Il locatore decide autonomamente** a chi inviare una richiesta di contatto, sulla base del profilo visualizzato.
 - **Nessun algoritmo esclude automaticamente** un candidato dalla ricerca.
 - Il profilo sintetico è uno **strumento di supporto alla decisione umana**, non un atto decisionale automatizzato.
-- L'utente ha sempre il diritto di **richiedere una revisione manuale** del proprio profilo di affidabilità contattando info@inquilinofacile.it.
+- L'utente ha sempre il diritto di **richiedere una revisione manuale** del proprio profilo di affidabilità contattando privacy@inquilinofacile.it.
 
 ### 8.3 Spiegabilità
 
@@ -218,45 +201,141 @@ Questa sezione descrive in modo integrale come vengono calcolati il profilo di a
 
 ### 9.1 Indicatori di Affidabilità (Score)
 
-Il sistema genera **quattro indicatori categoriali**. Non esiste un punteggio numerico globale.
+Il sistema genera **tre indicatori categoriali** (ALTA / MEDIA / BASSA) e un indicatore percentuale di completezza. Non esiste un punteggio numerico globale visibile all'esterno.
 
-#### Sostenibilità del Canone (`rent_sustainability`)
+---
 
-Misura la proporzione tra affitto desiderato e reddito mensile netto verificato o dichiarato.
+#### 9.1.1 Sostenibilità del Canone (`rent_sustainability`)
 
-| Livello | Condizione |
-|---------|------------|
-| ALTA | Affitto desiderato ≤ 30% del reddito netto mensile |
-| MEDIA | Affitto desiderato tra il 30% e il 50% del reddito netto mensile |
-| BASSA | Affitto desiderato > 50% del reddito netto mensile |
+Misura la proporzione tra il budget massimo mensile dichiarato dall'inquilino e il **reddito effettivo**, calcolato come segue:
 
-Se è presente un garante, il suo reddito contribuisce al calcolo come reddito aggiuntivo ponderato.
+```
+reddito_effettivo = reddito_verificato (se presente) oppure reddito_dichiarato
+                   + credito_garante (40% del reddito del garante, configurabile)
+```
 
-#### Stabilità Reddituale (`income_stability`)
+Il **credito del garante** è la quota del reddito del garante (verificato o dichiarato) che contribuisce al reddito effettivo, ponderata al 40% di default (parametro configurabile dall'amministratore tramite template di scoring).
 
-Valuta la continuità e la prevedibilità del reddito nel tempo.
+| Livello | Soglia (configurabile) |
+|---------|------------------------|
+| ALTA    | Budget ≤ 30% del reddito effettivo mensile |
+| MEDIA   | Budget tra 30% e 50% del reddito effettivo mensile |
+| BASSA   | Budget > 50% del reddito effettivo mensile |
 
-| Livello | Condizione |
-|---------|------------|
-| ALTA | Contratto a tempo indeterminato documentato, o lavoro autonomo con dichiarazione dei redditi ≥ 2 anni consecutivi |
-| MEDIA | Contratto a tempo determinato con anzianità ≥ 12 mesi, o autonomo con un anno di dichiarazione |
-| BASSA | Contratto recente (< 6 mesi), o reddito non documentato, o studente senza garante |
+---
 
-#### Affidabilità Documentale (`document_reliability`)
+#### 9.1.2 Stabilità Reddituale (`income_stability`)
 
-Valuta la completezza e la coerenza dei documenti caricati rispetto ai dati dichiarati.
+Calcolata come somma di quattro fattori (totale max = 100 punti):
 
-| Livello | Condizione |
-|---------|------------|
-| ALTA | Tutti i documenti richiesti per il profilo lavorativo caricati e verificati; dati coerenti con il dichiarato |
-| MEDIA | Documenti principali caricati ma con lievi incongruenze, o documenti opzionali mancanti |
-| BASSA | Documenti obbligatori mancanti o incongruenze significative tra dichiarato e documentato |
+**Fattore A — Base occupazione (max 45 pt)**
 
-#### Completezza Profilo (`profile_completeness`)
+| Situazione lavorativa | Punti |
+|-----------------------|-------|
+| Dipendente a tempo indeterminato | 45 |
+| Pensionato | 45 |
+| Dipendente a tempo determinato, >18 mesi al termine | 35 |
+| Dipendente a tempo determinato, 12–18 mesi al termine | 25 |
+| Dipendente a tempo determinato, 6–12 mesi al termine | 15 |
+| Apprendistato | 20 |
+| Lavoro autonomo / freelance | 30 |
+| Stage / tirocinio | 10 |
+| Studente con reddito proprio | 10 |
+| Studente senza reddito proprio | 5 |
 
-Percentuale (0–100%) dei campi del profilo compilati rispetto al totale richiesto per la tipologia lavorativa dell'utente.
+**Fattore B — Continuità occupazione (max 25 pt)**
 
-### 9.2 Algoritmo di Matching
+| Anzianità lavorativa | Punti |
+|----------------------|-------|
+| > 5 anni | 25 |
+| 3–5 anni | 20 |
+| 1–3 anni | 12 |
+| 6–12 mesi | 6 |
+| < 6 mesi | 0 |
+| Pensionato | 25 (automatico) |
+
+**Fattore C — Verifica del reddito (max 20 pt)**
+
+| Situazione | Punti |
+|------------|-------|
+| Reddito corretto/verificato da supervisore | 20 |
+| Documenti reddituali approvati (buste paga, 730, ecc.) | 12 |
+| Documenti reddituali caricati ma non ancora approvati | 5 |
+| Solo dichiarazione verbale | 0 |
+
+**Fattore D — Rete di sicurezza (max 10 pt)**
+
+| Situazione | Punti |
+|------------|-------|
+| Garante con reddito verificato | 10 |
+| Garante con reddito dichiarato | 5 |
+| Nessun garante | 0 |
+
+**Soglie classificazione stabilità** (configurabili):
+
+| Livello | Punteggio totale |
+|---------|-----------------|
+| ALTA    | ≥ 65/100 |
+| MEDIA   | 35–64/100 |
+| BASSA   | < 35/100 |
+
+**Formula speciale per studenti:**
+
+Per gli utenti con tipo occupazione STUDENTE, la stabilità viene calcolata come media ponderata tra lo score proprio e lo score del garante (tipicamente un genitore):
+
+```
+score_combinato = score_studente × 30% + score_migliore_garante × 70%
+```
+
+Le percentuali sono configurabili dall'amministratore. Se non è presente un garante, si usa lo score dello studente ridotto al 30% del peso totale.
+
+---
+
+#### 9.1.3 Affidabilità Documentale (`document_reliability`)
+
+Calcolata come somma pesata dei documenti approvati, con tetto massimo a 100 punti:
+
+| Tipo documento | Punti max |
+|----------------|-----------|
+| Documento d'identità | 10 |
+| Busta paga (singola) | 15 |
+| Bonus 3+ buste paga consecutive | +15 (bonus aggiuntivo) |
+| 730 / CU (dichiarazione dei redditi) | 25 |
+| Contratto di lavoro | 20 |
+| Estratto conto bancario | 15 |
+| Referenza da locatore precedente | 20 |
+| Documento garante | 15 |
+
+I pesi sono configurabili dall'amministratore tramite template di scoring.
+
+**Soglie classificazione affidabilità documentale** (configurabili):
+
+| Livello | Punteggio pesato |
+|---------|-----------------|
+| ALTA    | ≥ 60/100 |
+| MEDIA   | 30–59/100 |
+| BASSA   | < 30/100 |
+
+---
+
+#### 9.1.4 Completezza Profilo (`profile_completeness`)
+
+Percentuale (0–100%) dei campi del profilo compilati rispetto al totale previsto per la tipologia lavorativa. Non influenza direttamente gli altri indicatori ma è visibile ai locatori.
+
+---
+
+### 9.2 Override supervisore
+
+Un supervisore umano può modificare manualmente uno o più indicatori categoriali, motivando la decisione. Ogni override è:
+- registrato con data, supervisore responsabile e motivazione;
+- visibile all'utente su richiesta (art. 22.3 GDPR — diritto di revisione umana);
+- reversibile in qualsiasi momento dal supervisore o dall'amministratore.
+
+Il supervisore può inoltre correggere valori numerici (es. reddito mensile) quando i documenti presentati dimostrano un valore diverso dal dichiarato. Il valore corretto viene tracciato separatamente dal valore dichiarato.
+
+---
+
+### 9.3 Algoritmo di Matching
 
 Quando un locatore o un'agenzia effettua una ricerca, i profili vengono ordinati (non filtrati in modo esclusivo) sulla base di un punteggio di compatibilità calcolato come segue:
 
@@ -270,7 +349,21 @@ Quando un locatore o un'agenzia effettua una ricerca, i profili vengono ordinati
 
 Il punteggio di matching è utilizzato **solo per ordinare la lista** dei candidati compatibili, non per escluderli. Il locatore può visualizzare tutti i profili.
 
-### 9.3 Cosa NON viene utilizzato
+---
+
+### 9.4 Template di Scoring
+
+L'amministratore della piattaforma può creare **template di scoring personalizzati** che ridefiniscono:
+- le soglie di classificazione per ciascun indicatore;
+- i pesi dei documenti nell'affidabilità documentale;
+- la percentuale di credito del garante;
+- la ponderazione tra score studente e score garante familiare.
+
+I template sono assegnati ai profili individuali dai supervisori. Il template attivo per un profilo è tracciato e consultabile su richiesta dell'utente.
+
+---
+
+### 9.5 Cosa NON viene utilizzato
 
 Nel rispetto del principio di non discriminazione e del GDPR, i seguenti dati **non influenzano mai** il profilo di affidabilità né il matching:
 - Origine etnica, nazionalità o cittadinanza
@@ -297,7 +390,7 @@ Ai sensi degli artt. 15–22 GDPR, hai i seguenti diritti:
 | **Revoca consenso** (art. 7.3) | Revocare il consenso alla profilazione o alla visibilità del profilo in qualsiasi momento |
 | **Revisione umana** (art. 22.3) | Richiedere che una persona fisica riveda il tuo profilo di affidabilità |
 
-Per esercitare i tuoi diritti, scrivi a **info@inquilinofacile.it**. Risponderemo entro **30 giorni** dalla ricezione della richiesta (prorogabili di ulteriori 60 giorni per richieste complesse, con comunicazione motivata).
+Per esercitare i tuoi diritti, scrivi a **privacy@inquilinofacile.it**. Risponderemo entro **30 giorni** dalla ricezione della richiesta (prorogabili di ulteriori 60 giorni per richieste complesse, con comunicazione motivata).
 
 Hai inoltre il diritto di proporre **reclamo al Garante per la Protezione dei Dati Personali** (www.garanteprivacy.it).
 
@@ -317,7 +410,7 @@ Adottiamo le seguenti misure tecniche e organizzative:
 
 ## 12. Minori
 
-Il servizio è riservato a **utenti maggiorenni (≥ 18 anni)**. Non raccogliamo consapevolmente dati di minori. Se vieni a conoscenza di un account intestato a un minore, segnalacelo a info@inquilinofacile.it.
+Il servizio è riservato a **utenti maggiorenni (≥ 18 anni)**. Non raccogliamo consapevolmente dati di minori. Se vieni a conoscenza di un account intestato a un minore, segnalacelo a privacy@inquilinofacile.it.
 
 ---
 

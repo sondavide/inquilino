@@ -2,8 +2,8 @@
 ### Condizioni Generali di Utilizzo della Piattaforma InquilinoFacile.it
 
 **Piattaforma:** InquilinoFacile.it  
-**Versione:** 1.0  
-**Data ultimo aggiornamento:** 08 aprile 2026  
+**Versione:** 1.1  
+**Data ultimo aggiornamento:** 14 aprile 2026  
 
 ---
 
@@ -149,45 +149,70 @@ In conformità all'art. 22 GDPR e all'AI Act, **nessuna decisione con effetti si
 
 ## 8. Trasparenza del Profilo di Affidabilità e del Matching
 
-Il Profilo di Affidabilità è composto da quattro indicatori. Di seguito la descrizione completa dei criteri di calcolo, pubblicata ai sensi dell'art. 13 AI Act e dell'art. 13.2.f GDPR.
+Il Profilo di Affidabilità è composto da tre indicatori categoriali (ALTA / MEDIA / BASSA) e un indicatore percentuale di completezza. Di seguito la descrizione completa dei criteri di calcolo, pubblicata ai sensi dell'art. 13 AI Act e dell'art. 13.2.f GDPR. La versione integrale e aggiornata è disponibile nella Privacy Policy (Sezione 9).
 
 ### 8.1 Sostenibilità del Canone
 
-Rapporto percentuale tra il canone mensile desiderato e il reddito netto mensile documentato o dichiarato:
+Rapporto tra il budget mensile massimo dichiarato dall'Inquilino e il **reddito effettivo**, calcolato come:
 
-| Livello | Soglia |
-|---------|--------|
-| ALTA | Canone ≤ 30% del reddito netto mensile |
-| MEDIA | Canone tra il 30% e il 50% del reddito netto mensile |
-| BASSA | Canone > 50% del reddito netto mensile |
+```
+reddito_effettivo = reddito_verificato (o dichiarato) + 40% del reddito del garante
+```
 
-La presenza di un garante contribuisce al calcolo come reddito aggiuntivo ponderato.
+| Livello | Soglia (default, configurabile) |
+|---------|----------------------------------|
+| ALTA    | Budget ≤ 30% del reddito effettivo mensile |
+| MEDIA   | Budget 30–50% del reddito effettivo mensile |
+| BASSA   | Budget > 50% del reddito effettivo mensile |
 
 ### 8.2 Stabilità Reddituale
 
-Valuta la continuità e la prevedibilità del reddito:
+Calcolata come somma di quattro fattori pesati (max 100 punti):
 
-| Livello | Condizione |
-|---------|------------|
-| ALTA | Contratto a tempo indeterminato documentato, o autonomo con ≥ 2 anni di dichiarazioni dei redditi |
-| MEDIA | Contratto a termine con ≥ 12 mesi di anzianità, o autonomo con 1 anno di documentazione |
-| BASSA | Contratto recente (< 6 mesi), reddito non documentato, o studente senza garante |
+- **Fattore A – Base occupazione** (max 45 pt): dipendente indeterminato/pensionato = 45 pt; determinato, autonomo, apprendista secondo anzianità e tipo contratto; studente = 5–10 pt.
+- **Fattore B – Continuità** (max 25 pt): anzianità lavorativa da 0 pt (< 6 mesi) a 25 pt (> 5 anni).
+- **Fattore C – Verifica reddito** (max 20 pt): reddito verificato da supervisore = 20 pt; documenti approvati = 12 pt; documenti in attesa = 5 pt; solo dichiarazione = 0 pt.
+- **Fattore D – Rete di sicurezza** (max 10 pt): garante con reddito verificato = 10 pt; garante dichiarato = 5 pt; nessun garante = 0 pt.
+
+Per gli studenti si applica una formula ponderata che combina lo score proprio (30%) con lo score del garante (tipicamente un genitore, 70%). Le percentuali sono configurabili dall'amministratore.
+
+| Livello | Punteggio totale |
+|---------|-----------------|
+| ALTA    | ≥ 65/100 |
+| MEDIA   | 35–64/100 |
+| BASSA   | < 35/100 |
 
 ### 8.3 Affidabilità Documentale
 
-Valuta completezza e coerenza dei documenti rispetto al dichiarato:
+Somma pesata dei documenti approvati dal supervisore (max 100 pt):
 
-| Livello | Condizione |
-|---------|------------|
-| ALTA | Tutti i documenti obbligatori presenti e coerenti con i dati dichiarati |
-| MEDIA | Documenti principali presenti con lievi incongruenze, o documenti opzionali mancanti |
-| BASSA | Documenti obbligatori mancanti o incongruenze significative |
+| Documento | Punti max |
+|-----------|-----------|
+| Documento d'identità | 10 |
+| Busta paga | 15 (+ 15 bonus per 3+ buste consecutive) |
+| 730 / CU | 25 |
+| Contratto di lavoro | 20 |
+| Estratto conto | 15 |
+| Referenza locatore precedente | 20 |
+| Documento garante | 15 |
+
+I pesi sono configurabili dall'amministratore tramite template di scoring.
+
+| Livello | Punteggio pesato |
+|---------|-----------------|
+| ALTA    | ≥ 60/100 |
+| MEDIA   | 30–59/100 |
+| BASSA   | < 30/100 |
 
 ### 8.4 Completezza Profilo
 
-Percentuale (0–100%) di completamento dei campi richiesti per la tipologia lavorativa dell'utente.
+Percentuale (0–100%) di completamento dei campi richiesti per la tipologia lavorativa dell'Inquilino.
 
-### 8.5 Algoritmo di Matching
+### 8.5 Override supervisore
+
+Un supervisore umano può modificare uno o più indicatori categoriali, con obbligo di motivazione. Ogni modifica è tracciata e reversibile. L'Inquilino può richiedere informazioni sull'override in qualsiasi momento a privacy@inquilinofacile.it.
+
+### 8.6 Algoritmo di Matching
 
 I profili compatibili vengono ordinati secondo il seguente schema a punti:
 
@@ -195,7 +220,7 @@ I profili compatibili vengono ordinati secondo il seguente schema a punti:
 |----------|-------|
 | Compatibilità geografica (zone di interesse coincidenti) | +30 |
 | Compatibilità budget (canone ≤ budget dell'Inquilino) | +30 |
-| Livello affidabilità complessiva elevata | +20 |
+| Livello affidabilità complessiva elevata (≥ 2 indicatori ALTA) | +20 |
 | Compatibilità data di ingresso (±30 giorni) | +20 |
 
 Il punteggio serve solo per l'ordinamento. Nessun profilo viene escluso automaticamente. Punteggio massimo: 100.

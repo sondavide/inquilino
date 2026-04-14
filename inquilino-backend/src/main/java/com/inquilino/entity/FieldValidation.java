@@ -50,6 +50,15 @@ public class FieldValidation {
     @Column(name = "validated_at")
     private LocalDateTime validatedAt;
 
+    /**
+     * Valore verificato dal supervisore tramite documenti.
+     * Usato quando il valore dichiarato dal tenant non corrisponde a quello documentato.
+     * Es.: tenant dichiara 2000€/mese, supervisore verifica 1500€ → verifiedValue = "1500.00"
+     * L'algoritmo di scoring usa questo valore al posto del dichiarato quando presente.
+     */
+    @Column(name = "verified_value", columnDefinition = "TEXT")
+    private String verifiedValue;
+
     /** Impostato quando l'utente corregge un campo FLAGGED */
     @Column(name = "corrected_at")
     private LocalDateTime correctedAt;

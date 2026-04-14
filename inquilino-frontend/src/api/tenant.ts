@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { TenantProfileDto, FieldValidationDto } from '@/types'
+import type { TenantProfileDto, FieldValidationDto, GuarantorDto, GuarantorRequest, SupervisorNoteDto } from '@/types'
 
 export interface TenantUpdatePayload {
   // User fields
@@ -42,4 +42,24 @@ export const tenantApi = {
 
   getMyValidations: () =>
     apiClient.get<FieldValidationDto[]>('/tenant/validations').then(r => r.data),
+
+  // Garanti
+  listGuarantors: () =>
+    apiClient.get<GuarantorDto[]>('/tenant/guarantors').then(r => r.data),
+
+  addGuarantor: (req: GuarantorRequest) =>
+    apiClient.post<GuarantorDto>('/tenant/guarantors', req).then(r => r.data),
+
+  updateGuarantor: (id: string, req: GuarantorRequest) =>
+    apiClient.put<GuarantorDto>(`/tenant/guarantors/${id}`, req).then(r => r.data),
+
+  deleteGuarantor: (id: string) =>
+    apiClient.delete(`/tenant/guarantors/${id}`),
+
+  // Azioni pending dal supervisore
+  getPendingActions: () =>
+    apiClient.get<SupervisorNoteDto[]>('/tenant/pending-actions').then(r => r.data),
+
+  markActionReplied: (noteId: string) =>
+    apiClient.post<SupervisorNoteDto>(`/tenant/pending-actions/${noteId}/reply`).then(r => r.data),
 }
