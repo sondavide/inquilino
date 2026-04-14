@@ -83,7 +83,7 @@ export default function LandlordProfilePage() {
   const isAgency = ['AGENCY', 'BUILDER', 'PROPERTY_MANAGER'].includes(profile.agencyName ? 'AGENCY' : '')
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-7xl mx-auto w-full">
+    <div className="px-4 py-6 w-full">
       <h1 className="text-xl font-bold mb-6">Il mio profilo</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">

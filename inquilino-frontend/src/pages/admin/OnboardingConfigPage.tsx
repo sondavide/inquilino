@@ -1078,7 +1078,7 @@ export default function OnboardingConfigPage() {
   ]
 
   return (
-    <div className="w-full px-4 py-6 max-w-4xl mx-auto">
+    <div className="w-full px-4 py-6">
       <div className="mb-5">
         <h1 className="text-xl font-bold">Onboarding Chatbot</h1>
         <p className="text-sm text-muted-foreground mt-0.5">

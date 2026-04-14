@@ -1130,7 +1130,7 @@ export default function ProfileDetailPage() {
       {/* Bottom action bar — completa validazione */}
       {(profile.verificationStatus === 'IN_VALIDATION' ||
         profile.verificationStatus === 'PENDING_VALIDATION') && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t">
+        <div className="sticky bottom-0 p-4 bg-background/95 backdrop-blur border-t">
           <div className="w-full">
             {flaggedCount > 0 && (
               <p className="text-xs text-red-500 text-center mb-2">

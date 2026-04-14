@@ -136,7 +136,7 @@ export default function ScoringTemplatesPage() {
               + form.weightDocuments + form.weightGuarantor
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="w-full px-4 py-8">
       <h1 className="text-xl font-bold mb-1">Template di scoring</h1>
       <p className="text-sm text-muted-foreground mb-6">
         I template ridistribuiscono i pesi dei 5 fattori nel punteggio forza-tenant.

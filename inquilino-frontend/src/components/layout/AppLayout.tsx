@@ -308,7 +308,9 @@ export default function AppLayout() {
 
         {/* Contenuto pagina */}
         <main className="flex-1 overflow-y-auto flex flex-col">
-          <Outlet />
+          <div className="flex-1 flex flex-col w-full md:max-w-5xl md:mx-auto">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

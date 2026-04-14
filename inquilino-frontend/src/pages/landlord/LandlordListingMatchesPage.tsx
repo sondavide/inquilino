@@ -384,7 +384,7 @@ export default function LandlordListingMatchesPage() {
 
       {/* Sub-header con tabs */}
       <div className="bg-white border-b px-4 pt-3 pb-0 shrink-0">
-        <div className="flex items-center gap-3 mb-3 max-w-7xl mx-auto">
+        <div className="flex items-center gap-3 mb-3">
           <button onClick={() => navigate('/landlord/listings')} className="text-sm text-blue-600">
             ← {t('matches.landlord.back' as any)}
           </button>
@@ -392,7 +392,7 @@ export default function LandlordListingMatchesPage() {
             {t('matches.landlord.title' as any)}
           </h1>
         </div>
-        <div className="flex max-w-7xl mx-auto">
+        <div className="flex">
           {(['discover', 'mutual'] as const).map(t_ => (
             <button
               key={t_}

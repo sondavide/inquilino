@@ -40,7 +40,7 @@ export default function LandlordListingsPage() {
   )
 
   return (
-    <div className="px-4 md:px-8 py-6 max-w-7xl mx-auto w-full">
+    <div className="px-4 py-6 w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold text-gray-800">I miei annunci</h1>
