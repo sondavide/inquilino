@@ -2,9 +2,11 @@ package com.inquilino.controller;
 
 import com.inquilino.dto.guarantor.GuarantorDto;
 import com.inquilino.dto.guarantor.GuarantorRequest;
+import com.inquilino.dto.supervisor.ScoreBreakdownDto;
 import com.inquilino.dto.supervisor.SupervisorNoteDto;
 import com.inquilino.dto.tenant.*;
 import com.inquilino.entity.Document;
+import com.inquilino.entity.ScoreOverride;
 import com.inquilino.entity.TenantInterestArea;
 import com.inquilino.entity.TenantProfile;
 import com.inquilino.entity.User;
@@ -47,6 +49,7 @@ public class TenantController {
     private final TenantProfileRepository   profileRepo;
     private final OnboardingStateRepository onboardingRepo;
     private final DocumentRepository        documentRepo;
+    private final FieldValidationRepository fieldValidationRepo;
     private final InterestAreaRepository    interestAreaRepo;
     private final ScoringService            scoringService;
     private final UserService               userService;
@@ -55,6 +58,7 @@ public class TenantController {
     private final MatchingService           matchingService;
     private final GuarantorService          guarantorService;
     private final SupervisorNoteService     supervisorNoteService;
+    private final ScoreOverrideRepository   scoreOverrideRepo;
     private final S3Client                  s3Client;
 
     @Value("${minio.bucket}")
@@ -231,14 +235,17 @@ public class TenantController {
         if (doc.isVerified()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete a verified document");
         }
-        // Controlla se il tipo di documento è stato approvato dal supervisore
         TenantProfile tenantProfile = profileRepo.findByUserId(principal.getUserId()).orElse(null);
         if (tenantProfile != null) {
             String docField = "doc." + doc.getType().name();
+            // Controlla se il tipo di documento è stato approvato dal supervisore
             if (supervisorService.isFieldApproved(tenantProfile.getId(), docField)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "Cannot delete a supervisor-approved document type");
             }
+            // Cascade: rimuove l'eventuale segnalazione/validazione supervisore sul tipo documento
+            fieldValidationRepo.findByTenantProfileIdAndFieldName(tenantProfile.getId(), docField)
+                    .ifPresent(fieldValidationRepo::delete);
         }
         documentRepo.delete(doc);
     }
@@ -396,6 +403,18 @@ public class TenantController {
             @AuthenticationPrincipal UserPrincipal principal) {
         TenantProfile p = requireProfile(principal.getUserId());
         return SupervisorNoteDto.from(supervisorNoteService.markReplied(noteId, p.getId()));
+    }
+
+    // ─── GET /api/tenant/score-breakdown ─────────────────────────────────────
+
+    @GetMapping("/score-breakdown")
+    public ScoreBreakdownDto getScoreBreakdown(
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        TenantProfile p = requireProfile(principal.getUserId());
+        List<Document> docs = documentRepo.findByUserId(principal.getUserId());
+        ScoreOverride override = scoreOverrideRepo.findByTenantProfileId(p.getId()).orElse(null);
+        return scoringService.calculateBreakdown(p, docs, override);
     }
 
     private TenantProfile requireProfile(UUID userId) {

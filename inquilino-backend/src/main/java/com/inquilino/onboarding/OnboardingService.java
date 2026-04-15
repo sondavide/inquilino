@@ -355,6 +355,25 @@ public class OnboardingService {
                 .findByUserIdAndStepOrderByCreatedAtAsc(userId, state.getCurrentStep());
     }
 
+    /**
+     * Unconditionally skips the current step and advances to the next one.
+     * Called by the dedicated "skip step" button on the frontend.
+     */
+    public OnboardingStateDto skipStep(UUID userId, String lang) {
+        User user = userService.findById(userId);
+        Locale locale = parseLocale(lang);
+        OnboardingState state = stateRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalStateException("No onboarding state"));
+
+        OnboardingStep step = stepRegistry.get(state.getCurrentStep());
+        log.info("User {} skipped step {}", userId, step.getStepId());
+        forceAdvanceStep(state, step, user, locale);
+        advanceThroughCompletedSteps(state, user, locale);
+        stateRepository.save(state);
+
+        return buildStateDto(state, user, locale, List.of());
+    }
+
     public OnboardingStateDto goBack(UUID userId, String lang) {
         User user = userService.findById(userId);
         OnboardingState state = stateRepository.findByUserId(userId)
@@ -532,10 +551,18 @@ public class OnboardingService {
     }
 
     private static final Set<String> SKIP_KEYWORDS = Set.of(
-            "salta", "prosegui", "avanti", "vai avanti", "continua", "passa",
-            "prossimo", "procedi", "andiamo avanti",
+            // Italian
+            "salta", "salto", "saltare",
+            "prosegui", "proseguo",
+            "avanti", "vai avanti", "andiamo avanti",
+            "continua", "continuo",
+            "passa", "passo", "passare",
+            "prossimo", "prossima",
+            "procedi", "procedo",
+            "non ho documenti", "no grazie", "ho finito", "finito",
+            // English
             "skip", "next", "proceed", "continue", "move on", "go ahead",
-            "go forward", "let's move on", "next step"
+            "go forward", "let's move on", "next step", "done", "no documents"
     );
 
     private static boolean isSkipIntent(String message) {

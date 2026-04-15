@@ -2,8 +2,8 @@
 ### Condizioni Generali di Utilizzo della Piattaforma InquilinoFacile.it
 
 **Piattaforma:** InquilinoFacile.it  
-**Versione:** 1.1  
-**Data ultimo aggiornamento:** 14 aprile 2026  
+**Versione:** 1.2  
+**Data ultimo aggiornamento:** 15 aprile 2026  
 
 ---
 
@@ -172,9 +172,16 @@ Calcolata come somma di quattro fattori pesati (max 100 punti):
 - **Fattore A – Base occupazione** (max 45 pt): dipendente indeterminato/pensionato = 45 pt; determinato, autonomo, apprendista secondo anzianità e tipo contratto; studente = 5–10 pt.
 - **Fattore B – Continuità** (max 25 pt): anzianità lavorativa da 0 pt (< 6 mesi) a 25 pt (> 5 anni).
 - **Fattore C – Verifica reddito** (max 20 pt): reddito verificato da supervisore = 20 pt; documenti approvati = 12 pt; documenti in attesa = 5 pt; solo dichiarazione = 0 pt.
-- **Fattore D – Rete di sicurezza** (max 10 pt): garante con reddito verificato = 10 pt; garante dichiarato = 5 pt; nessun garante = 0 pt.
+- **Fattore D – Qualità della rete di sicurezza** (max 10 pt): valuta la **qualità** del garante in base al rapporto tra il reddito complessivo dei garanti e il budget mensile massimo scelto dall'inquilino:
+  - Qualità ALTA (rapporto ≥ 4) = 10 pt
+  - Qualità MEDIA (rapporto ≥ 2) = 7 pt
+  - Qualità BASSA (rapporto ≥ 1) = 4 pt
+  - Qualità INSUFFICIENTE (rapporto < 1) = 1 pt
+  - Nessun garante = 0 pt
 
-Per gli studenti si applica una formula ponderata che combina lo score proprio (30%) con lo score del garante (tipicamente un genitore, 70%). Le percentuali sono configurabili dall'amministratore.
+  Il supervisore può sovrascrivere il reddito complessivo dei garanti e la data di inizio lavoro (Fattore B) con valori verificati tramite documenti.
+
+Per gli studenti si applica una formula ponderata che combina lo score proprio (30%) con lo score del garante (tipicamente un genitore, 70%); anche lo score del garante tiene conto della qualità basata sul rapporto reddito/budget. Le percentuali sono configurabili dall'amministratore.
 
 | Livello | Punteggio totale |
 |---------|-----------------|
@@ -210,7 +217,7 @@ Percentuale (0–100%) di completamento dei campi richiesti per la tipologia lav
 
 ### 8.5 Override supervisore
 
-Un supervisore umano può modificare uno o più indicatori categoriali, con obbligo di motivazione. Ogni modifica è tracciata e reversibile. L'Inquilino può richiedere informazioni sull'override in qualsiasi momento a privacy@inquilinofacile.it.
+Un supervisore umano può modificare uno o più indicatori categoriali, con obbligo di motivazione. Può inoltre correggere valori numerici verificati tramite documenti (reddito mensile, data di inizio lavoro, reddito complessivo dei garanti). Ogni modifica è tracciata con data e responsabile ed è reversibile. L'Inquilino può richiedere informazioni sull'override in qualsiasi momento a privacy@inquilinofacile.it.
 
 ### 8.6 Algoritmo di Matching
 

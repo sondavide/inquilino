@@ -1,26 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { supervisorApi } from '@/api/supervisor'
 import type { SupervisorNoteDto } from '@/types'
+import { useLang } from '@/i18n'
 
-// ─── Checklist items disponibili ─────────────────────────────────────────────
+// ─── Checklist item values (labels come from i18n) ───────────────────────────
 
-const CHECKLIST_ITEMS: { value: string; label: string; category: string }[] = [
+const CHECKLIST_ITEMS: { value: string; category: string }[] = [
   // Documenti tenant
-  { value: 'PAYSLIP',              label: 'Buste paga (ultimi 3 mesi)',       category: 'Documenti' },
-  { value: 'TAX_RETURN',           label: '730 / CU',                          category: 'Documenti' },
-  { value: 'EMPLOYMENT_CONTRACT',  label: 'Contratto di lavoro',               category: 'Documenti' },
-  { value: 'BANK_STATEMENT',       label: 'Estratto conto',                    category: 'Documenti' },
-  { value: 'IDENTITY',             label: 'Documento d\'identità',             category: 'Documenti' },
-  { value: 'LANDLORD_REFERENCE',   label: 'Referenza locatore',                category: 'Documenti' },
+  { value: 'PAYSLIP',                       category: 'Documenti' },
+  { value: 'TAX_RETURN',                    category: 'Documenti' },
+  { value: 'EMPLOYMENT_CONTRACT',           category: 'Documenti' },
+  { value: 'BANK_STATEMENT',               category: 'Documenti' },
+  { value: 'IDENTITY',                      category: 'Documenti' },
+  { value: 'LANDLORD_REFERENCE',            category: 'Documenti' },
   // Garante
-  { value: 'GUARANTOR_DATA',       label: 'Dati garante',                      category: 'Garante' },
-  { value: 'GUARANTOR_PAYSLIP',    label: 'Buste paga garante',                category: 'Garante' },
-  { value: 'GUARANTOR_TAX_RETURN', label: '730 / CU garante',                  category: 'Garante' },
-  { value: 'GUARANTOR_EMPLOYMENT_CONTRACT', label: 'Contratto garante',        category: 'Garante' },
+  { value: 'GUARANTOR_DATA',                category: 'Garante' },
+  { value: 'GUARANTOR_PAYSLIP',             category: 'Garante' },
+  { value: 'GUARANTOR_TAX_RETURN',          category: 'Garante' },
+  { value: 'GUARANTOR_EMPLOYMENT_CONTRACT', category: 'Garante' },
   // Dati
-  { value: 'INCOME_CORRECTION',    label: 'Correzione reddito',                category: 'Dati' },
-  { value: 'CONTRACT_TYPE',        label: 'Tipo contratto',                    category: 'Dati' },
-  { value: 'EMPLOYMENT_DATES',     label: 'Date contratto',                    category: 'Dati' },
+  { value: 'INCOME_CORRECTION',             category: 'Dati' },
+  { value: 'CONTRACT_TYPE',                 category: 'Dati' },
+  { value: 'EMPLOYMENT_DATES',              category: 'Dati' },
 ]
 
 const CATEGORY_ORDER = ['Documenti', 'Garante', 'Dati']
@@ -51,6 +52,7 @@ function NoteCard({
   onResolved: (n: SupervisorNoteDto) => void
   onDeleted: (id: string) => void
 }) {
+  const { t } = useLang()
   const [resolving,  setResolving]  = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
   const [deleting,   setDeleting]   = useState(false)
@@ -72,7 +74,7 @@ function NoteCard({
   }
 
   const checklist = (note.requestedItems ?? [])
-    .map(v => CHECKLIST_ITEMS.find(c => c.value === v)?.label ?? v)
+    .map(v => t(`checklist.${v}` as Parameters<typeof t>[0]))
 
   return (
     <div className="rounded-xl border bg-card p-4 space-y-2">
@@ -197,6 +199,7 @@ export function NotesFab({ profileId, onSent }: {
   profileId: string
   onSent: (note: SupervisorNoteDto) => void
 }) {
+  const { t } = useLang()
   const [open,     setOpen]     = useState(false)
   const [message,  setMessage]  = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -284,7 +287,9 @@ export function NotesFab({ profileId, onSent }: {
               const items = CHECKLIST_ITEMS.filter(c => c.category === cat)
               return (
                 <div key={cat}>
-                  <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">{cat}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">
+                    {t(`checklist.category.${cat}` as Parameters<typeof t>[0])}
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {items.map(item => (
                       <button
@@ -296,7 +301,7 @@ export function NotesFab({ profileId, onSent }: {
                             : 'bg-muted/40 text-muted-foreground border-border hover:border-foreground hover:text-foreground'
                         }`}
                       >
-                        {selected.has(item.value) ? '✓ ' : ''}{item.label}
+                        {selected.has(item.value) ? '✓ ' : ''}{t(`checklist.${item.value}` as Parameters<typeof t>[0])}
                       </button>
                     ))}
                   </div>

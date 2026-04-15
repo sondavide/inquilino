@@ -1,11 +1,13 @@
 package com.inquilino.onboarding;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 public class StepRegistry {
 
@@ -21,8 +23,13 @@ public class StepRegistry {
     }
 
     public OnboardingStep get(String stepId) {
-        return Optional.ofNullable(stepsById.get(stepId))
-                .orElseGet(() -> orderedSteps.get(0));
+        OnboardingStep step = stepsById.get(stepId);
+        if (step == null) {
+            log.error("Unknown step ID '{}' — falling back to first step ({}). This indicates corrupted onboarding state.",
+                    stepId, orderedSteps.get(0).getStepId());
+            return orderedSteps.get(0);
+        }
+        return step;
     }
 
     public List<OnboardingStep> getAll() {

@@ -63,11 +63,18 @@ export default function LoginPage() {
                 onChange={e => setEmail(e.target.value)} required autoComplete="email"
                 className={inputClass}
               />
-              <input
-                type="password" placeholder={t('auth.login.password')} value={password}
-                onChange={e => setPassword(e.target.value)} required minLength={8} autoComplete="current-password"
-                className={inputClass}
-              />
+              <div className="space-y-1">
+                <input
+                  type="password" placeholder={t('auth.login.password')} value={password}
+                  onChange={e => setPassword(e.target.value)} required minLength={8} autoComplete="current-password"
+                  className={inputClass}
+                />
+                <div className="flex justify-end">
+                  <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors">
+                    {t('auth.forgot.link')}
+                  </Link>
+                </div>
+              </div>
               {error && <p className="text-destructive text-sm">{error}</p>}
               <button type="submit" disabled={loading} className={btnClass}>
                 {loading ? t('auth.login.loading') : t('auth.login.submit_login')}

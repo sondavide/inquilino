@@ -193,12 +193,15 @@ public class ScoringService {
         BigDecimal incomeUsed = verified != null ? verified : declared;
 
         // Credito garanti: somma del reddito effettivo di tutti i garanti × creditPct
+        // Il supervisore può sovrascrivere il totale aggregato tramite FieldValidation "guarantorTotalIncome"
         double creditPct = tpl.getGuarantorIncomeCreditPct() / 100.0;
-        BigDecimal guarantorTotal = guarantors.stream()
-                .map(g -> g.getVerifiedMonthlyIncome() != null
-                        ? g.getVerifiedMonthlyIncome()
-                        : (g.getDeclaredMonthlyIncome() != null ? g.getDeclaredMonthlyIncome() : BigDecimal.ZERO))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal guarantorTotalOverride = getVerifiedGuarantorTotal(p.getId());
+        BigDecimal guarantorTotal = guarantorTotalOverride != null ? guarantorTotalOverride :
+                guarantors.stream()
+                        .map(g -> g.getVerifiedMonthlyIncome() != null
+                                ? g.getVerifiedMonthlyIncome()
+                                : (g.getDeclaredMonthlyIncome() != null ? g.getDeclaredMonthlyIncome() : BigDecimal.ZERO))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal guarantorCredit = guarantorTotal.multiply(BigDecimal.valueOf(creditPct));
         BigDecimal effective = incomeUsed.add(guarantorCredit);
 
@@ -233,6 +236,28 @@ public class ScoringService {
                 .orElse(null);
     }
 
+    /**
+     * Reddito complessivo dei garanti verificato dal supervisore come valore aggregato.
+     * Se null, il servizio somma i redditi per-garante.
+     */
+    private BigDecimal getVerifiedGuarantorTotal(UUID tenantProfileId) {
+        if (tenantProfileId == null) return null;
+        return fieldValidationRepo.findByTenantProfileIdAndFieldName(tenantProfileId, "guarantorTotalIncome")
+                .map(FieldValidation::getVerifiedValue)
+                .filter(v -> v != null && !v.isBlank())
+                .map(v -> { try { return new BigDecimal(v); } catch (Exception e) { return null; } })
+                .orElse(null);
+    }
+
+    /** Returns a supervisor-set verified value for a string/enum field, or null if not set. */
+    private String getVerifiedStringValue(UUID tenantProfileId, String fieldName) {
+        if (tenantProfileId == null) return null;
+        return fieldValidationRepo.findByTenantProfileIdAndFieldName(tenantProfileId, fieldName)
+                .map(FieldValidation::getVerifiedValue)
+                .filter(v -> v != null && !v.isBlank())
+                .orElse(null);
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
     // INCOME STABILITY — sommatoria A + B + C + D (max 100)
     // ═════════════════════════════════════════════════════════════════════════
@@ -248,20 +273,39 @@ public class ScoringService {
             return emptyIncomeBreakdown("LOW", "Tipo di impiego non dichiarato → LOW");
         }
 
-        boolean isStudent = p.getEmploymentType() == EmploymentType.STUDENT;
+        // Supervisor-verified overrides for employment classification fields
+        EmploymentType effectiveEt = p.getEmploymentType();
+        String vetStr = getVerifiedStringValue(pid, "employmentType");
+        if (vetStr != null) {
+            try { effectiveEt = EmploymentType.valueOf(vetStr); } catch (Exception ignored) {}
+        }
+        ContractType effectiveCt = p.getContractType();
+        String vctStr = getVerifiedStringValue(pid, "contractType");
+        if (vctStr != null) {
+            try { effectiveCt = ContractType.valueOf(vctStr); } catch (Exception ignored) {}
+        }
+
+        boolean isStudent = effectiveEt == EmploymentType.STUDENT;
 
         // ── Fattore A: base occupazione ──────────────────────────────────
         int factorA; String factorAExpl;
-        var fa = calcFactorA(p.getEmploymentType(), p.getContractType(), p.getEmploymentEndDate());
+        var fa = calcFactorA(effectiveEt, effectiveCt, p.getEmploymentEndDate());
         factorA = fa.points(); factorAExpl = fa.explanation();
 
         // ── Fattore B: continuità ─────────────────────────────────────────
+        // Il supervisore può sovrascrivere la data di inizio tramite "employmentStartDate"
         int factorB; String factorBExpl;
-        if (p.getEmploymentType() == EmploymentType.RETIRED) {
+        if (effectiveEt == EmploymentType.RETIRED) {
             factorB = 25; factorBExpl = "Pensionato: continuità permanente → 25 pt";
         } else {
-            var fb = calcFactorB(p.getEmploymentStartDate());
-            factorB = fb.points(); factorBExpl = fb.explanation();
+            LocalDate effectiveStartDate = p.getEmploymentStartDate();
+            String startDateStr = getVerifiedStringValue(pid, "employmentStartDate");
+            if (startDateStr != null) {
+                try { effectiveStartDate = LocalDate.parse(startDateStr); } catch (Exception ignored) {}
+            }
+            var fb = calcFactorB(effectiveStartDate);
+            factorB = fb.points();
+            factorBExpl = (startDateStr != null ? "[data verificata] " : "") + fb.explanation();
         }
 
         // ── Fattore C: verifica documentale reddito ────────────────────
@@ -269,9 +313,11 @@ public class ScoringService {
         var fc = calcFactorC(pid);
         factorC = fc.points(); factorCExpl = fc.explanation();
 
-        // ── Fattore D: rete di sicurezza (garanti) ─────────────────────
+        // ── Fattore D: qualità garanti (reddito garanti / budget) ───────
+        // Il supervisore può sovrascrivere il totale aggregato tramite "guarantorTotalIncome"
+        BigDecimal guarantorTotalOverride = getVerifiedGuarantorTotal(pid);
         int factorD; String factorDExpl;
-        var fd = calcFactorD(guarantors);
+        var fd = calcFactorD(guarantors, p.getMaxBudget(), guarantorTotalOverride);
         factorD = fd.points(); factorDExpl = fd.explanation();
 
         int totalScore = factorA + factorB + factorC + factorD;
@@ -283,9 +329,9 @@ public class ScoringService {
             double familyWeight   = familyWeightPct / 100.0;
             double studentWeight  = studentWeightPct / 100.0;
 
-            // Best guarantor family score
+            // Best guarantor family score (qualità del singolo garante vs budget)
             int familyScore = guarantors.stream()
-                    .mapToInt(g -> calcFamilyScore(g, tpl))
+                    .mapToInt(g -> calcFamilyScore(g, tpl, p.getMaxBudget()))
                     .max().orElse(0);
             int familyA = guarantors.stream()
                     .mapToInt(g -> calcFactorA(g.getEmploymentType(), g.getContractType(), g.getEmploymentEndDate()).points())
@@ -294,7 +340,7 @@ public class ScoringService {
                     .mapToInt(g -> calcFactorB(g.getEmploymentStartDate()).points())
                     .max().orElse(0);
             int familyC = calcFactorCGuarantor(guarantors, pid);
-            int familyD = calcFactorDMultiple(guarantors);
+            int familyD = calcFactorDMultiple(guarantors, p.getMaxBudget(), guarantorTotalOverride);
 
             int combined = (int) Math.round(totalScore * studentWeight + familyScore * familyWeight);
             combined = Math.min(combined, 100);
@@ -306,8 +352,8 @@ public class ScoringService {
                     studentWeight * 100, totalScore, familyWeight * 100, familyScore, combined);
 
             return new IncomeBreakdown(
-                    p.getEmploymentType().name(),
-                    p.getContractType() != null ? p.getContractType().name() : null,
+                    effectiveEt.name(),
+                    effectiveCt != null ? effectiveCt.name() : null,
                     factorA, factorAExpl, factorB, factorBExpl,
                     factorC, factorCExpl, factorD, factorDExpl,
                     totalScore, level,
@@ -327,8 +373,8 @@ public class ScoringService {
         }
 
         return new IncomeBreakdown(
-                p.getEmploymentType().name(),
-                p.getContractType() != null ? p.getContractType().name() : null,
+                effectiveEt.name(),
+                effectiveCt != null ? effectiveCt.name() : null,
                 factorA, factorAExpl, factorB, factorBExpl,
                 factorC, factorCExpl, factorD, factorDExpl,
                 totalScore, level,
@@ -433,32 +479,110 @@ public class ScoringService {
         return 0;
     }
 
-    // ── Fattore D: rete di sicurezza ──────────────────────────────────────────
+    // ── Fattore D: qualità garanti ────────────────────────────────────────────
+    //
+    // Il punteggio non è più binario (presenza/assenza) ma dipende dalla
+    // qualità del garante, definita come:
+    //   qualità = reddito_totale_garanti / budget_affitto_tenant
+    //
+    // Soglie (fisse — possono essere spostate in ScoringTemplate in futuro):
+    //   ratio ≥ 2×  → qualità ALTA  → 10 pt
+    //   ratio ≥ 1×  → qualità MEDIA → 7 pt
+    //   ratio ≥ 0.5×→ qualità BASSA → 5 pt
+    //   ratio < 0.5×→ insufficiente → 3 pt
+    //   reddito solo dichiarato (non verificato) → 2 pt
+    //   nessun garante → 0 pt
+    //
+    // Se il budget non è dichiarato, si usa un punteggio fisso in base alla
+    // presenza/assenza di reddito verificato (compatibilità).
 
-    private Points calcFactorD(List<Guarantor> guarantors) {
+    private static final double GUARANTOR_QUALITY_HIGH   = 2.0;
+    private static final double GUARANTOR_QUALITY_MEDIUM = 1.0;
+    private static final double GUARANTOR_QUALITY_LOW    = 0.5;
+
+    private Points calcFactorD(List<Guarantor> guarantors,
+                               BigDecimal maxBudget,
+                               BigDecimal totalOverride) {
         if (guarantors.isEmpty()) return new Points(0, "Nessun garante → 0 pt");
-        boolean anyVerified = guarantors.stream().anyMatch(Guarantor::isIncomeVerified);
-        if (anyVerified) return new Points(10, "Garante con reddito verificato → 10 pt");
-        return new Points(5, "Garante dichiarato (reddito non verificato) → 5 pt");
+
+        // Reddito effettivo verificato (override supervisore o somma per-garante)
+        BigDecimal effectiveTotal = resolveGuarantorTotal(guarantors, totalOverride);
+        boolean hasVerifiedIncome = totalOverride != null
+                || guarantors.stream().anyMatch(Guarantor::isIncomeVerified);
+
+        if (!hasVerifiedIncome || effectiveTotal.doubleValue() == 0) {
+            return new Points(2, "Garante presente (reddito non verificato) → 2 pt");
+        }
+
+        // Se il budget non è disponibile non possiamo calcolare la qualità
+        if (maxBudget == null || maxBudget.doubleValue() == 0) {
+            return new Points(7, String.format(
+                    "Garante verificato €%.0f/mese (budget non dichiarato) → 7 pt",
+                    effectiveTotal.doubleValue()));
+        }
+
+        double ratio = effectiveTotal.doubleValue() / maxBudget.doubleValue();
+        String ovNote = totalOverride != null ? " [totale verificato]" : "";
+
+        if (ratio >= GUARANTOR_QUALITY_HIGH)
+            return new Points(10, String.format(
+                    "Qualità garante ALTA%s: €%.0f / €%.0f (ratio %.1f×) → 10 pt",
+                    ovNote, effectiveTotal.doubleValue(), maxBudget.doubleValue(), ratio));
+        if (ratio >= GUARANTOR_QUALITY_MEDIUM)
+            return new Points(7, String.format(
+                    "Qualità garante MEDIA%s: €%.0f / €%.0f (ratio %.1f×) → 7 pt",
+                    ovNote, effectiveTotal.doubleValue(), maxBudget.doubleValue(), ratio));
+        if (ratio >= GUARANTOR_QUALITY_LOW)
+            return new Points(5, String.format(
+                    "Qualità garante BASSA%s: €%.0f / €%.0f (ratio %.1f×) → 5 pt",
+                    ovNote, effectiveTotal.doubleValue(), maxBudget.doubleValue(), ratio));
+        return new Points(3, String.format(
+                "Qualità garante INSUFFICIENTE%s: €%.0f / €%.0f (ratio %.1f×) → 3 pt",
+                ovNote, effectiveTotal.doubleValue(), maxBudget.doubleValue(), ratio));
     }
 
-    private int calcFactorDMultiple(List<Guarantor> guarantors) {
-        if (guarantors.isEmpty()) return 0;
-        boolean multipleVerified = guarantors.stream().filter(Guarantor::isIncomeVerified).count() >= 2;
-        if (multipleVerified) return 10;
-        boolean anyVerified = guarantors.stream().anyMatch(Guarantor::isIncomeVerified);
-        if (anyVerified) return 7;
-        return guarantors.size() >= 2 ? 7 : 4;
+    private int calcFactorDMultiple(List<Guarantor> guarantors,
+                                    BigDecimal maxBudget,
+                                    BigDecimal totalOverride) {
+        return calcFactorD(guarantors, maxBudget, totalOverride).points();
+    }
+
+    /** Calcola il reddito totale effettivo dei garanti (override o somma per-garante). */
+    private BigDecimal resolveGuarantorTotal(List<Guarantor> guarantors, BigDecimal override) {
+        if (override != null) return override;
+        return guarantors.stream()
+                .filter(Guarantor::isIncomeVerified)
+                .map(g -> g.getVerifiedMonthlyIncome() != null
+                        ? g.getVerifiedMonthlyIncome() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     // ── Family score (per STUDENT) ────────────────────────────────────────────
+    // Valuta il singolo garante come "income provider" indipendente.
+    // Factor D usa la qualità del singolo garante (income/budget).
 
-    private int calcFamilyScore(Guarantor g, ScoringTemplate tpl) {
+    private int calcFamilyScore(Guarantor g, ScoringTemplate tpl, BigDecimal maxBudget) {
         if (g == null) return 0;
         int a = calcFactorA(g.getEmploymentType(), g.getContractType(), g.getEmploymentEndDate()).points();
         int b = calcFactorB(g.getEmploymentStartDate()).points();
         int c = g.isIncomeVerified() ? 20 : (g.getDeclaredMonthlyIncome() != null ? 5 : 0);
-        int d = g.isIncomeVerified() ? 7 : (g.getDeclaredMonthlyIncome() != null ? 4 : 0);
+        // Factor D per garante singolo: qualità in base al reddito/budget
+        BigDecimal singleIncome = g.isIncomeVerified() && g.getVerifiedMonthlyIncome() != null
+                ? g.getVerifiedMonthlyIncome()
+                : (g.getDeclaredMonthlyIncome() != null ? g.getDeclaredMonthlyIncome() : null);
+        int d;
+        if (singleIncome == null || singleIncome.doubleValue() == 0) {
+            d = 0;
+        } else if (!g.isIncomeVerified()) {
+            d = 2; // solo dichiarato
+        } else if (maxBudget == null || maxBudget.doubleValue() == 0) {
+            d = 7; // verificato, budget ignoto
+        } else {
+            double ratio = singleIncome.doubleValue() / maxBudget.doubleValue();
+            d = ratio >= GUARANTOR_QUALITY_HIGH   ? 10
+              : ratio >= GUARANTOR_QUALITY_MEDIUM  ?  7
+              : ratio >= GUARANTOR_QUALITY_LOW     ?  5 : 3;
+        }
         return Math.min(a + b + c + d, 100);
     }
 
@@ -494,9 +618,15 @@ public class ScoringService {
         List<DocLine> lines = new ArrayList<>();
         int total = 0;
 
-        // IDENTITY
-        total += addDocLine(lines, "IDENTITY", countByType, approved,
-                tpl.getDocWeightIdentity(), 0, false);
+        // IDENTITY — aggregate old IDENTITY type and new IDENTITY_FRONT / IDENTITY_BACK
+        int identityCount = countByType.getOrDefault(DocumentType.IDENTITY,       0L).intValue()
+                          + countByType.getOrDefault(DocumentType.IDENTITY_FRONT, 0L).intValue()
+                          + countByType.getOrDefault(DocumentType.IDENTITY_BACK,  0L).intValue();
+        boolean identityApproved = approved.contains("doc.IDENTITY");
+        int identityPts = identityApproved ? tpl.getDocWeightIdentity() : 0;
+        lines.add(new DocLine("IDENTITY", identityCount, identityApproved,
+                identityPts, tpl.getDocWeightIdentity(), false));
+        total += identityPts;
 
         // PAYSLIP (con bonus triplo)
         int payslipCount = countByType.getOrDefault(DocumentType.PAYSLIP, 0L).intValue();
@@ -576,7 +706,7 @@ public class ScoringService {
                         "rent_sustainability",
                         "Verifica e correggi il reddito mensile del tenant (imposta verified_value su monthlyIncome)",
                         "Potrebbe migliorare a MEDIUM o HIGH se il reddito reale è più alto",
-                        null
+                        null, null
                 ));
             }
             if (rent.guarantorCredit() != null && rent.guarantorCredit().doubleValue() == 0) {
@@ -584,7 +714,7 @@ public class ScoringService {
                         "rent_sustainability",
                         "Aggiungi un garante con reddito verificato per aumentare il reddito effettivo",
                         "Con garante al " + tpl.getGuarantorIncomeCreditPct() + "% di credito il reddito effettivo aumenta",
-                        null
+                        null, null
                 ));
             }
         }
@@ -599,7 +729,7 @@ public class ScoringService {
                         "income_stability",
                         "Verifica il reddito del tenant tramite documenti (imposta verified_value) → +" + gain + " pt su Fattore C",
                         scoreToLevel(Math.min(currentScore + gain, 100), tpl),
-                        gain
+                        gain, null
                 ));
             }
             // D: suggerisci aggiunta garante
@@ -609,7 +739,7 @@ public class ScoringService {
                         "income_stability",
                         "Aggiungi o verifica un garante → +" + gain + " pt su Fattore D",
                         scoreToLevel(Math.min(currentScore + gain, 100), tpl),
-                        gain
+                        gain, null
                 ));
             }
             // Per studenti: aggiungi garante familiare
@@ -618,7 +748,7 @@ public class ScoringService {
                         "income_stability",
                         "Aggiungi dati del garante familiare: anche con stipendio base stima combined ≥ 44 (MEDIUM)",
                         "MEDIUM",
-                        null
+                        null, null
                 ));
             }
         }
@@ -631,9 +761,10 @@ public class ScoringService {
                     .limit(3)
                     .forEach(l -> suggestions.add(new ScoreSuggestion(
                             "document_reliability",
-                            "Approva il documento " + l.type() + " → +" + l.maxPoints() + " pt",
+                            "Approva il documento → +" + l.maxPoints() + " pt",
                             scoreToLevel(Math.min(docs.totalScore() + l.maxPoints(), 100), tpl),
-                            l.maxPoints()
+                            l.maxPoints(),
+                            l.type()
                     )));
             // Bonus 3 buste paga
             boolean payslipApproved = docs.lines().stream().anyMatch(l -> "PAYSLIP".equals(l.type()) && l.approved());
@@ -644,7 +775,7 @@ public class ScoringService {
                         "document_reliability",
                         "Richiedi 3 buste paga consecutive → bonus +" + bonusPts + " pt",
                         scoreToLevel(Math.min(docs.totalScore() + bonusPts, 100), tpl),
-                        bonusPts
+                        bonusPts, "PAYSLIP_TRIPLE_BONUS"
                 ));
             }
         }

@@ -115,6 +115,8 @@ public record ScoreBreakdownDto(
             /** Livello stimato dopo l'azione */
             String projectedLevel,
             /** Punti stimati aggiuntivi (per income_stability / document_reliability) */
-            Integer estimatedPointGain
+            Integer estimatedPointGain,
+            /** Tipo documento (enum name) per suggerimenti document_reliability — usato dal frontend per la traduzione */
+            String documentType
     ) {}
 }

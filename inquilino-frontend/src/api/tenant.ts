@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { TenantProfileDto, FieldValidationDto, GuarantorDto, GuarantorRequest, SupervisorNoteDto } from '@/types'
+import type { TenantProfileDto, FieldValidationDto, GuarantorDto, GuarantorRequest, SupervisorNoteDto, ScoreBreakdownDto } from '@/types'
 
 export interface TenantUpdatePayload {
   // User fields
@@ -55,6 +55,9 @@ export const tenantApi = {
 
   deleteGuarantor: (id: string) =>
     apiClient.delete(`/tenant/guarantors/${id}`),
+
+  getScoreBreakdown: () =>
+    apiClient.get<ScoreBreakdownDto>('/tenant/score-breakdown').then(r => r.data),
 
   // Azioni pending dal supervisore
   getPendingActions: () =>

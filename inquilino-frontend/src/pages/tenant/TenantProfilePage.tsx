@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLang }       from '@/i18n'
 import { tenantApi, type TenantUpdatePayload } from '@/api/tenant'
@@ -7,6 +7,11 @@ import type { TenantProfileDto, DocumentDto, InterestAreaDto, InterestArea, Scor
 import { MapSelector }    from '@/components/map/MapSelector'
 import { AreaPreviewMap } from '@/components/map/AreaPreviewMap'
 import { UploadButton }  from '@/components/chat/UploadButton'
+import { TenantScoreBreakdownPanel } from '@/components/supervisor/ScoreBreakdownPanel'
+
+const DocumentViewerModal = lazy(() =>
+  import('@/components/documents/DocumentViewerModal').then(m => ({ default: m.DocumentViewerModal }))
+)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -262,6 +267,12 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   )
 }
 
+// ─── Document group helpers ───────────────────────────────────────────────────
+
+const IDENTITY_TYPES = new Set(['IDENTITY', 'IDENTITY_FRONT', 'IDENTITY_BACK'])
+const INCOME_TYPES   = new Set(['PAYSLIP', 'TAX_RETURN', 'EMPLOYMENT_CONTRACT', 'BANK_STATEMENT'])
+const OTHER_TYPES    = new Set(['LANDLORD_REFERENCE', 'OTHER'])
+
 // ─── Documents tab ────────────────────────────────────────────────────────────
 
 function DocumentsTab({ docs, validations, onDelete, onAdd }: {
@@ -271,127 +282,198 @@ function DocumentsTab({ docs, validations, onDelete, onAdd }: {
   onAdd:       (filename: string) => void
 }) {
   const { t } = useLang()
-  const [confirmId, setConfirmId]       = useState<string | null>(null)
-  const [previewingId, setPreviewingId] = useState<string | null>(null)
+  const [confirmId,   setConfirmId]   = useState<string | null>(null)
+  const [viewerDocId, setViewerDocId] = useState<string | null>(null)
   const vmap = Object.fromEntries(validations.map(v => [v.fieldName, v]))
 
-  const docLabel = (type: string) => {
-    const key = `doc.type.${type}` as Parameters<typeof t>[0]
-    return t(key)
-  }
+  // Single document card (used inside type sections)
+  const DocCard = ({ doc, groupField }: { doc: DocumentDto; groupField: string }) => {
+    const docVal           = vmap[groupField]
+    const canDelete        = !doc.verified && docVal?.status !== 'APPROVED'
+    const quickCheckPassed = doc.extractedData?.quick_check_passed as boolean | undefined
+    const quickCheckNote   = doc.extractedData?.quick_check_note   as string | undefined
+    const aiFailed         = quickCheckPassed === false
+    const cardBg =
+      docVal?.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/20' :
+      docVal?.status === 'FLAGGED'  ? 'bg-red-50 dark:bg-red-950/20' :
+      aiFailed                      ? 'bg-orange-50 dark:bg-orange-950/20' : 'bg-card'
 
-  const handlePreview = async (id: string) => {
-    setPreviewingId(id)
-    try {
-      const token = localStorage.getItem('auth_token')
-      const res   = await fetch(`/api/tenant/documents/${id}/preview`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) return
-      const blob = await res.blob()
-      const url  = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-    } catch { /* ignore */ }
-    finally { setPreviewingId(null) }
-  }
-
-  return (
-    <div className="space-y-4">
-      {docs.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-6">{t('doc.add')}</p>
-      )}
-      {docs.map(doc => {
-        const docVal = vmap[`doc.${doc.type}`]
-        const canDelete = !doc.verified && docVal?.status !== 'APPROVED'
-        const quickCheckPassed = doc.extractedData?.quick_check_passed as boolean | undefined
-        const quickCheckNote   = doc.extractedData?.quick_check_note   as string | undefined
-        const aiFailed = quickCheckPassed === false
-
-        const cardBg = docVal?.status === 'APPROVED'     ? 'bg-emerald-50 dark:bg-emerald-950/20' :
-                       docVal?.status === 'FLAGGED'      ? 'bg-red-50 dark:bg-red-950/20' :
-                       aiFailed                          ? 'bg-orange-50 dark:bg-orange-950/20' : 'bg-card'
-
-        return (
-          <div key={doc.id} className={`rounded-xl border p-4 flex items-start gap-3 ${cardBg} ${
-            aiFailed && docVal?.status !== 'APPROVED' ? 'border-orange-300 dark:border-orange-700' : ''
-          }`}>
-            <span className="text-2xl shrink-0">{aiFailed && docVal?.status !== 'APPROVED' ? '⚠️' : '📄'}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground">{docLabel(doc.type)}</p>
-              <p className="text-xs text-muted-foreground">{fmtDate(doc.uploadedAt)}</p>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {quickCheckPassed === true && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">
-                    {t('doc.ai_check_ok')}
-                  </span>
-                )}
-                {quickCheckPassed === false && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-red-100 text-red-700 border-red-200">
-                    {t('doc.ai_check_fail')}
-                  </span>
-                )}
-                {quickCheckPassed === undefined && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200">
-                    {t('doc.ai_check_pending')}
-                  </span>
-                )}
-                {docVal?.status === 'APPROVED' && (
-                  <span className="text-[10px] font-semibold text-emerald-600">✓ Validato</span>
-                )}
-                {docVal?.status === 'FLAGGED' && (
-                  <span className="text-[10px] font-semibold text-red-500">✕ Da correggere</span>
-                )}
-                <button
-                  onClick={() => handlePreview(doc.id)}
-                  disabled={previewingId === doc.id}
-                  className="text-[10px] text-primary underline disabled:opacity-50"
-                >
-                  {previewingId === doc.id ? '…' : 'Visualizza'}
-                </button>
+    return (
+      <div className={`rounded-lg border p-3 flex items-start gap-2.5 ${cardBg} ${
+        aiFailed && docVal?.status !== 'APPROVED' ? 'border-orange-300 dark:border-orange-700' : ''
+      }`}>
+        <span className="text-xl shrink-0 mt-0.5">{aiFailed && docVal?.status !== 'APPROVED' ? '⚠️' : '📄'}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-foreground">
+            {t(`doc.type.${doc.type}` as Parameters<typeof t>[0])}
+          </p>
+          <p className="text-[11px] text-muted-foreground">{fmtDate(doc.uploadedAt)}</p>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {quickCheckPassed === true  && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">{t('doc.ai_check_ok')}</span>}
+            {quickCheckPassed === false && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-red-100 text-red-700 border-red-200">{t('doc.ai_check_fail')}</span>}
+            {quickCheckPassed === undefined && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200">{t('doc.ai_check_pending')}</span>}
+            {docVal?.status === 'APPROVED' && <span className="text-[10px] font-semibold text-emerald-600">✓ Validato</span>}
+            {docVal?.status === 'FLAGGED'  && <span className="text-[10px] font-semibold text-red-500">✕ Da correggere</span>}
+            <button onClick={() => setViewerDocId(doc.id)}
+              className="text-[10px] text-primary underline">
+              Visualizza
+            </button>
+          </div>
+          {aiFailed && quickCheckNote && docVal?.status !== 'APPROVED' && (
+            <p className="text-[11px] text-orange-700 dark:text-orange-400 mt-1 bg-orange-100/60 rounded px-1.5 py-0.5">{quickCheckNote}</p>
+          )}
+          {docVal?.status === 'FLAGGED' && docVal.note && (
+            <p className="text-[11px] text-red-600 italic mt-0.5">{docVal.note}</p>
+          )}
+        </div>
+        {canDelete && (
+          confirmId === doc.id ? (
+            <div className="flex flex-col gap-1 items-end shrink-0 text-xs">
+              <span className="text-destructive">{t('doc.delete.confirm')}</span>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirmId(null)} className="text-muted-foreground">{t('profile.cancel')}</button>
+                <button onClick={() => { onDelete(doc.id); setConfirmId(null) }} className="font-semibold text-destructive">{t('doc.delete')}</button>
               </div>
-              {aiFailed && quickCheckNote && docVal?.status !== 'APPROVED' && (
-                <p className="text-xs text-orange-700 dark:text-orange-400 mt-1.5 bg-orange-100/60 dark:bg-orange-900/20 rounded-lg px-2 py-1">
-                  {quickCheckNote}
-                </p>
-              )}
-              {docVal?.status === 'FLAGGED' && docVal.note && (
-                <p className="text-xs text-red-600 italic mt-1">{docVal.note}</p>
-              )}
             </div>
-            {canDelete && (
-              <>
-                {confirmId === doc.id ? (
-                  <div className="flex flex-col gap-1 items-end shrink-0">
-                    <span className="text-xs text-destructive">{t('doc.delete.confirm')}</span>
-                    <div className="flex gap-2">
-                      <button onClick={() => setConfirmId(null)} className="text-xs text-muted-foreground">
-                        {t('profile.cancel')}
-                      </button>
-                      <button
-                        onClick={() => { onDelete(doc.id); setConfirmId(null) }}
-                        className="text-xs font-semibold text-destructive"
-                      >
-                        {t('doc.delete')}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setConfirmId(doc.id)}
-                    className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                  >
-                    ✕
-                  </button>
-                )}
-              </>
+          ) : (
+            <button onClick={() => setConfirmId(doc.id)}
+              className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0 pt-0.5">✕</button>
+          )
+        )}
+      </div>
+    )
+  }
+
+  // A subsection for one document type with an upload slot
+  const TypeSection = ({ type, groupField, multi = false }: { type: string; groupField: string; multi?: boolean }) => {
+    const typeDocs = docs.filter(d => d.type === type)
+    return (
+      <div className="space-y-2 pt-3 first:pt-0">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+            {t(`doc.type.${type}` as Parameters<typeof t>[0])}
+          </span>
+          {(multi || typeDocs.length === 0) && (
+            <UploadButton expectedTypes={[type]} onUploaded={onAdd} disabled={false} highlight={false} />
+          )}
+        </div>
+        {typeDocs.length === 0 ? (
+          <div className="rounded-lg border border-dashed py-3 text-center text-[11px] text-muted-foreground">
+            Nessun documento caricato
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {typeDocs.map(d => <DocCard key={d.id} doc={d} groupField={groupField} />)}
+            {multi && (
+              <div className="flex justify-end pt-1">
+                <UploadButton expectedTypes={[type]} onUploaded={onAdd} disabled={false} highlight={false} />
+              </div>
             )}
           </div>
-        )
-      })}
-
-      <div className="pt-2">
-        <UploadButton expectedTypes={[]} onUploaded={onAdd} disabled={false} highlight={false} />
+        )}
       </div>
+    )
+  }
+
+  // Identity slot for a specific side (IDENTITY_FRONT or IDENTITY_BACK)
+  const IdentitySlot = ({ type, sideLabel }: { type: string; sideLabel: string }) => {
+    const doc = docs.find(d => d.type === type)
+    return (
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <p className="text-[11px] font-semibold text-center text-muted-foreground">{sideLabel}</p>
+        {doc ? (
+          <DocCard doc={doc} groupField="doc.IDENTITY" />
+        ) : (
+          <div className="rounded-lg border border-dashed py-4 flex flex-col items-center gap-2">
+            <span className="text-2xl opacity-25">📄</span>
+            <p className="text-[10px] text-muted-foreground">Carica {sideLabel.toLowerCase()}</p>
+            <UploadButton expectedTypes={[type]} onUploaded={onAdd} disabled={false} highlight={false} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const legacyIdentityDocs = docs.filter(d => d.type === 'IDENTITY')
+  const identityGroupVal   = vmap['doc.IDENTITY']
+
+  return (
+    <div className="space-y-5">
+
+      {/* ── Documento d'identità ─────────────────────────────────────────── */}
+      <div className="rounded-xl border bg-card p-4 space-y-3">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-sm font-semibold">Documento d'identità</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Carta d'identità, patente o passaporto</p>
+          </div>
+          <div className="flex gap-1.5 flex-wrap justify-end">
+            {identityGroupVal?.status === 'APPROVED' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">✓ Validato</span>
+            )}
+            {identityGroupVal?.status === 'FLAGGED' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">✕ Da correggere</span>
+            )}
+          </div>
+        </div>
+
+        {/* Legacy IDENTITY docs (uploaded via onboarding chat) */}
+        {legacyIdentityDocs.length > 0 ? (
+          <div className="space-y-2">
+            {legacyIdentityDocs.map(d => <DocCard key={d.id} doc={d} groupField="doc.IDENTITY" />)}
+            <p className="text-[10px] text-muted-foreground text-center">
+              Puoi aggiungere fronte e retro separatamente caricando nuovi documenti.
+            </p>
+          </div>
+        ) : (
+          /* New-style front + back slots */
+          <div className="flex gap-3">
+            <IdentitySlot type="IDENTITY_FRONT" sideLabel="Fronte" />
+            <IdentitySlot type="IDENTITY_BACK"  sideLabel="Retro" />
+          </div>
+        )}
+
+        {identityGroupVal?.status === 'FLAGGED' && identityGroupVal.note && (
+          <p className="text-xs text-red-600 italic">{identityGroupVal.note}</p>
+        )}
+      </div>
+
+      {/* ── Documenti reddituali ─────────────────────────────────────────── */}
+      <div className="rounded-xl border bg-card p-4 space-y-0 divide-y">
+        <div className="pb-3">
+          <h3 className="text-sm font-semibold">Documenti reddituali</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Buste paga, 730/CU, contratto di lavoro, estratto conto</p>
+        </div>
+        <TypeSection type="PAYSLIP"              groupField="doc.PAYSLIP"              multi />
+        <TypeSection type="TAX_RETURN"           groupField="doc.TAX_RETURN" />
+        <TypeSection type="EMPLOYMENT_CONTRACT"  groupField="doc.EMPLOYMENT_CONTRACT" />
+        <TypeSection type="BANK_STATEMENT"       groupField="doc.BANK_STATEMENT" />
+      </div>
+
+      {/* ── Altri documenti ──────────────────────────────────────────────── */}
+      <div className="rounded-xl border bg-card p-4 space-y-0 divide-y">
+        <div className="pb-3">
+          <h3 className="text-sm font-semibold">Altri documenti</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Referenza del locatore precedente e altri allegati opzionali</p>
+        </div>
+        <TypeSection type="LANDLORD_REFERENCE" groupField="doc.LANDLORD_REFERENCE" />
+        <TypeSection type="OTHER"              groupField="doc.OTHER"               multi />
+      </div>
+
+      {/* ── Document viewer modal ──────────────────────────────────────────── */}
+      {viewerDocId && (
+        <Suspense fallback={null}>
+          <DocumentViewerModal
+            fetchPreview={() => {
+              const token = localStorage.getItem('auth_token') ?? ''
+              return fetch(`/api/tenant/documents/${viewerDocId}/preview`, {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+            }}
+            onClose={() => setViewerDocId(null)}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
@@ -463,27 +545,10 @@ function AreasTab({ areas, onSaved }: {
   )
 }
 
-// ─── Checklist labels (must match supervisor side) ────────────────────────────
-
-const CHECKLIST_LABELS: Record<string, string> = {
-  PAYSLIP:                    'Buste paga (ultimi 3 mesi)',
-  TAX_RETURN:                 '730 / CU',
-  EMPLOYMENT_CONTRACT:        'Contratto di lavoro',
-  BANK_STATEMENT:             'Estratto conto bancario',
-  IDENTITY:                   "Documento d'identità",
-  LANDLORD_REFERENCE:         'Referenza da locatore precedente',
-  GUARANTOR_DATA:             'Dati del garante (nome, reddito, impiego)',
-  GUARANTOR_PAYSLIP:          'Buste paga garante',
-  GUARANTOR_TAX_RETURN:       '730 / CU garante',
-  GUARANTOR_EMPLOYMENT_CONTRACT: 'Contratto lavoro garante',
-  INCOME_CORRECTION:          'Correzione reddito dichiarato',
-  CONTRACT_TYPE:              'Tipo contratto lavoro',
-  EMPLOYMENT_DATES:           'Date inizio/fine contratto',
-}
-
 // ─── Pending actions from supervisor ─────────────────────────────────────────
 
 function PendingActionsSection() {
+  const { t } = useLang()
   const [notes,   setNotes]   = useState<SupervisorNoteDto[]>([])
   const [loading, setLoading] = useState(true)
   const [replying, setReplying] = useState<string | null>(null)
@@ -522,7 +587,7 @@ function PendingActionsSection() {
         const isReplied  = note.status === 'REPLIED'
         const isResolved = note.status === 'RESOLVED'
         const items = (note.requestedItems ?? [])
-          .map(v => CHECKLIST_LABELS[v] ?? v)
+          .map(v => t(`checklist.${v}` as Parameters<typeof t>[0]))
 
         const borderCls = isResolved ? 'border-emerald-200' : isPending ? 'border-amber-300' : 'border-blue-200'
         const bgCls     = isResolved ? 'bg-emerald-50 dark:bg-emerald-950/20' : isPending ? 'bg-amber-50 dark:bg-amber-950/20' : 'bg-blue-50 dark:bg-blue-950/20'
@@ -583,16 +648,11 @@ function PendingActionsSection() {
 
 // ─── Tenant guarantor section ─────────────────────────────────────────────────
 
-const EMPLOYMENT_LABELS: Record<string, string> = {
-  EMPLOYEE: 'Dipendente', SELF_EMPLOYED: 'Autonomo', RETIRED: 'Pensionato',
-  STUDENT: 'Studente', OTHER: 'Altro',
-}
-const CONTRACT_LABELS: Record<string, string> = {
-  PERMANENT: 'Indeterminato', FIXED_TERM: 'Determinato',
-  APPRENTICESHIP: 'Apprendistato', INTERNSHIP: 'Stage', FREELANCE: 'Freelance', OTHER: 'Altro',
-}
+const EMPLOYMENT_KEYS = ['EMPLOYEE', 'SELF_EMPLOYED', 'STUDENT', 'RETIRED', 'OTHER'] as const
+const CONTRACT_KEYS   = ['PERMANENT', 'FIXED_TERM', 'APPRENTICESHIP', 'INTERNSHIP', 'FREELANCE', 'OTHER'] as const
 
 function TenantGuarantorSection({ isStudent }: { isStudent: boolean }) {
+  const { t } = useLang()
   const [guarantors, setGuarantors] = useState<GuarantorDto[]>([])
   const [loading,    setLoading]    = useState(true)
   const [adding,     setAdding]     = useState(false)
@@ -664,10 +724,10 @@ function TenantGuarantorSection({ isStudent }: { isStudent: boolean }) {
           </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             {g.employmentType && (
-              <div><span className="text-muted-foreground">Impiego</span><br />{EMPLOYMENT_LABELS[g.employmentType] ?? g.employmentType}</div>
+              <div><span className="text-muted-foreground">Impiego</span><br />{t(`profile.employmentType.${g.employmentType}` as Parameters<typeof t>[0])}</div>
             )}
             {g.contractType && (
-              <div><span className="text-muted-foreground">Contratto</span><br />{CONTRACT_LABELS[g.contractType] ?? g.contractType}</div>
+              <div><span className="text-muted-foreground">Contratto</span><br />{t(`profile.contractType.${g.contractType}` as Parameters<typeof t>[0])}</div>
             )}
             {g.declaredMonthlyIncome != null && (
               <div><span className="text-muted-foreground">Reddito dichiarato</span><br />€ {g.declaredMonthlyIncome.toLocaleString('it-IT')}</div>
@@ -724,7 +784,7 @@ function TenantGuarantorSection({ isStudent }: { isStudent: boolean }) {
                 className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
               >
                 <option value="">—</option>
-                {Object.entries(EMPLOYMENT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {EMPLOYMENT_KEYS.map(v => <option key={v} value={v}>{t(`profile.employmentType.${v}`)}</option>)}
               </select>
             </div>
             <div>
@@ -735,7 +795,7 @@ function TenantGuarantorSection({ isStudent }: { isStudent: boolean }) {
                 className="w-full text-sm border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-2 focus:ring-primary/30"
               >
                 <option value="">—</option>
-                {Object.entries(CONTRACT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {CONTRACT_KEYS.map(v => <option key={v} value={v}>{t(`profile.contractType.${v}`)}</option>)}
               </select>
             </div>
             <div>
@@ -796,7 +856,7 @@ function TenantGuarantorSection({ isStudent }: { isStudent: boolean }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type Tab = 'profile' | 'documents' | 'areas' | 'guarantors' | 'actions'
+type Tab = 'profile' | 'documents' | 'areas' | 'guarantors' | 'actions' | 'breakdown'
 
 export default function TenantProfilePage() {
   const { t }    = useLang()
@@ -908,7 +968,7 @@ export default function TenantProfilePage() {
       </header>
 
       {/* ── Profile header card ── */}
-      <div className="px-4 pt-5 pb-3 max-w-lg mx-auto w-full">
+      <div className="px-4 pt-5 pb-3 max-w-5xl mx-auto w-full">
         <div className="rounded-xl border bg-card p-4 flex items-center gap-4 mb-4">
           <div className="w-14 h-14 rounded-full bg-primary/10 text-primary font-bold text-xl flex items-center justify-center shrink-0">
             {initials}
@@ -956,6 +1016,7 @@ export default function TenantProfilePage() {
             { id: 'areas' as Tab,      label: t('profile.section.areas').split(' ')[0] },
             { id: 'guarantors' as Tab, label: 'Garanti' },
             { id: 'actions' as Tab,    label: 'Richieste' },
+          { id: 'breakdown' as Tab,  label: 'Dettagli' },
           ]).map(({ id: tabId, label }) => (
             <button
               key={tabId}
@@ -973,7 +1034,7 @@ export default function TenantProfilePage() {
       </div>
 
       {/* ── Tab content ── */}
-      <div className="flex-1 overflow-y-auto px-4 pb-8 max-w-lg mx-auto w-full space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-8 max-w-5xl mx-auto w-full space-y-4">
 
         {/* ── PROFILE tab ── */}
         {tab === 'profile' && (
@@ -1066,10 +1127,10 @@ export default function TenantProfilePage() {
               />
               <EditableFieldRow
                 label={t('profile.contractType')}
-                displayValue={CONTRACT_LABELS[data.contractType ?? ''] ?? data.contractType ?? ''}
+                displayValue={data.contractType ? t(`profile.contractType.${data.contractType}` as Parameters<typeof t>[0]) : ''}
                 rawValue={data.contractType}
                 type="select"
-                options={Object.entries(CONTRACT_LABELS).map(([value, label]) => ({ value, label }))}
+                options={CONTRACT_KEYS.map(v => ({ value: v, label: t(`profile.contractType.${v}`) }))}
                 validation={vmap['contractType']}
                 lockWhenApproved={false}
                 warning="Modificando i dati lavorativi il profilo sarà inviato nuovamente in validazione. Ti consigliamo di caricare nuova documentazione reddituale per supportare le modifiche."
@@ -1197,6 +1258,11 @@ export default function TenantProfilePage() {
         {/* ── ACTIONS tab ── */}
         {tab === 'actions' && (
           <PendingActionsSection />
+        )}
+
+        {/* ── BREAKDOWN tab ── */}
+        {tab === 'breakdown' && (
+          <TenantScoreBreakdownPanel />
         )}
 
       </div>

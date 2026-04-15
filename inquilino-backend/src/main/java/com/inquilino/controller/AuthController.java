@@ -16,6 +16,8 @@ import com.inquilino.repository.TenantProfileRepository;
 import com.inquilino.repository.UserRepository;
 import com.inquilino.security.JwtService;
 import com.inquilino.security.UserPrincipal;
+import com.inquilino.service.EmailVerificationService;
+import com.inquilino.service.PasswordResetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -42,12 +44,34 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final EmailVerificationService emailVerificationService;
+    private final PasswordResetService passwordResetService;
+
+    // ─── Email verification (pre-registration OTP) ───────────────────────────
+
+    @PostMapping("/request-email-verification")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void requestEmailVerification(@RequestBody Map<String, String> body) {
+        String email = body.getOrDefault("email", "").trim().toLowerCase();
+        if (email.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email required");
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        }
+        emailVerificationService.requestVerification(email);
+    }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponse register(@RequestBody @Valid RegisterRequest req) {
+        // Email uniqueness check (double-check — also verified before OTP was sent)
         if (userRepository.existsByEmail(req.getEmail())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        }
+        // Validate OTP code
+        if (!emailVerificationService.verifyAndConsume(req.getEmail(), req.getVerificationCode())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid or expired verification code");
         }
 
         User user = User.builder()
@@ -83,8 +107,13 @@ public class AuthController {
     @PostMapping("/register/landlord")
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponse registerLandlord(@RequestBody @Valid RegisterLandlordRequest req) {
+        // Email uniqueness check
         if (userRepository.existsByEmail(req.getEmail())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        }
+        // Validate OTP code
+        if (!emailVerificationService.verifyAndConsume(req.getEmail(), req.getVerificationCode())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid or expired verification code");
         }
 
         // Determina UserType: AGENCY se publisherType è AGENCY, altrimenti LANDLORD
@@ -117,6 +146,31 @@ public class AuthController {
 
         return new AuthResponse(jwtService.generateToken(user.getId()),
                 user.getId().toString(), user.getEmail());
+    }
+
+    // ─── Password reset ───────────────────────────────────────────────────────
+
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void forgotPassword(@RequestBody Map<String, String> body) {
+        String email = body.getOrDefault("email", "").trim();
+        if (!email.isEmpty()) {
+            passwordResetService.requestReset(email);
+        }
+        // Risposta sempre 204 — non rivela se l'email è registrata
+    }
+
+    @PostMapping("/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@RequestBody Map<String, String> body) {
+        String token       = body.getOrDefault("token", "").trim();
+        String newPassword = body.getOrDefault("newPassword", "").trim();
+        if (newPassword.length() < 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password too short");
+        }
+        if (!passwordResetService.resetPassword(token, newPassword)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid or expired reset token");
+        }
     }
 
     @PostMapping("/login")

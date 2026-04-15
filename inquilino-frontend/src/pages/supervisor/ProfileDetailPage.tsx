@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supervisorApi } from '@/api/supervisor'
 import { scoringTemplateApi } from '@/api/scoringTemplates'
+import { useLang } from '@/i18n'
 import type {
   SupervisorProfileDetail,
   FieldValidationDto,
@@ -20,6 +21,10 @@ import type { InterestArea } from '@/types'
 import { GuarantorSection } from '@/components/supervisor/GuarantorSection'
 import { ScoreBreakdownPanel } from '@/components/supervisor/ScoreBreakdownPanel'
 import { SupervisorNotesSection, NotesFab } from '@/components/supervisor/SupervisorNotesSection'
+
+const DocumentViewerModal = lazy(() =>
+  import('@/components/documents/DocumentViewerModal').then(m => ({ default: m.DocumentViewerModal }))
+)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -243,6 +248,7 @@ function ProfileTab({
   working:     string | null
   cfAnalysis:  FiscalCodeAnalysis | null
 }) {
+  const { t } = useLang()
   const vmap = Object.fromEntries(validations.map(v => [v.fieldName, v]))
   const row  = (label: string, value: string, field: string, extra?: React.ReactNode) => (
     <ValidatedFieldRow key={field} label={label} value={value} fieldName={field}
@@ -258,33 +264,37 @@ function ProfileTab({
       </Section>
 
       <Section title="Anagrafica">
-        {row('Nome completo',     profile.fullName,   'fullName')}
-        {row('Data di nascita',   fmtDate(profile.birthDate), 'birthDate')}
-        {row('Luogo di nascita',  profile.birthPlace, 'birthPlace')}
-        {row('Residenza',         profile.residence,  'residence')}
-        {row('Codice fiscale',    profile.fiscalCode, 'fiscalCode',
+        {row(t('profile.fullName'),   profile.fullName,   'fullName')}
+        {row(t('profile.birthDate'),  fmtDate(profile.birthDate), 'birthDate')}
+        {row(t('profile.birthPlace'), profile.birthPlace, 'birthPlace')}
+        {row(t('profile.residence'),  profile.residence,  'residence')}
+        {row(t('profile.fiscalCode'), profile.fiscalCode, 'fiscalCode',
           <FiscalCodeChip analysis={cfAnalysis} />
         )}
       </Section>
 
       <Section title="Situazione lavorativa">
-        {row('Tipo impiego',     profile.employmentType,    'employmentType')}
-        {row('Reddito mensile',  fmtMoney(profile.monthlyIncome), 'monthlyIncome')}
-        {row('Tipo contratto',   profile.contractType,      'contractType')}
+        {row(t('profile.employmentType'),
+          profile.employmentType ? t(`profile.employmentType.${profile.employmentType}` as Parameters<typeof t>[0]) : '',
+          'employmentType')}
+        {row(t('profile.monthlyIncome'), fmtMoney(profile.monthlyIncome), 'monthlyIncome')}
+        {row(t('profile.contractType'),
+          profile.contractType ? t(`profile.contractType.${profile.contractType}` as Parameters<typeof t>[0]) : '',
+          'contractType')}
         {row('Data inizio lav.', fmtDate(profile.employmentStartDate), 'employmentStartDate')}
       </Section>
 
       <Section title="Garante">
-        {row('Ha garante',     profile.hasGuarantor ? 'Sì' : 'No', 'hasGuarantor')}
-        {profile.hasGuarantor && row('Reddito garante', fmtMoney(profile.guarantorIncome), 'guarantorIncome')}
+        {row(t('profile.hasGuarantor'), profile.hasGuarantor ? t('profile.yes') : t('profile.no'), 'hasGuarantor')}
+        {profile.hasGuarantor && row(t('profile.guarantorIncome'), fmtMoney(profile.guarantorIncome), 'guarantorIncome')}
       </Section>
 
       <Section title="Preferenze abitative">
-        {row('Budget massimo', fmtMoney(profile.maxBudget),     'maxBudget')}
-        {row('Data ingresso',  fmtDate(profile.moveInDate),     'moveInDate')}
-        {row('Occupanti',      profile.occupants != null ? String(profile.occupants) : '', 'occupants')}
-        {row('Animali',        profile.hasPets ? 'Sì' : 'No',  'hasPets')}
-        {row('Fumatore',       profile.smoker  ? 'Sì' : 'No',  'smoker')}
+        {row(t('profile.maxBudget'),  fmtMoney(profile.maxBudget),     'maxBudget')}
+        {row(t('profile.moveInDate'), fmtDate(profile.moveInDate),     'moveInDate')}
+        {row(t('profile.occupants'),  profile.occupants != null ? String(profile.occupants) : '', 'occupants')}
+        {row(t('profile.hasPets'),    profile.hasPets ? t('profile.yes') : t('profile.no'),  'hasPets')}
+        {row(t('profile.smoker'),     profile.smoker  ? t('profile.yes') : t('profile.no'),  'smoker')}
       </Section>
     </>
   )
@@ -292,183 +302,610 @@ function ProfileTab({
 
 // ─── Tab: Documenti ───────────────────────────────────────────────────────────
 
-const DOC_LABELS: Record<string, string> = {
-  IDENTITY: 'Documento d\'identità', PAYSLIP: 'Busta paga',
-  EMPLOYMENT_CONTRACT: 'Contratto di lavoro', TAX_RETURN: 'Dichiarazione dei redditi',
-  BANK_STATEMENT: 'Estratto conto', LANDLORD_REFERENCE: 'Referenza locatore',
-  GUARANTOR_DOCUMENT: 'Documento garante',
-  OTHER:              'Altro documento',
+const SV_IDENTITY_TYPES = new Set(['IDENTITY', 'IDENTITY_FRONT', 'IDENTITY_BACK'])
+const SV_INCOME_TYPES   = new Set(['PAYSLIP', 'TAX_RETURN', 'EMPLOYMENT_CONTRACT', 'BANK_STATEMENT'])
+const SV_OTHER_TYPES    = new Set(['LANDLORD_REFERENCE', 'OTHER', 'GUARANTOR_DOCUMENT'])
+
+// ─── Shared icons ──
+
+function IconCheck() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
 }
+function IconUndo() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+}
+function IconX() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+}
+
+// ─── Single document card (supervisor view) ───────────────────────────────────
+
+function SupervisorDocCard({
+  doc, profileId, onPreview, onDocVerified, svVerified,
+}: {
+  doc:          SupervisorDocumentDto
+  profileId:    string
+  onPreview:    (id: string) => void
+  onDocVerified:(id: string, v: boolean) => void
+  svVerified:   boolean
+}) {
+  const { t } = useLang()
+  const quickCheckPassed = doc.extractedData?.quick_check_passed as boolean | undefined
+  const quickCheckNote   = doc.extractedData?.quick_check_note   as string | undefined
+  const aiFailed         = quickCheckPassed === false
+  const [verifying, setVerifying] = useState(false)
+
+  const handleToggleVerify = async () => {
+    setVerifying(true)
+    try {
+      await supervisorApi.supervisorVerifyDocument(profileId, doc.id, !svVerified)
+      onDocVerified(doc.id, !svVerified)
+    } catch { /* ignore */ }
+    finally { setVerifying(false) }
+  }
+
+  const cardBg = svVerified
+    ? 'bg-emerald-50/60 dark:bg-emerald-950/10'
+    : aiFailed
+    ? 'bg-orange-50 dark:bg-orange-950/20'
+    : ''
+
+  return (
+    <div className={`rounded-lg border p-3 ${cardBg} ${aiFailed && !svVerified ? 'border-l-4 border-l-orange-400' : ''}`}>
+      <div className="flex items-start gap-2">
+        <span className="text-xl shrink-0 mt-0.5">{aiFailed && !svVerified ? '⚠️' : '📄'}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium">{t(`doc.type.${doc.type}` as Parameters<typeof t>[0])}</p>
+          <p className="text-[11px] text-muted-foreground">{fmtDate(doc.uploadedAt)}</p>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {quickCheckPassed === true  && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">✓ AI</span>}
+            {quickCheckPassed === false && (
+              <div className="relative group">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-red-100 text-red-700 border-red-200 cursor-help">⚠ AI</span>
+                {quickCheckNote && (
+                  <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 w-56 shadow-lg pointer-events-none leading-relaxed">
+                    <span className="font-semibold block mb-0.5">AI:</span>{quickCheckNote}
+                  </div>
+                )}
+              </div>
+            )}
+            {quickCheckPassed === undefined && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200">AI…</span>}
+            {svVerified && <span className="text-[10px] font-semibold text-emerald-600">✓ Revisionato</span>}
+            <button onClick={() => onPreview(doc.id)}
+              className="text-[10px] text-primary underline">
+              Visualizza
+            </button>
+          </div>
+          {aiFailed && quickCheckNote && !svVerified && (
+            <p className="text-[11px] text-orange-700 mt-1 italic">{quickCheckNote}</p>
+          )}
+        </div>
+        {/* Per-doc supervisor check toggle */}
+        <button
+          onClick={handleToggleVerify}
+          disabled={verifying}
+          title={svVerified ? 'Annulla revisione' : 'Segna come revisionato'}
+          className={`p-1.5 rounded transition-colors disabled:opacity-30 shrink-0 ${
+            svVerified
+              ? 'bg-emerald-100 text-emerald-600 hover:bg-amber-100 hover:text-amber-600'
+              : 'hover:bg-emerald-100 text-muted-foreground hover:text-emerald-600'
+          }`}
+        >
+          {svVerified ? <IconUndo /> : <IconCheck />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Group header with approve/flag controls ─────────────────────────────────
+
+function GroupHeader({
+  title, description, groupField, vmap, canApprove, approveDisabledReason,
+  onApprove, onFlag, onReset, working,
+}: {
+  title:                string
+  description:          string
+  groupField:           string
+  vmap:                 Record<string, FieldValidationDto>
+  canApprove:           boolean
+  approveDisabledReason?: string
+  onApprove:            (f: string) => void
+  onFlag:               (f: string, note: string) => void
+  onReset:              (f: string) => void
+  working:              string | null
+}) {
+  const val = vmap[groupField]
+  const [showNote, setShowNote] = useState(false)
+  const [note, setNote]         = useState('')
+
+  return (
+    <div className={`rounded-xl border p-4 space-y-2 ${
+      val?.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200' :
+      val?.status === 'FLAGGED'  ? 'bg-red-50 dark:bg-red-950/20 border-red-200' :
+      'bg-card'
+    }`}>
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="text-[11px] text-muted-foreground">{description}</p>
+          {val?.status === 'FLAGGED' && val.note && (
+            <p className="text-xs text-red-600 italic mt-0.5">{val.note}</p>
+          )}
+          {val?.status === 'FLAGGED' && val.correctedAt && (
+            <p className="text-[10px] text-emerald-600 mt-0.5">Corretto il {fmtDate(val.correctedAt)}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {val?.status === 'APPROVED' ? (
+            <>
+              <span className="text-[10px] font-bold text-emerald-600 mr-0.5">✓ Approvato</span>
+              <button onClick={() => onReset(groupField)} disabled={working === groupField}
+                className="p-1.5 rounded hover:bg-amber-100 text-amber-500 disabled:opacity-30 transition-colors" title="Annulla approvazione">
+                <IconUndo />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => onApprove(groupField)}
+              disabled={!canApprove || working === groupField}
+              title={!canApprove ? approveDisabledReason : 'Approva gruppo'}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <IconCheck /> Approva gruppo
+            </button>
+          )}
+          <button
+            onClick={() => { setShowNote(v => !v); setNote('') }}
+            disabled={working === groupField}
+            className="p-1.5 rounded hover:bg-red-100 text-red-500 disabled:opacity-30 transition-colors" title="Segnala errore">
+            <IconX />
+          </button>
+        </div>
+      </div>
+      {showNote && (
+        <div className="flex gap-2">
+          <input type="text" value={note} onChange={e => setNote(e.target.value)}
+            placeholder="Descrivi il problema…"
+            className="flex-1 text-xs border rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-ring bg-background" />
+          <button onClick={() => { if (note.trim()) { onFlag(groupField, note.trim()); setShowNote(false) } }}
+            disabled={!note.trim() || working === groupField}
+            className="px-3 py-1 text-xs font-semibold bg-red-500 text-white rounded-lg disabled:opacity-50 hover:bg-red-600">
+            Segnala
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Verified data overrides section ─────────────────────────────────────────
+
+function VerifiedDataSection({
+  profileId, profile, vmap, onSetVerifiedValue,
+}: {
+  profileId:         string
+  profile:           SupervisorProfileDetail
+  vmap:              Record<string, FieldValidationDto>
+  onSetVerifiedValue:(field: string, value: string | null) => void
+}) {
+  const { t } = useLang()
+  const [saving, setSaving] = useState<string | null>(null)
+
+  const EMPLOYMENT_KEYS = ['EMPLOYEE', 'SELF_EMPLOYED', 'STUDENT', 'RETIRED', 'OTHER']
+  const CONTRACT_KEYS   = ['PERMANENT', 'FIXED_TERM', 'APPRENTICESHIP', 'INTERNSHIP', 'FREELANCE', 'OTHER']
+
+  const saveField = async (fieldName: string, value: string | null) => {
+    setSaving(fieldName)
+    try {
+      await supervisorApi.setVerifiedValue(profileId, fieldName, value)
+      onSetVerifiedValue(fieldName, value)
+    } catch { /* ignore */ }
+    finally { setSaving(null) }
+  }
+
+  const OverrideRow = ({
+    fieldName, label, declared, type, options,
+  }: {
+    fieldName: string
+    label:     string
+    declared:  string
+    type:      'number' | 'select' | 'date'
+    options?:  { value: string; label: string }[]
+  }) => {
+    const current = vmap[fieldName]?.verifiedValue ?? null
+    const [editing, setEditing] = useState(false)
+    const [val, setVal]         = useState(current ?? '')
+
+    const handleSave = async () => {
+      await saveField(fieldName, val.trim() || null)
+      setEditing(false)
+    }
+    const handleClear = async () => {
+      await saveField(fieldName, null)
+      setVal('')
+      setEditing(false)
+    }
+
+    return (
+      <div className="py-2 border-b last:border-0">
+        <div className="flex items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+            <p className="text-xs text-foreground">Dichiarato: <span className="font-medium">{declared}</span></p>
+            {current && !editing && (
+              <p className="text-xs text-blue-600 font-medium">Verificato: {
+                type === 'select'
+                  ? (options?.find(o => o.value === current)?.label ?? current)
+                  : type === 'date'
+                    ? fmtDate(current)
+                    : (fieldName === 'monthlyIncome' || fieldName === 'guarantorTotalIncome'
+                        ? fmtMoney(Number(current))
+                        : current)
+              }</p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0 pt-1">
+            {!editing && (
+              <button onClick={() => { setEditing(true); setVal(current ?? '') }}
+                className="text-[10px] px-2 py-0.5 rounded border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors">
+                {current ? 'Modifica' : 'Override'}
+              </button>
+            )}
+            {current && !editing && (
+              <button onClick={handleClear} disabled={saving === fieldName}
+                className="text-[10px] px-2 py-0.5 rounded border border-destructive/30 text-destructive hover:bg-destructive/10 disabled:opacity-40 transition-colors">
+                {saving === fieldName ? '…' : 'Rimuovi'}
+              </button>
+            )}
+          </div>
+        </div>
+        {editing && (
+          <div className="flex gap-2 mt-2">
+            {type === 'select' ? (
+              <select value={val} onChange={e => setVal(e.target.value)} autoFocus
+                className="flex-1 text-xs border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-1 focus:ring-ring">
+                <option value="">— nessun override —</option>
+                {options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            ) : type === 'date' ? (
+              <input type="date" value={val} onChange={e => setVal(e.target.value)} autoFocus
+                className="flex-1 text-xs border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-1 focus:ring-ring" />
+            ) : (
+              <input type="number" value={val} onChange={e => setVal(e.target.value)} autoFocus
+                placeholder="Es. 2500"
+                className="flex-1 text-xs border rounded-lg px-2 py-1.5 bg-background outline-none focus:ring-1 focus:ring-ring" />
+            )}
+            <button onClick={handleSave} disabled={saving === fieldName}
+              className="px-3 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-lg disabled:opacity-50 hover:bg-primary/90 transition-colors">
+              {saving === fieldName ? '…' : 'Salva'}
+            </button>
+            <button onClick={() => setEditing(false)}
+              className="px-3 py-1.5 text-xs text-muted-foreground border rounded-lg hover:text-foreground">
+              Annulla
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border bg-blue-50/60 dark:bg-blue-950/20 border-blue-200 p-4 space-y-1">
+      <div className="mb-2">
+        <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300">Dati verificati</h3>
+        <p className="text-[11px] text-blue-700/70 dark:text-blue-400 mt-0.5">
+          Sovrascrivono i valori dichiarati nel calcolo degli indici. Usare solo se la documentazione lo conferma.
+        </p>
+      </div>
+      <OverrideRow
+        fieldName="monthlyIncome"
+        label="Reddito mensile netto"
+        declared={fmtMoney(profile.monthlyIncome)}
+        type="number"
+      />
+      <OverrideRow
+        fieldName="employmentType"
+        label="Tipo di impiego"
+        declared={profile.employmentType ? t(`profile.employmentType.${profile.employmentType}` as Parameters<typeof t>[0]) : '—'}
+        type="select"
+        options={['EMPLOYEE','SELF_EMPLOYED','STUDENT','RETIRED','OTHER'].map(v => ({
+          value: v,
+          label: t(`profile.employmentType.${v}` as Parameters<typeof t>[0]),
+        }))}
+      />
+      <OverrideRow
+        fieldName="contractType"
+        label="Tipo di contratto"
+        declared={profile.contractType ? t(`profile.contractType.${profile.contractType}` as Parameters<typeof t>[0]) : '—'}
+        type="select"
+        options={['PERMANENT','FIXED_TERM','APPRENTICESHIP','INTERNSHIP','FREELANCE','OTHER'].map(v => ({
+          value: v,
+          label: t(`profile.contractType.${v}` as Parameters<typeof t>[0]),
+        }))}
+      />
+      <OverrideRow
+        fieldName="employmentStartDate"
+        label="Data inizio lavoro (continuità)"
+        declared={fmtDate(profile.employmentStartDate)}
+        type="date"
+      />
+      <OverrideRow
+        fieldName="guarantorTotalIncome"
+        label="Reddito complessivo garanti (€/mese)"
+        declared={(() => {
+          const v = vmap['guarantorTotalIncome']?.verifiedValue
+          return v ? fmtMoney(Number(v)) : '— (calcolato dai garanti)'
+        })()}
+        type="number"
+      />
+    </div>
+  )
+}
+
+// ─── Tab: Documenti (main component) ─────────────────────────────────────────
 
 function DocumentsTab({
   profileId,
   docs,
   validations,
+  profile,
   onApprove,
   onFlag,
   onReset,
+  onSetVerifiedValue,
   working,
 }: {
-  profileId:   string
-  docs:        SupervisorDocumentDto[]
-  validations: FieldValidationDto[]
-  onApprove:   (f: string) => void
-  onFlag:      (f: string, note: string) => void
-  onReset:     (f: string) => void
-  working:     string | null
+  profileId:         string
+  docs:              SupervisorDocumentDto[]
+  validations:       FieldValidationDto[]
+  profile:           SupervisorProfileDetail
+  onApprove:         (f: string) => void
+  onFlag:            (f: string, note: string) => void
+  onReset:           (f: string) => void
+  onSetVerifiedValue:(field: string, value: string | null) => void
+  working:           string | null
 }) {
-  const [previewingId, setPreviewingId] = useState<string | null>(null)
+  const { t } = useLang()
+  const [viewerDocId, setViewerDocId] = useState<string | null>(null)
+  // Per-doc supervisor verification state (set from extractedData.supervisor_verified)
+  const [svVerified, setSvVerified] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(docs.map(d => [
+      d.id,
+      Boolean(d.extractedData?.supervisor_verified),
+    ]))
+  )
   const vmap = Object.fromEntries(validations.map(v => [v.fieldName, v]))
 
-  const handlePreview = async (docId: string) => {
-    setPreviewingId(docId)
-    try {
-      const token = localStorage.getItem('auth_token')
-      const url   = supervisorApi.getDocumentPreviewUrl(profileId, docId)
-      const res   = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      if (!res.ok) return
-      const blob  = await res.blob()
-      window.open(URL.createObjectURL(blob), '_blank')
-    } catch { /* ignore */ }
-    finally { setPreviewingId(null) }
+  const handleDocVerified = (id: string, v: boolean) =>
+    setSvVerified(s => ({ ...s, [id]: v }))
+
+  // Group docs by category
+  const identityDocs = docs.filter(d => SV_IDENTITY_TYPES.has(d.type))
+  const incomeDocs   = docs.filter(d => SV_INCOME_TYPES.has(d.type))
+  const otherDocs    = docs.filter(d => SV_OTHER_TYPES.has(d.type))
+
+  // Identity group: approvable only when both front + back (or legacy IDENTITY) are present
+  const hasIdentityFront = identityDocs.some(d => d.type === 'IDENTITY' || d.type === 'IDENTITY_FRONT')
+  const hasIdentityBack  = identityDocs.some(d => d.type === 'IDENTITY' || d.type === 'IDENTITY_BACK')
+  const canApproveIdentity = hasIdentityFront && hasIdentityBack
+
+  // A subsection listing docs for a single type inside a group
+  const TypeSection = ({ type, groupField }: { type: string; groupField: string }) => {
+    const typeDocs = docs.filter(d => d.type === type)
+    if (typeDocs.length === 0) {
+      return (
+        <div className="py-2">
+          <p className="text-[11px] text-muted-foreground uppercase font-semibold mb-1">
+            {t(`doc.type.${type}` as Parameters<typeof t>[0])}
+          </p>
+          <div className="rounded-lg border border-dashed py-2 text-center text-[11px] text-muted-foreground">
+            Nessun documento
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="py-2 space-y-2">
+        <p className="text-[11px] text-muted-foreground uppercase font-semibold">
+          {t(`doc.type.${type}` as Parameters<typeof t>[0])}
+          <span className="ml-1 text-foreground font-normal">×{typeDocs.length}</span>
+        </p>
+        {typeDocs.map(doc => (
+          <SupervisorDocCard
+            key={doc.id}
+            doc={doc}
+            profileId={profileId}
+            onPreview={id => setViewerDocId(id)}
+            onDocVerified={handleDocVerified}
+            svVerified={svVerified[doc.id] ?? false}
+          />
+        ))}
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-3">
-      {docs.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-8">Nessun documento caricato</p>
-      )}
-      {docs.map(doc => {
-        const field = `doc.${doc.type}`
-        const val   = vmap[field]
-        const quickCheckPassed = doc.extractedData?.quick_check_passed as boolean | undefined
-        const quickCheckNote   = doc.extractedData?.quick_check_note   as string | undefined
-        const aiFailed = quickCheckPassed === false
+    <div className="space-y-5">
 
-        const bg = val?.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/20' :
-                   val?.status === 'FLAGGED'  ? 'bg-red-50 dark:bg-red-950/20' :
-                   aiFailed                  ? 'bg-orange-50 dark:bg-orange-950/20' : ''
+      {/* ── Dati verificati ──────────────────────────────────────────────── */}
+      <VerifiedDataSection
+        profileId={profileId}
+        profile={profile}
+        vmap={vmap}
+        onSetVerifiedValue={onSetVerifiedValue}
+      />
 
-        const borderAccent = aiFailed && val?.status !== 'APPROVED'
-          ? 'border-l-4 border-l-orange-400'
-          : ''
-
-        const [showNote, setShowNote] = useState(false)
-        const [note, setNote]         = useState('')
-
-        return (
-          <div key={doc.id} className={`rounded-xl border p-4 ${bg} ${borderAccent}`}>
-            <div className="flex items-start gap-3">
-              <span className="text-2xl shrink-0">{aiFailed && val?.status !== 'APPROVED' ? '⚠️' : '📄'}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{DOC_LABELS[doc.type] ?? doc.type}</p>
-                <p className="text-xs text-muted-foreground">{fmtDate(doc.uploadedAt)}</p>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {quickCheckPassed === true && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">
-                      ✓ Check AI
-                    </span>
-                  )}
-                  {quickCheckPassed === false && (
-                    <div className="relative group">
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-red-100 text-red-700 border-red-200 cursor-help">
-                        ⚠ Check AI fallito
-                      </span>
-                      {quickCheckNote && (
-                        <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 w-64 whitespace-normal shadow-lg leading-relaxed pointer-events-none">
-                          <span className="font-semibold block mb-0.5">Feedback AI:</span>
-                          {quickCheckNote}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {quickCheckPassed === undefined && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200">
-                      In attesa AI
-                    </span>
-                  )}
-                  {val?.status === 'APPROVED' && (
-                    <span className="text-[10px] font-semibold text-emerald-600">✓ Approvato</span>
-                  )}
-                  {val?.status === 'FLAGGED' && (
-                    <span className="text-[10px] font-semibold text-red-500">✕ Segnalato</span>
-                  )}
-                  <button
-                    onClick={() => handlePreview(doc.id)}
-                    disabled={previewingId === doc.id}
-                    className="text-[10px] text-primary underline disabled:opacity-50"
-                  >
-                    {previewingId === doc.id ? '…' : 'Visualizza'}
-                  </button>
-                </div>
-                {aiFailed && quickCheckNote && val?.status !== 'APPROVED' && (
-                  <p className="text-xs text-orange-700 dark:text-orange-400 mt-1.5 italic">
-                    AI: {quickCheckNote}
-                  </p>
-                )}
-                {val?.status === 'FLAGGED' && val.note && (
-                  <p className="text-xs text-red-600 mt-1 italic">{val.note}</p>
-                )}
-                {val?.status === 'FLAGGED' && val.correctedAt && (
-                  <p className="text-[10px] text-emerald-600 mt-0.5">
-                    Corretto il {fmtDate(val.correctedAt)}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-1 shrink-0">
-                {val?.status === 'APPROVED' ? (
-                  <button
-                    onClick={() => onReset(field)}
-                    disabled={working === field}
-                    className="p-1.5 rounded hover:bg-amber-100 text-amber-500 disabled:opacity-30 transition-colors"
-                    title="Annulla approvazione"
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         strokeWidth="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => onApprove(field)}
-                    disabled={working === field}
-                    className="p-1.5 rounded hover:bg-emerald-100 text-emerald-600 disabled:opacity-30 transition-colors"
-                    title="Approva documento"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                  </button>
-                )}
-                <button
-                  onClick={() => { setShowNote(!showNote); setNote('') }}
-                  disabled={working === field}
-                  className="p-1.5 rounded hover:bg-red-100 text-red-500 disabled:opacity-30 transition-colors"
-                  title="Segnala errore"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                       strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
-            </div>
-            {showNote && (
-              <div className="mt-2 flex gap-2">
-                <input
-                  type="text"
-                  value={note}
-                  onChange={e => setNote(e.target.value)}
-                  placeholder="Descrivi il problema col documento…"
-                  className="flex-1 text-xs border rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-ring bg-background"
-                />
-                <button
-                  onClick={() => { if (note.trim()) { onFlag(field, note.trim()); setShowNote(false) } }}
-                  disabled={!note.trim() || working === field}
-                  className="px-3 py-1 text-xs font-semibold bg-red-500 text-white rounded-lg disabled:opacity-50 hover:bg-red-600"
-                >
-                  Segnala
-                </button>
-              </div>
-            )}
+      {/* ── Documento d'identità ─────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <GroupHeader
+          title="Documento d'identità"
+          description="Carta d'identità, patente o passaporto — richiede fronte e retro"
+          groupField="doc.IDENTITY"
+          vmap={vmap}
+          canApprove={canApproveIdentity}
+          approveDisabledReason={
+            !hasIdentityFront ? 'Fronte documento mancante' :
+            !hasIdentityBack  ? 'Retro documento mancante'  : undefined
+          }
+          onApprove={onApprove} onFlag={onFlag} onReset={onReset} working={working}
+        />
+        {identityDocs.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-2">Nessun documento d'identità caricato</p>
+        ) : (
+          <div className="rounded-xl border bg-card p-3 space-y-0 divide-y">
+            {['IDENTITY', 'IDENTITY_FRONT', 'IDENTITY_BACK'].map(type => (
+              docs.some(d => d.type === type) &&
+              <TypeSection key={type} type={type} groupField="doc.IDENTITY" />
+            ))}
           </div>
-        )
-      })}
+        )}
+      </div>
+
+      {/* ── Documenti reddituali ─────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="rounded-xl border bg-card p-4 space-y-0 divide-y">
+          <div className="pb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">Documenti reddituali</h3>
+              <p className="text-[11px] text-muted-foreground">Buste paga, 730/CU, contratto, estratto conto</p>
+            </div>
+          </div>
+          {/* Per-type group controls */}
+          {['PAYSLIP', 'TAX_RETURN', 'EMPLOYMENT_CONTRACT', 'BANK_STATEMENT'].map(type => {
+            const gf       = `doc.${type}`
+            const hasDocs  = docs.some(d => d.type === type)
+            const gVal     = vmap[gf]
+            return (
+              <div key={type}>
+                <div className="flex items-center justify-between py-2">
+                  <p className="text-[11px] font-semibold uppercase text-muted-foreground">
+                    {t(`doc.type.${type}` as Parameters<typeof t>[0])}
+                    {docs.filter(d => d.type === type).length > 0 &&
+                      <span className="ml-1 text-foreground font-normal">×{docs.filter(d => d.type === type).length}</span>
+                    }
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {gVal?.status === 'APPROVED' ? (
+                      <>
+                        <span className="text-[10px] font-bold text-emerald-600">✓</span>
+                        <button onClick={() => onReset(gf)} disabled={working === gf}
+                          className="p-1 rounded hover:bg-amber-100 text-amber-500 disabled:opacity-30" title="Annulla">
+                          <IconUndo />
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => onApprove(gf)} disabled={!hasDocs || working === gf}
+                        title={hasDocs ? 'Approva' : 'Nessun documento caricato'}
+                        className="p-1 rounded hover:bg-emerald-100 text-emerald-600 disabled:opacity-30 transition-colors">
+                        <IconCheck />
+                      </button>
+                    )}
+                    <button onClick={() => onFlag(gf, 'Documento non idoneo')} disabled={working === gf}
+                      className="p-1 rounded hover:bg-red-100 text-red-500 disabled:opacity-30 transition-colors">
+                      <IconX />
+                    </button>
+                  </div>
+                </div>
+                {docs.filter(d => d.type === type).map(doc => (
+                  <div key={doc.id} className="mb-2">
+                    <SupervisorDocCard
+                      doc={doc}
+                      profileId={profileId}
+                      onPreview={id => setViewerDocId(id)}
+                      onDocVerified={handleDocVerified}
+                      svVerified={svVerified[doc.id] ?? false}
+                    />
+                  </div>
+                ))}
+                {!hasDocs && (
+                  <div className="rounded-lg border border-dashed py-2 mb-2 text-center text-[11px] text-muted-foreground">
+                    Nessun documento
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── Altri documenti ──────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="rounded-xl border bg-card p-4 space-y-0 divide-y">
+          <div className="pb-3">
+            <h3 className="text-sm font-semibold">Altri documenti</h3>
+            <p className="text-[11px] text-muted-foreground">Referenza locatore, doc. garante, altri allegati</p>
+          </div>
+          {['LANDLORD_REFERENCE', 'GUARANTOR_DOCUMENT', 'OTHER'].map(type => {
+            const gf      = `doc.${type}`
+            const hasDocs = docs.some(d => d.type === type)
+            const gVal    = vmap[gf]
+            return (
+              <div key={type}>
+                <div className="flex items-center justify-between py-2">
+                  <p className="text-[11px] font-semibold uppercase text-muted-foreground">
+                    {t(`doc.type.${type}` as Parameters<typeof t>[0])}
+                    {docs.filter(d => d.type === type).length > 0 &&
+                      <span className="ml-1 text-foreground font-normal">×{docs.filter(d => d.type === type).length}</span>
+                    }
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {gVal?.status === 'APPROVED' ? (
+                      <>
+                        <span className="text-[10px] font-bold text-emerald-600">✓</span>
+                        <button onClick={() => onReset(gf)} disabled={working === gf}
+                          className="p-1 rounded hover:bg-amber-100 text-amber-500 disabled:opacity-30">
+                          <IconUndo />
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => onApprove(gf)} disabled={!hasDocs || working === gf}
+                        className="p-1 rounded hover:bg-emerald-100 text-emerald-600 disabled:opacity-30 transition-colors">
+                        <IconCheck />
+                      </button>
+                    )}
+                    <button onClick={() => onFlag(gf, 'Documento non idoneo')} disabled={working === gf}
+                      className="p-1 rounded hover:bg-red-100 text-red-500 disabled:opacity-30 transition-colors">
+                      <IconX />
+                    </button>
+                  </div>
+                </div>
+                {docs.filter(d => d.type === type).map(doc => (
+                  <div key={doc.id} className="mb-2">
+                    <SupervisorDocCard
+                      doc={doc}
+                      profileId={profileId}
+                      onPreview={id => setViewerDocId(id)}
+                      onDocVerified={handleDocVerified}
+                      svVerified={svVerified[doc.id] ?? false}
+                    />
+                  </div>
+                ))}
+                {!hasDocs && (
+                  <div className="rounded-lg border border-dashed py-2 mb-2 text-center text-[11px] text-muted-foreground">
+                    Nessun documento
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── Document viewer modal ──────────────────────────────────────────── */}
+      {viewerDocId && (
+        <Suspense fallback={null}>
+          <DocumentViewerModal
+            fetchPreview={() => {
+              const token = localStorage.getItem('auth_token') ?? ''
+              return fetch(supervisorApi.getDocumentPreviewUrl(profileId, viewerDocId), {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+            }}
+            onClose={() => setViewerDocId(null)}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
@@ -1028,6 +1465,18 @@ export default function ProfileDetailPage() {
     finally { setWorking(null) }
   }
 
+  const handleSetVerifiedValue = (fieldName: string, value: string | null) => {
+    setValidations(vs => {
+      const idx = vs.findIndex(v => v.fieldName === fieldName)
+      if (idx >= 0) {
+        const copy = [...vs]
+        copy[idx] = { ...copy[idx], verifiedValue: value }
+        return copy
+      }
+      return [...vs, { id: '', fieldName, status: 'APPROVED', note: null, verifiedValue: value, supervisorId: null, validatedAt: new Date().toISOString(), correctedAt: null }]
+    })
+  }
+
   const handleAdvanceStep = async () => {
     if (!profileId) return
     setAdvancing(true)
@@ -1174,7 +1623,10 @@ export default function ProfileDetailPage() {
         )}
         {tab === 'documents' && (
           <DocumentsTab profileId={profile.profileId} docs={docs} validations={validations}
-            onApprove={handleApprove} onFlag={handleFlag} onReset={handleReset} working={working} />
+            profile={profile}
+            onApprove={handleApprove} onFlag={handleFlag} onReset={handleReset}
+            onSetVerifiedValue={handleSetVerifiedValue}
+            working={working} />
         )}
         {tab === 'chat' && (
           <ChatTab

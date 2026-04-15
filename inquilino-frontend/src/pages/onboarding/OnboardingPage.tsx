@@ -13,13 +13,15 @@ import { MapSelector }    from '@/components/map/MapSelector'
 import { MessageRole }    from '@/types'
 
 export default function OnboardingPage() {
-  const { messages, isStreaming, onboardingState, banUntil, sendMessage, init } = useChat()
+  const { messages, isStreaming, onboardingState, banUntil, sendMessage, skipStep, init } = useChat()
   const { t, lang } = useLang()
   const navigate = useNavigate()
-  const [input, setInput]   = useState('')
-  const messagesEndRef       = useRef<HTMLDivElement>(null)
-  const inputRef             = useRef<HTMLInputElement>(null)
-  const hasInitialized       = useRef(false)
+  const [input, setInput]           = useState('')
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false)
+  const [isSkipping, setIsSkipping] = useState(false)
+  const messagesEndRef              = useRef<HTMLDivElement>(null)
+  const inputRef                    = useRef<HTMLInputElement>(null)
+  const hasInitialized              = useRef(false)
 
   const isCompleted = onboardingState?.currentStep === 'STEP_18'
 
@@ -62,6 +64,16 @@ export default function OnboardingPage() {
     try {
       await onboardingApi.goBack()
     } catch { /* ignore */ }
+  }
+
+  const handleSkipConfirmed = async () => {
+    setIsSkipping(true)
+    try {
+      await skipStep()
+      setShowSkipConfirm(false)
+    } finally {
+      setIsSkipping(false)
+    }
   }
 
   const handleUploaded = (filename: string, _passed: boolean) => {
@@ -171,6 +183,42 @@ export default function OnboardingPage() {
         />
       )}
 
+      {/* ── Skip confirmation panel ── */}
+      {showSkipConfirm && (
+        <div className="border-t bg-amber-50 dark:bg-amber-900/20 border-amber-200 px-4 py-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-lg shrink-0">⚠️</span>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                {lang === 'it' ? 'Saltare questo step?' : 'Skip this step?'}
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                {lang === 'it'
+                  ? 'Le informazioni di questo step rimarranno incomplete. Potrai correggerle in seguito dalla pagina del tuo profilo.'
+                  : 'The information for this step will remain incomplete. You can fill it in later from your profile page.'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 justify-end">
+            <button
+              onClick={() => setShowSkipConfirm(false)}
+              className="text-xs px-3 py-1.5 rounded-lg border text-muted-foreground hover:text-foreground hover:bg-muted/60"
+            >
+              {lang === 'it' ? 'Annulla' : 'Cancel'}
+            </button>
+            <button
+              onClick={handleSkipConfirmed}
+              disabled={isSkipping}
+              className="text-xs px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50"
+            >
+              {isSkipping
+                ? '…'
+                : lang === 'it' ? 'Sì, salta' : 'Yes, skip'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Ban banner ── */}
       {banUntil && (
         <div className="border-t bg-destructive/10 border-destructive/30 px-4 py-3 flex items-start gap-3">
@@ -187,43 +235,58 @@ export default function OnboardingPage() {
       )}
 
       {/* ── Input bar ── */}
-      <div className="relative z-10 border-t bg-background px-4 py-3 flex items-center gap-2">
-        <UploadButton
-          expectedTypes={onboardingState?.expectedDocumentTypes ?? []}
-          onUploaded={handleUploaded}
-          disabled={isStreaming || !!banUntil}
-          highlight={onboardingState?.requiresDocumentUpload ?? false}
-        />
+      <div className="relative z-10 border-t bg-background px-4 pt-3 pb-2 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <UploadButton
+            expectedTypes={onboardingState?.expectedDocumentTypes ?? []}
+            onUploaded={handleUploaded}
+            disabled={isStreaming || !!banUntil}
+            highlight={onboardingState?.requiresDocumentUpload ?? false}
+          />
 
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-          placeholder={requiresUpload ? t('upload.input_hint') : t('chat.placeholder')}
-          disabled={isStreaming || !!banUntil}
-          className="
-            flex-1 min-w-0 rounded-xl border border-input bg-background
-            px-3 py-2.5 text-sm outline-none
-            focus:ring-2 focus:ring-ring
-            disabled:opacity-50
-          "
-        />
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+            placeholder={requiresUpload ? t('upload.input_hint') : t('chat.placeholder')}
+            disabled={isStreaming || !!banUntil}
+            className="
+              flex-1 min-w-0 rounded-xl border border-input bg-background
+              px-3 py-2.5 text-sm outline-none
+              focus:ring-2 focus:ring-ring
+              disabled:opacity-50
+            "
+          />
 
-        <button
-          onClick={handleSend}
-          disabled={isStreaming || !input.trim() || !!banUntil}
-          className="
-            flex items-center justify-center w-10 h-10 rounded-xl shrink-0
-            bg-primary text-primary-foreground text-lg
-            hover:bg-primary/90 transition-colors
-            disabled:opacity-40 disabled:cursor-not-allowed
-          "
-          aria-label="Invia"
-        >
-          ↑
-        </button>
+          <button
+            onClick={handleSend}
+            disabled={isStreaming || !input.trim() || !!banUntil}
+            className="
+              flex items-center justify-center w-10 h-10 rounded-xl shrink-0
+              bg-primary text-primary-foreground text-lg
+              hover:bg-primary/90 transition-colors
+              disabled:opacity-40 disabled:cursor-not-allowed
+            "
+            aria-label="Invia"
+          >
+            ↑
+          </button>
+        </div>
+
+        {/* Skip step link — hidden while banned or confirming */}
+        {!banUntil && !showSkipConfirm && !isCompleted && (
+          <div className="flex justify-end pb-0.5">
+            <button
+              onClick={() => setShowSkipConfirm(true)}
+              disabled={isStreaming}
+              className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors underline-offset-2 hover:underline"
+            >
+              {lang === 'it' ? 'Salta questo step →' : 'Skip this step →'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

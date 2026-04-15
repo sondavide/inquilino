@@ -20,6 +20,8 @@ import { UserType }         from '@/types'
 // Landlord
 import RegisterLandlordPage  from '@/pages/auth/RegisterLandlordPage'
 import RegisterChoicePage   from '@/pages/auth/RegisterChoicePage'
+import ForgotPasswordPage  from '@/pages/auth/ForgotPasswordPage'
+import ResetPasswordPage   from '@/pages/auth/ResetPasswordPage'
 import LandlordListingsPage  from '@/pages/landlord/LandlordListingsPage'
 import LandlordProfilePage   from '@/pages/landlord/LandlordProfilePage'
 import ListingWizardPage     from '@/pages/landlord/ListingWizardPage'
@@ -118,6 +120,8 @@ function AppRoutes() {
         <Route path="/login"             element={<LoginPage />} />
         <Route path="/register"          element={<RegisterChoicePage />} />
         <Route path="/register/landlord" element={<RegisterLandlordPage />} />
+        <Route path="/forgot-password"   element={<ForgotPasswordPage />} />
+        <Route path="/reset-password"    element={<ResetPasswordPage />} />
         {/* Legal pages — always public */}
         <Route path="/legal/privacy" element={<PolicyPage file="privacy-policy.md"       title="Privacy Policy" />} />
         <Route path="/legal/cookie"  element={<PolicyPage file="cookie-policy.md"        title="Cookie Policy" />} />

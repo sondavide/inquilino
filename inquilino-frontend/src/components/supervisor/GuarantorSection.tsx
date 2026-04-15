@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supervisorApi } from '@/api/supervisor'
 import type { GuarantorDto, GuarantorRequest } from '@/types'
+import { useLang } from '@/i18n'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -13,14 +14,8 @@ function fmtDate(s: string | null | undefined) {
   return new Date(s).toLocaleDateString('it-IT')
 }
 
-const EMPLOYMENT_LABELS: Record<string, string> = {
-  EMPLOYEE: 'Dipendente', SELF_EMPLOYED: 'Autonomo', RETIRED: 'Pensionato',
-  STUDENT: 'Studente', OTHER: 'Altro',
-}
-const CONTRACT_LABELS: Record<string, string> = {
-  PERMANENT: 'Indeterminato', FIXED_TERM: 'Determinato',
-  APPRENTICESHIP: 'Apprendistato', INTERNSHIP: 'Stage', FREELANCE: 'Freelance', OTHER: 'Altro',
-}
+const EMPLOYMENT_KEYS = ['EMPLOYEE', 'SELF_EMPLOYED', 'STUDENT', 'RETIRED', 'OTHER'] as const
+const CONTRACT_KEYS   = ['PERMANENT', 'FIXED_TERM', 'APPRENTICESHIP', 'INTERNSHIP', 'FREELANCE', 'OTHER'] as const
 
 // ─── Form garante ─────────────────────────────────────────────────────────────
 
@@ -80,6 +75,7 @@ function GuarantorCard({
   onUpdated: (g: GuarantorDto) => void
   onDeleted: (id: string) => void
 }) {
+  const { t } = useLang()
   const [editing,       setEditing]       = useState(false)
   const [form,          setForm]          = useState<FormState>(guarantorToForm(g))
   const [saving,        setSaving]        = useState(false)
@@ -120,8 +116,8 @@ function GuarantorCard({
           <p className="font-semibold text-sm">{g.fullName || '(nome non inserito)'}</p>
           <p className="text-xs text-muted-foreground">
             {g.roleLabel && <span className="mr-2">{g.roleLabel}</span>}
-            {g.employmentType && EMPLOYMENT_LABELS[g.employmentType]}
-            {g.contractType && ` · ${CONTRACT_LABELS[g.contractType] ?? g.contractType}`}
+            {g.employmentType && t(`profile.employmentType.${g.employmentType}` as Parameters<typeof t>[0])}
+            {g.contractType && ` · ${t(`profile.contractType.${g.contractType}` as Parameters<typeof t>[0])}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -188,7 +184,7 @@ function GuarantorCard({
                 onChange={e => setForm(f => ({ ...f, employmentType: e.target.value }))}
                 className="w-full mt-1 px-2 py-1.5 text-sm border rounded-lg bg-background outline-none">
                 <option value="">—</option>
-                {Object.entries(EMPLOYMENT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {EMPLOYMENT_KEYS.map(v => <option key={v} value={v}>{t(`profile.employmentType.${v}`)}</option>)}
               </select>
             </div>
             <div>
@@ -197,7 +193,7 @@ function GuarantorCard({
                 onChange={e => setForm(f => ({ ...f, contractType: e.target.value }))}
                 className="w-full mt-1 px-2 py-1.5 text-sm border rounded-lg bg-background outline-none">
                 <option value="">—</option>
-                {Object.entries(CONTRACT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {CONTRACT_KEYS.map(v => <option key={v} value={v}>{t(`profile.contractType.${v}`)}</option>)}
               </select>
             </div>
             <div>
@@ -266,6 +262,7 @@ export function GuarantorSection({
   profileId: string
   employmentType: string
 }) {
+  const { t } = useLang()
   const isStudent = employmentType === 'STUDENT'
 
   const [guarantors, setGuarantors] = useState<GuarantorDto[]>([])
@@ -340,7 +337,7 @@ export function GuarantorSection({
                 onChange={e => setForm(f => ({ ...f, employmentType: e.target.value }))}
                 className="w-full mt-1 px-2 py-1.5 text-sm border rounded-lg bg-background outline-none">
                 <option value="">—</option>
-                {Object.entries(EMPLOYMENT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {EMPLOYMENT_KEYS.map(v => <option key={v} value={v}>{t(`profile.employmentType.${v}`)}</option>)}
               </select>
             </div>
             <div>
@@ -349,7 +346,7 @@ export function GuarantorSection({
                 onChange={e => setForm(f => ({ ...f, contractType: e.target.value }))}
                 className="w-full mt-1 px-2 py-1.5 text-sm border rounded-lg bg-background outline-none">
                 <option value="">—</option>
-                {Object.entries(CONTRACT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {CONTRACT_KEYS.map(v => <option key={v} value={v}>{t(`profile.contractType.${v}`)}</option>)}
               </select>
             </div>
             <div>

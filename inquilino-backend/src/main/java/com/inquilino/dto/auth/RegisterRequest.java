@@ -15,4 +15,8 @@ public class RegisterRequest {
     private String password;
 
     private String phone;
+
+    /** Codice OTP inviato per email prima della registrazione. */
+    @NotBlank
+    private String verificationCode;
 }

@@ -163,6 +163,14 @@ export function useChat() {
    * 3. If no history exists for the current step, sends the empty init trigger
    *    so the bot produces its opening message.
    */
+  const skipStep = useCallback(async () => {
+    if (isStreaming) return
+    const newState = await onboardingApi.skipStep()
+    setOnboardingState(newState)
+    setMessages([])
+    sendMessage('')
+  }, [isStreaming, sendMessage])
+
   const init = useCallback(async () => {
     try {
       const [state, history] = await Promise.all([
@@ -197,5 +205,5 @@ export function useChat() {
     }
   }, [sendMessage])
 
-  return { messages, isStreaming, onboardingState, banUntil, sendMessage, init }
+  return { messages, isStreaming, onboardingState, banUntil, sendMessage, skipStep, init }
 }

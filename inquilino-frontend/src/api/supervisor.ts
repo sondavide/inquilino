@@ -143,4 +143,11 @@ export const supervisorApi = {
 
   deleteNote: (profileId: string, noteId: string) =>
     apiClient.delete(`/supervisor/profiles/${profileId}/notes/${noteId}`),
+
+  // Per-document supervisor check (stores supervisor_verified in extractedData)
+  supervisorVerifyDocument: (profileId: string, docId: string, checked: boolean) =>
+    apiClient.patch<{ id: string; supervisorVerified: boolean }>(
+      `/supervisor/profiles/${profileId}/documents/${docId}/supervisor-verify`,
+      { checked })
+      .then(r => r.data),
 }

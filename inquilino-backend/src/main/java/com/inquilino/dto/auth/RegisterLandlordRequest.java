@@ -46,4 +46,8 @@ public class RegisterLandlordRequest {
     public String getContactPhone()  { return contactPhone; }
     public String getContactEmail()  { return contactEmail; }
     public String getWebsiteUrl()    { return websiteUrl; }
+
+    /** Codice OTP inviato per email prima della registrazione. */
+    private String verificationCode;
+    public String getVerificationCode() { return verificationCode; }
 }

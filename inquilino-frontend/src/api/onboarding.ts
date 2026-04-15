@@ -32,4 +32,7 @@ export const onboardingApi = {
 
   saveInterestAreas: (areas: InterestArea[]) =>
     apiClient.post('/onboarding/interest-area', areas).then(r => r.data),
+
+  skipStep: () =>
+    apiClient.post<OnboardingStateDto>('/onboarding/skip-step').then(r => r.data),
 }

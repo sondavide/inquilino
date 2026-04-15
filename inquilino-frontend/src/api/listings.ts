@@ -104,6 +104,7 @@ export const registerLandlord = (data: {
   contactPhone?: string
   contactEmail?: string
   websiteUrl?: string
+  verificationCode: string
 }) => apiClient.post<{ token: string; userId: string; email: string }>(
   '/auth/register/landlord', data
 ).then(r => r.data)

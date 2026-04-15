@@ -37,7 +37,8 @@
       "Bash(java -version)",
       "Read(//c/Users/Davide.Noviello/.m2/**)",
       "Bash(xargs ls:*)",
-      "Bash(grep -E \"\\\\.\\(md|html|tsx|ts\\)$\")"
+      "Bash(grep -E \"\\\\.\\(md|html|tsx|ts\\)$\")",
+      "Bash(find:*)"
     ]
   }
 }

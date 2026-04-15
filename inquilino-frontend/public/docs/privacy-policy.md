@@ -2,8 +2,8 @@
 ### ai sensi degli artt. 13–14 Regolamento (UE) 2016/679 (GDPR)
 
 **Piattaforma:** InquilinoFacile.it  
-**Versione:** 1.1  
-**Data ultimo aggiornamento:** 14 aprile 2026  
+**Versione:** 1.2  
+**Data ultimo aggiornamento:** 15 aprile 2026  
 
 ---
 
@@ -263,13 +263,25 @@ Calcolata come somma di quattro fattori (totale max = 100 punti):
 | Documenti reddituali caricati ma non ancora approvati | 5 |
 | Solo dichiarazione verbale | 0 |
 
-**Fattore D — Rete di sicurezza (max 10 pt)**
+**Fattore D — Qualità della rete di sicurezza (max 10 pt)**
 
-| Situazione | Punti |
-|------------|-------|
-| Garante con reddito verificato | 10 |
-| Garante con reddito dichiarato | 5 |
-| Nessun garante | 0 |
+Il punteggio è basato sulla **qualità** del garante, determinata dal rapporto tra il reddito complessivo dei garanti (verificato o dichiarato) e il budget mensile massimo scelto dall'inquilino:
+
+```
+rapporto_garante = reddito_totale_garanti / budget_mensile_massimo
+```
+
+| Qualità garante | Soglia rapporto | Punti |
+|-----------------|-----------------|-------|
+| ALTA (reddito molto superiore al canone) | rapporto ≥ 4 (o reddito verificato > 2× budget) | 10 |
+| MEDIA (reddito adeguato al canone) | rapporto ≥ 2 | 7 |
+| BASSA (reddito limitato rispetto al canone) | rapporto ≥ 1 | 4 |
+| INSUFFICIENTE (reddito inferiore al canone) | rapporto < 1 | 1 |
+| Nessun garante | — | 0 |
+
+Per gli utenti **studenti**, il garante è valutato sia nell'ambito del Fattore D della formula ponderata, sia come componente della formula combinata (score familiare × 70% + score studente × 30%).
+
+Se il budget massimo non è ancora stato dichiarato o è pari a zero, si applica il punteggio minimo di presenza garante (1 pt per garante con reddito, 0 altrimenti).
 
 **Soglie classificazione stabilità** (configurabili):
 
@@ -331,7 +343,7 @@ Un supervisore umano può modificare manualmente uno o più indicatori categoria
 - visibile all'utente su richiesta (art. 22.3 GDPR — diritto di revisione umana);
 - reversibile in qualsiasi momento dal supervisore o dall'amministratore.
 
-Il supervisore può inoltre correggere valori numerici (es. reddito mensile) quando i documenti presentati dimostrano un valore diverso dal dichiarato. Il valore corretto viene tracciato separatamente dal valore dichiarato.
+Il supervisore può inoltre correggere valori numerici (es. reddito mensile, data di inizio lavoro, reddito complessivo dei garanti) quando i documenti presentati dimostrano un valore diverso dal dichiarato. I valori corretti vengono tracciati separatamente dai valori dichiarati.
 
 ---
 

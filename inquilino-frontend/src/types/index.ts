@@ -252,10 +252,11 @@ export interface DocLine {
 }
 
 export interface ScoreSuggestion {
-  category:         string
-  action:           string
-  projectedLevel:   ScoreLevel | null
+  category:           string
+  action:             string
+  projectedLevel:     ScoreLevel | null
   estimatedPointGain: number | null
+  documentType?:      string | null
 }
 
 export interface SupervisorProfileSummary {

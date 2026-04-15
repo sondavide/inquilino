@@ -39,37 +39,79 @@ export default function RegisterChoicePage() {
   const [showAgencyModal, setShowAgencyModal] = useState(false)
 
   // Tenant registration form state
-  const [email, setEmail]         = useState('')
-  const [password, setPassword]   = useState('')
-  const [phone, setPhone]         = useState('')
-  const [error, setError]         = useState('')
-  const [loading, setLoading]     = useState(false)
+  const [tenantStep, setTenantStep]           = useState<'form' | 'otp'>('form')
+  const [email, setEmail]                     = useState('')
+  const [password, setPassword]               = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword]       = useState(false)
+  const [showConfirm, setShowConfirm]         = useState(false)
+  const [phone, setPhone]                     = useState('')
+  const [otpCode, setOtpCode]                 = useState('')
+  const [otpResent, setOtpResent]             = useState(false)
+  const [error, setError]                     = useState('')
+  const [loading, setLoading]                 = useState(false)
   const [consentPrivacy, setConsentPrivacy]     = useState(false)
   const [consentMarketing, setConsentMarketing] = useState(false)
 
-  const handleTenantRegister = async (e: React.FormEvent) => {
+  // Step 1 → request OTP
+  const handleTenantStep1 = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!consentPrivacy) { setError(t('auth.consent.required')); return }
+    if (password !== confirmPassword) { setError(t('auth.register.passwords_mismatch')); return }
     setError('')
     setLoading(true)
     try {
-      const res = await authApi.register({ email, password, phone: phone || undefined })
-      setToken(res.token)
-      registerPushSubscription().catch(() => {})
-      navigate('/', { replace: true })
-    } catch {
-      setError(t('auth.login.error_register'))
+      await authApi.requestEmailVerification(email)
+      setTenantStep('otp')
+      setOtpCode('')
+    } catch (err: any) {
+      const status = err?.response?.status
+      if (status === 409) setError(t('auth.register.email_duplicate'))
+      else setError(t('auth.login.error_register'))
     } finally {
       setLoading(false)
     }
   }
 
+  // Step 2 → verify OTP and create account
+  const handleTenantRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const res = await authApi.register({ email, password, phone: phone || undefined, verificationCode: otpCode })
+      setToken(res.token)
+      registerPushSubscription().catch(() => {})
+      navigate('/', { replace: true })
+    } catch (err: any) {
+      const status = err?.response?.status
+      if (status === 422) setError(t('auth.register.otp_invalid'))
+      else if (status === 409) setError(t('auth.register.email_duplicate'))
+      else setError(t('auth.login.error_register'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    setError('')
+    setOtpResent(false)
+    try {
+      await authApi.requestEmailVerification(email)
+      setOtpResent(true)
+      setTimeout(() => setOtpResent(false), 4000)
+    } catch { /* ignore */ }
+  }
+
   const back = () => {
     setSelected(null)
+    setTenantStep('form')
     setError('')
     setEmail('')
     setPassword('')
+    setConfirmPassword('')
     setPhone('')
+    setOtpCode('')
     setConsentPrivacy(false)
     setConsentMarketing(false)
   }
@@ -166,30 +208,40 @@ export default function RegisterChoicePage() {
               </p>
             </div>
 
-            {/* IDP buttons */}
-            <div className="space-y-2">
-              <OAuthButton provider="google"   label={t('auth.login.google')}   role={selected} />
-              <OAuthButton provider="linkedin" label={t('auth.login.linkedin')} role={selected} />
-            </div>
+            {/* IDP buttons — hide during OTP step */}
+            {!(selected === 'tenant' && tenantStep === 'otp') && (
+              <>
+                <div className="space-y-2">
+                  <OAuthButton provider="google"   label={t('auth.login.google')}   role={selected} />
+                  <OAuthButton provider="linkedin" label={t('auth.login.linkedin')} role={selected} />
+                </div>
+                <div className="relative flex items-center">
+                  <div className="flex-1 border-t border-slate-200" />
+                  <span className="mx-3 text-xs text-slate-400">{t('auth.or')}</span>
+                  <div className="flex-1 border-t border-slate-200" />
+                </div>
+              </>
+            )}
 
-            <div className="relative flex items-center">
-              <div className="flex-1 border-t border-slate-200" />
-              <span className="mx-3 text-xs text-slate-400">{t('auth.or')}</span>
-              <div className="flex-1 border-t border-slate-200" />
-            </div>
-
-            {/* Tenant: inline email form */}
-            {selected === 'tenant' && (
-              <form onSubmit={handleTenantRegister} className="space-y-3">
+            {/* Tenant: Step 1 — email/password form */}
+            {selected === 'tenant' && tenantStep === 'form' && (
+              <form onSubmit={handleTenantStep1} className="space-y-3">
                 <input
                   type="email" placeholder={t('auth.login.email')} value={email}
                   onChange={e => setEmail(e.target.value)} required autoComplete="email"
                   className={inputClass}
                 />
-                <input
-                  type="password" placeholder={t('auth.login.password')} value={password}
-                  onChange={e => setPassword(e.target.value)} required minLength={8} autoComplete="new-password"
-                  className={inputClass}
+                <PasswordInput
+                  placeholder={t('auth.login.password')}
+                  value={password} onChange={setPassword}
+                  show={showPassword} onToggle={() => setShowPassword(v => !v)}
+                  autoComplete="new-password" minLength={8}
+                />
+                <PasswordInput
+                  placeholder={t('auth.register.confirm_password')}
+                  value={confirmPassword} onChange={setConfirmPassword}
+                  show={showConfirm} onToggle={() => setShowConfirm(v => !v)}
+                  autoComplete="new-password"
                 />
                 <input
                   type="tel" placeholder={t('auth.login.phone')} value={phone}
@@ -222,6 +274,40 @@ export default function RegisterChoicePage() {
                 <button type="submit" disabled={loading} className={btnClass('primary')}>
                   {loading ? t('auth.login.loading') : t('auth.login.submit_register')}
                 </button>
+              </form>
+            )}
+
+            {/* Tenant: Step 2 — OTP verification */}
+            {selected === 'tenant' && tenantStep === 'otp' && (
+              <form onSubmit={handleTenantRegister} className="space-y-4">
+                <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
+                  <p className="font-semibold mb-0.5">{t('auth.register.otp_title')}</p>
+                  <p className="text-xs leading-relaxed">
+                    {t('auth.register.otp_desc').replace('{email}', email)}
+                  </p>
+                </div>
+                <input
+                  type="text" inputMode="numeric" pattern="[0-9]{6}" maxLength={6}
+                  placeholder={t('auth.register.otp_placeholder')}
+                  value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  required autoComplete="one-time-code"
+                  className={inputClass + ' text-center tracking-[0.4em] text-lg font-mono'}
+                />
+                {error && <p className="text-red-500 text-sm">{error}</p>}
+                {otpResent && <p className="text-green-600 text-sm">{t('auth.register.otp_resent')}</p>}
+                <button type="submit" disabled={loading || otpCode.length < 6} className={btnClass('primary')}>
+                  {loading ? t('auth.login.loading') : t('auth.register.otp_verify')}
+                </button>
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                  <button type="button" onClick={() => { setTenantStep('form'); setError(''); setOtpCode('') }}
+                    className="hover:text-slate-800 transition-colors">
+                    {t('auth.register.change_email')}
+                  </button>
+                  <button type="button" onClick={handleResendOtp}
+                    className="hover:text-slate-800 transition-colors underline">
+                    {t('auth.register.otp_resend')}
+                  </button>
+                </div>
               </form>
             )}
 
@@ -278,6 +364,50 @@ function ProviderIcon({ provider }: { provider: 'google' | 'linkedin' }) {
       <rect width="18" height="18" rx="2" fill="#0A66C2"/>
       <path d="M4.5 7h2v7h-2zM5.5 6a1.1 1.1 0 1 1 0-2.2A1.1 1.1 0 0 1 5.5 6zM8 7h1.9v.96C10.2 7.4 10.9 7 11.8 7c1.9 0 2.2 1.25 2.2 2.88V14h-2v-3.7c0-.88-.02-2-.1-2.27-.1-.35-.35-.63-.78-.63-.57 0-.88.38-1.02.75-.05.14-.1.37-.1.64V14H8V7z" fill="white"/>
     </svg>
+  )
+}
+
+function PasswordInput({
+  placeholder, value, onChange, show, onToggle, autoComplete, minLength,
+}: {
+  placeholder: string; value: string; onChange: (v: string) => void
+  show: boolean; onToggle: () => void
+  autoComplete?: string; minLength?: number
+}) {
+  return (
+    <div className="relative">
+      <input
+        type={show ? 'text' : 'password'}
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        required
+        minLength={minLength}
+        autoComplete={autoComplete}
+        className={inputClass + ' pr-10'}
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        tabIndex={-1}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+      >
+        {show ? (
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        )}
+      </button>
+    </div>
   )
 }
 

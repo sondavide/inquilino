@@ -5,7 +5,8 @@ import { onboardingApi } from '@/api/onboarding'
 import { CameraCapture } from '@/components/camera/CameraCapture'
 
 const ALL_DOC_TYPES = [
-  'IDENTITY', 'PAYSLIP', 'EMPLOYMENT_CONTRACT',
+  'IDENTITY', 'IDENTITY_FRONT', 'IDENTITY_BACK',
+  'PAYSLIP', 'EMPLOYMENT_CONTRACT',
   'TAX_RETURN', 'BANK_STATEMENT', 'LANDLORD_REFERENCE', 'GUARANTOR_DOCUMENT', 'OTHER',
 ]
 
@@ -173,7 +174,7 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight }:
         {showMenu && !uploading && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-            <div className="absolute bottom-full left-0 mb-2 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]">
+            <div className="absolute bottom-full right-0 mb-2 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]">
               <button
                 onClick={() => { setShowMenu(false); setShowCamera(true) }}
                 className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-accent transition-colors"

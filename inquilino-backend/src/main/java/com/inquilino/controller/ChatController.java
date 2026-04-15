@@ -67,6 +67,16 @@ public class ChatController {
                 .toList();
     }
 
+    /** Unconditionally skip the current step (called by the skip button). */
+    @PostMapping("/skip-step")
+    public OnboardingStateDto skipStep(
+            @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        String cleanLang = lang.toLowerCase().startsWith("it") ? "it" : "en";
+        return onboardingService.skipStep(principal.getUserId(), cleanLang);
+    }
+
     /** Go back to the previous step. */
     @PostMapping("/back")
     public OnboardingStateDto goBack(

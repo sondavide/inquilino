@@ -278,6 +278,30 @@ public class SupervisorController {
                 .toList();
     }
 
+    /** Supervisor per-document check: sets extractedData.supervisor_verified. */
+    @Transactional
+    @PatchMapping("/profiles/{profileId}/documents/{docId}/supervisor-verify")
+    public Map<String, Object> supervisorVerifyDocument(
+            @PathVariable UUID profileId,
+            @PathVariable UUID docId,
+            @RequestBody Map<String, Object> body) {
+
+        TenantProfile profile = profileRepo.findById(profileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile not found"));
+
+        Document doc = documentRepo.findByIdAndUserId(docId, profile.getUser().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
+
+        boolean checked = Boolean.TRUE.equals(body.get("checked"));
+        Map<String, Object> extracted = new HashMap<>(
+                doc.getExtractedData() != null ? doc.getExtractedData() : Map.of());
+        extracted.put("supervisor_verified", checked);
+        doc.setExtractedData(extracted);
+        documentRepo.save(doc);
+
+        return Map.of("id", doc.getId().toString(), "supervisorVerified", checked);
+    }
+
     @GetMapping("/profiles/{profileId}/documents/{docId}/preview")
     public ResponseEntity<byte[]> previewDocument(
             @PathVariable UUID profileId,
