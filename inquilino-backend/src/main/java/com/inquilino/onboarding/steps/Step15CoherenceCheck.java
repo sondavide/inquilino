@@ -25,15 +25,18 @@ public class Step15CoherenceCheck implements OnboardingStep {
                 All collected data:
                 %s
 
-                Rules:
-                - Check if monthly_income is consistent with max_budget (budget should be ≤ 50%% of income ideally)
-                - Check if employment_type matches the documents uploaded
-                - Check if fiscal_code format is valid (16 chars, correct pattern)
-                - Report any inconsistencies clearly and ask the tenant to clarify or correct them
-                - If everything looks consistent, say so and move to privacy consents
-                - If corrections are needed, wait for the user to respond before marking this step complete
-                - Do NOT make final scoring decisions — only flag potential issues
-                - ALWAYS respond in %s
+                CRITICAL RULES (follow in order):
+                1. NEVER ask for new data — your ONLY job is to review what is already collected.
+                2. NEVER ask for email, name, or any other field that is not listed above.
+                3. If the data above is empty or very sparse (fewer than 5 fields), respond with one brief sentence confirming everything looks fine so far, then stop. Do NOT ask for any information.
+                4. If data is present, check:
+                   - monthly_income consistent with max_budget (budget ≤ 50%% of income ideally)
+                   - employment_type matches documents uploaded
+                   - fiscal_code format valid (16 chars)
+                5. Report any inconsistencies and ask the tenant to clarify — wait for their response.
+                6. If everything is consistent (or there is nothing to check), say so in one sentence and stop.
+                7. Do NOT make final scoring decisions — only flag potential issues.
+                8. ALWAYS respond in %s.
                 """.formatted(ctx.formattedData(), ctx.lang());
     }
 
@@ -71,6 +74,8 @@ public class Step15CoherenceCheck implements OnboardingStep {
 
     @Override
     public boolean isCompleted(OnboardingContext ctx) {
+        // Auto-skip if fewer than 5 meaningful fields — nothing substantial to check
+        if (meaningfulFieldCount(ctx) < 5) return true;
         return ctx.hasData("coherence_check_done");
     }
 
@@ -79,8 +84,15 @@ public class Step15CoherenceCheck implements OnboardingStep {
 
     @Override
     public Optional<String> nextMissingField(OnboardingContext ctx) {
+        if (meaningfulFieldCount(ctx) < 5) return Optional.empty();
         if (!ctx.hasData("coherence_check_done")) return Optional.of("coherence_check_done");
         return Optional.empty();
+    }
+
+    private static long meaningfulFieldCount(OnboardingContext ctx) {
+        return ctx.data().entrySet().stream()
+                .filter(e -> !e.getKey().startsWith("_"))
+                .count();
     }
 
     @Override

@@ -25,14 +25,16 @@ public class Step17FinalReview implements OnboardingStep {
                 All collected data:
                 %s
 
-                Rules:
-                - Present a clear, well-formatted summary of all collected information
-                - Group it by sections: Personal info, Housing preferences, Employment & income, Documents, Consents
-                - Point out any missing optional fields that could strengthen the profile
-                - Ask: "Does everything look correct? Shall I submit your profile?"
-                - If the user wants to correct something, allow them to (set "final_correction_requested": true)
-                - If the user confirms, set "final_review_confirmed": true and submit
-                - ALWAYS respond in %s
+                CRITICAL RULES (non-negotiable):
+                1. NEVER ask for new information. Do NOT ask for name, email, income, or ANY other field.
+                2. Show a summary of ONLY the data already collected above — even if it is sparse or incomplete.
+                3. If no data was collected, write: "Il profilo è pronto per essere inviato. Confermi?" (or English equivalent) and stop.
+                4. Group available data by: Informazioni personali, Preferenze abitative, Lavoro e reddito, Documenti, Consensi.
+                5. Mention (briefly) any optional fields that could strengthen the profile — do NOT ask for them.
+                6. Ask ONE question: "Tutto corretto? Posso inviare il profilo?" (or English equivalent).
+                7. If the user confirms → profile is submitted.
+                8. If the user wants to correct something → note it (field: "final_correction_requested": true).
+                9. ALWAYS respond in %s.
                 """.formatted(ctx.formattedData(), ctx.lang());
     }
 

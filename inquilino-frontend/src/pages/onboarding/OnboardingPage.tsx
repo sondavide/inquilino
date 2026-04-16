@@ -106,7 +106,8 @@ export default function OnboardingPage() {
     )
   }
 
-  const isStep06     = onboardingState?.currentStep === 'STEP_06'
+  const isStep06       = onboardingState?.currentStep === 'STEP_06'
+  const isStep16       = onboardingState?.currentStep === 'STEP_16'
   const requiresUpload = onboardingState?.requiresDocumentUpload ?? false
 
   return (
@@ -242,6 +243,7 @@ export default function OnboardingPage() {
             onUploaded={handleUploaded}
             disabled={isStreaming || !!banUntil}
             highlight={onboardingState?.requiresDocumentUpload ?? false}
+            menuAnchor="right"
           />
 
           <input
@@ -275,8 +277,21 @@ export default function OnboardingPage() {
           </button>
         </div>
 
-        {/* Skip step link — hidden while banned or confirming */}
-        {!banUntil && !showSkipConfirm && !isCompleted && (
+        {/* Consent step: mandatory accept button only, no skip */}
+        {isStep16 && !banUntil && (
+          <div className="flex justify-center pb-0.5">
+            <button
+              onClick={() => handleSuggestion(t('chat.consent.accept_both'))}
+              disabled={isStreaming}
+              className="text-xs font-semibold px-4 py-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
+            >
+              {t('chat.consent.accept_both')}
+            </button>
+          </div>
+        )}
+
+        {/* Skip step link — hidden while banned, confirming, or on consent step */}
+        {!banUntil && !showSkipConfirm && !isCompleted && !isStep16 && (
           <div className="flex justify-end pb-0.5">
             <button
               onClick={() => setShowSkipConfirm(true)}

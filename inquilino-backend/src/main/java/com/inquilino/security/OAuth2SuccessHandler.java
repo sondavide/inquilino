@@ -96,8 +96,10 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         // Tenant: pre-fill onboarding state from OAuth2 profile
         if (userType == UserType.TENANT) {
             Map<String, Object> prefilled = new HashMap<>();
-            if (name  != null) prefilled.put("full_name", name);
-            if (email != null) prefilled.put("email", email);
+            if (name != null) prefilled.put("full_name", name);
+            // email is stored in User.email — using _ prefix keeps it out of formattedData()
+            // so it doesn't confuse LLM steps that review collected fields
+            if (email != null) prefilled.put("_provider_email", email);
             prefilled.put("_provider", provider);
 
             onboardingStateRepository.save(OnboardingState.builder()
@@ -105,6 +107,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                     .currentStep("STEP_03")
                     .stepStatus(StepStatus.IN_PROGRESS)
                     .collectedData(prefilled)
+                    .completedSteps(new ArrayList<>())
                     .missingFields(new ArrayList<>())
                     .pendingActions(new ArrayList<>())
                     .build());

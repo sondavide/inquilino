@@ -88,6 +88,7 @@ const translations = {
     'chat.ban.title':               'Chat temporaneamente bloccata',
     'chat.ban.until':               'Potrai scrivere nuovamente il {time}.',
     'chat.ban.permanent':           'Il tuo accesso alla chat è stato bloccato permanentemente per messaggi ripetuti non validi. Contatta il supporto.',
+    'chat.consent.accept_both':     'Accetto entrambi i consensi',
     // Language select
     'lang.title':                   'Ciao! Scegli la lingua',
     'lang.subtitle':                'Choose your language',
@@ -997,6 +998,7 @@ const translations = {
     'chat.ban.title':               'Chat temporarily blocked',
     'chat.ban.until':               'You will be able to write again on {time}.',
     'chat.ban.permanent':           'Your chat access has been permanently blocked for repeated invalid messages. Contact support.',
+    'chat.consent.accept_both':     'I accept both consents',
     // Language select
     'lang.title':                   'Ciao! Scegli la lingua',
     'lang.subtitle':                'Choose your language',

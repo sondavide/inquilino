@@ -12,12 +12,13 @@ const ALL_DOC_TYPES = [
 
 interface UploadButtonProps {
   expectedTypes: string[]
-  onUploaded?:  (filename: string, passed: boolean) => void
-  disabled?:    boolean
-  highlight?:   boolean
+  onUploaded?:   (filename: string, passed: boolean) => void
+  disabled?:     boolean
+  highlight?:    boolean
+  menuAnchor?:   'left' | 'right'
 }
 
-export function UploadButton({ expectedTypes, onUploaded, disabled, highlight }: UploadButtonProps) {
+export function UploadButton({ expectedTypes, onUploaded, disabled, highlight, menuAnchor = 'left' }: UploadButtonProps) {
   const { t } = useLang()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -174,7 +175,11 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight }:
         {showMenu && !uploading && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-            <div className="absolute bottom-full right-0 mb-2 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]">
+            <div className={
+              menuAnchor === 'right'
+                ? 'fixed bottom-24 right-4 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]'
+                : 'absolute bottom-full right-0 mb-2 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]'
+            }>
               <button
                 onClick={() => { setShowMenu(false); setShowCamera(true) }}
                 className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-accent transition-colors"
