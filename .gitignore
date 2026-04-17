@@ -1,3 +1,6 @@
+# Generated assets (copied by Vite plugin at build time)
+inquilino-frontend/public/pdf.worker.min.js
+
 # Environment / secrets
 .env
 **/.env

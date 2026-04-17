@@ -2,11 +2,10 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 
-// ─── PDF worker (Vite resolves this to a static asset URL) ───────────────────
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString()
+// The worker is copied to public/pdf.worker.min.js by the Vite plugin in vite.config.ts.
+// Using a plain .js extension guarantees application/javascript MIME type on every
+// server (Tomcat, Nginx, …) without extra configuration.
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
