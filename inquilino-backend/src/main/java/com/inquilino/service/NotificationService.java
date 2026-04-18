@@ -122,6 +122,41 @@ public class NotificationService {
         saveInApp(superadminId, "BULK_RECALC_COMPLETE", title, message);
     }
 
+    // ─── Notifiche agenzia ────────────────────────────────────────────────────
+
+    public void notifyAgencyApproved(UUID agencyUserId) {
+        String title   = "Agenzia approvata!";
+        String message = "Il tuo profilo agenzia è stato approvato. Puoi ora pubblicare annunci immobiliari.";
+        saveInApp(agencyUserId, "AGENCY_APPROVED", title, message);
+        userRepository.findById(agencyUserId).ifPresent(u -> emailService.send(u.getEmail(), title, message));
+        webPushService.sendToUser(agencyUserId, title, message);
+    }
+
+    public void notifyAgencyRejected(UUID agencyUserId, String note) {
+        String title   = "Profilo agenzia: correzioni richieste";
+        String message = "La registrazione della tua agenzia richiede delle correzioni."
+                + (note != null && !note.isBlank() ? " Nota: " + note : "");
+        saveInApp(agencyUserId, "AGENCY_REJECTED", title, message);
+        userRepository.findById(agencyUserId).ifPresent(u -> emailService.send(u.getEmail(), title, message));
+    }
+
+    public void notifyAgencySuspended(UUID agencyUserId, String note) {
+        String title   = "Agenzia sospesa";
+        String message = "Il tuo account agenzia è stato sospeso."
+                + (note != null && !note.isBlank() ? " Motivo: " + note : "");
+        saveInApp(agencyUserId, "AGENCY_SUSPENDED", title, message);
+        userRepository.findById(agencyUserId).ifPresent(u -> emailService.send(u.getEmail(), title, message));
+    }
+
+    /** Notifica l'agenzia quando un profilo mette like ad un annuncio. */
+    public void notifyAgencyTenantInterested(UUID agencyUserId, String listingTitle) {
+        String title   = "Nuovo profilo interessato";
+        String message = String.format("Un profilo verificato ha messo like all'annuncio \"%s\". Puoi vederlo nella rubrica.", listingTitle);
+        saveInApp(agencyUserId, "AGENCY_TENANT_INTERESTED", title, message);
+        userRepository.findById(agencyUserId).ifPresent(u -> emailService.send(u.getEmail(), title, message));
+        webPushService.sendToUser(agencyUserId, title, message);
+    }
+
     private void saveInApp(UUID userId, String type, String title, String message) {
         notificationRepo.save(ProfileNotification.builder()
                 .userId(userId)

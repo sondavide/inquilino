@@ -104,7 +104,7 @@ export default function HeroSection() {
             {t('landing.hero.cta_tenant')}
           </Link>
           <Link
-            to="/register/landlord"
+            to="/register"
             className="flex items-center justify-center gap-2 px-8 py-4 rounded-2xl glass-card text-white font-bold text-base hover:bg-white/20 transition-colors"
           >
             {t('landing.hero.cta_landlord')}

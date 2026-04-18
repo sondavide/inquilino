@@ -29,6 +29,9 @@ export const submitForReview = (id: string) =>
 export const revertToDraft = (id: string) =>
   apiClient.post<{ status: string }>(`/landlord/listings/${id}/revert-to-draft`).then(r => r.data)
 
+export const deactivateListing = (id: string, reason: string) =>
+  apiClient.post<{ status: string }>(`/landlord/listings/${id}/deactivate`, { reason }).then(r => r.data)
+
 export const getListingValidations = (id: string) =>
   apiClient.get<ListingFieldValidation[]>(`/landlord/listings/${id}/validations`).then(r => r.data)
 
@@ -71,8 +74,8 @@ export const updateLandlordProfile = (data: {
 
 // ─── Supervisor: coda annunci ─────────────────────────────────────────────────
 
-export const getSupervisorListingQueue = (statuses = 'IN_REVIEW', page = 0, size = 20) =>
-  apiClient.get<PagedResponse<ListingSummary>>('/supervisor/listings', { params: { statuses, page, size } }).then(r => r.data)
+export const getSupervisorListingQueue = (statuses = 'IN_REVIEW', page = 0, size = 20, publisherType?: string) =>
+  apiClient.get<PagedResponse<ListingSummary>>('/supervisor/listings', { params: { statuses, page, size, ...(publisherType ? { publisherType } : {}) } }).then(r => r.data)
 
 export const getSupervisorListing = (id: string) =>
   apiClient.get<ListingDto>(`/supervisor/listings/${id}`).then(r => r.data)
@@ -88,6 +91,9 @@ export const resetListingField = (listingId: string, fieldName: string) =>
 
 export const completeListingValidation = (listingId: string) =>
   apiClient.post<{ status: string }>(`/supervisor/listings/${listingId}/complete-validation`).then(r => r.data)
+
+export const recomputeListingMatches = (listingId: string) =>
+  apiClient.post<{ result: string }>(`/supervisor/listings/${listingId}/recompute-matches`).then(r => r.data)
 
 // ─── Auth: registrazione landlord ─────────────────────────────────────────────
 

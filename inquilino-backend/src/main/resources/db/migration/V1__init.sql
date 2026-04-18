@@ -2,10 +2,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- ─── Scoring templates ────────────────────────────────────────────────────────
--- Named templates that override the default equal-weight (20/20/20/20/20)
--- formula used in MatchingService.calcTenantStrength().
--- Live-link: profiles reference the template by FK; when a template is updated
--- a background job recalculates all linked VERIFIED profiles.
 
 CREATE TABLE scoring_templates (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -46,17 +42,15 @@ CREATE TABLE scoring_templates (
 
 CREATE TABLE users (
     id               UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-    type             VARCHAR(20)  NOT NULL,          -- TENANT | LANDLORD | SUPERVISOR | AGENCY | SUPERADMIN
+    type             VARCHAR(20)  NOT NULL,
     email            VARCHAR(255) UNIQUE NOT NULL,
     phone            VARCHAR(50),
-    password_hash    VARCHAR(255),                   -- null for OAuth2-only users
+    password_hash    VARCHAR(255),
     created_at       TIMESTAMP    NOT NULL DEFAULT NOW(),
     verified         BOOLEAN      NOT NULL DEFAULT FALSE,
-    -- OAuth2 social identity
     provider         VARCHAR(50),
     provider_user_id VARCHAR(255),
     profile_url      TEXT,
-    -- Spam protection
     spam_strikes      INTEGER      NOT NULL DEFAULT 0,
     chat_banned_until TIMESTAMP    NULL
 );
@@ -74,7 +68,7 @@ CREATE TABLE tenant_profiles (
     birth_place           VARCHAR(255),
     residence             VARCHAR(255),
     fiscal_code           VARCHAR(16),
-    employment_type       VARCHAR(50),               -- EMPLOYEE | SELF_EMPLOYED | STUDENT | RETIRED | OTHER
+    employment_type       VARCHAR(50),
     monthly_income        NUMERIC(10, 2),
     contract_type         VARCHAR(50),
     employment_start_date DATE,
@@ -89,7 +83,6 @@ CREATE TABLE tenant_profiles (
     desired_locations     JSONB        DEFAULT '[]',
     profile_completion    INTEGER      NOT NULL DEFAULT 0,
     verification_status              VARCHAR(30)  NOT NULL DEFAULT 'NONE',
-    -- NONE | PARTIAL | PENDING_VALIDATION | IN_VALIDATION | NEEDS_CORRECTION | VERIFIED
     active                           BOOLEAN      NOT NULL DEFAULT TRUE,
     assigned_supervisor_id           UUID         NULL,
     last_validated_by_supervisor_id  UUID         NULL,
@@ -103,7 +96,7 @@ CREATE TABLE onboarding_states (
     id              UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id         UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     current_step    VARCHAR(50) NOT NULL DEFAULT 'STEP_0',
-    step_status     VARCHAR(20) NOT NULL DEFAULT 'NOT_STARTED', -- NOT_STARTED | IN_PROGRESS | COMPLETED | BLOCKED
+    step_status     VARCHAR(20) NOT NULL DEFAULT 'NOT_STARTED',
     collected_data  JSONB       DEFAULT '{}',
     completed_steps JSONB,
     missing_fields  JSONB       DEFAULT '[]',
@@ -117,7 +110,7 @@ CREATE TABLE onboarding_states (
 CREATE TABLE chat_messages (
     id         UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role       VARCHAR(20) NOT NULL,  -- USER | ASSISTANT
+    role       VARCHAR(20) NOT NULL,
     content    TEXT        NOT NULL,
     step       VARCHAR(50),
     created_at TIMESTAMP   NOT NULL DEFAULT NOW()
@@ -130,7 +123,7 @@ CREATE INDEX idx_chat_messages_user_id ON chat_messages(user_id);
 CREATE TABLE documents (
     id             UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id        UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type           VARCHAR(50) NOT NULL,  -- IDENTITY | PAYSLIP | EMPLOYMENT_CONTRACT | TAX_RETURN | BANK_STATEMENT | LANDLORD_REFERENCE | GUARANTOR_DOCUMENT | OTHER
+    type           VARCHAR(50) NOT NULL,
     file_url       TEXT        NOT NULL,
     uploaded_at    TIMESTAMP   NOT NULL DEFAULT NOW(),
     verified       BOOLEAN     NOT NULL DEFAULT FALSE,
@@ -145,7 +138,7 @@ CREATE INDEX idx_documents_user_id ON documents(user_id);
 CREATE TABLE tenant_interest_areas (
     id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id        UUID        NOT NULL,
-    area_type      VARCHAR(50) NOT NULL,  -- POLYGON | CITY_BOUNDARY | ANYWHERE
+    area_type      VARCHAR(50) NOT NULL,
     city_name      VARCHAR(255),
     area_geojson   JSONB,
     area_geometry  geometry(Geometry, 4326)
@@ -166,7 +159,7 @@ CREATE TABLE field_validations (
     id                  UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_profile_id   UUID         NOT NULL REFERENCES tenant_profiles(id) ON DELETE CASCADE,
     field_name          VARCHAR(100) NOT NULL,
-    status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING',  -- PENDING | APPROVED | FLAGGED
+    status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
     note                TEXT,
     supervisor_id       UUID,
     validated_at        TIMESTAMP    NOT NULL DEFAULT NOW(),
@@ -228,33 +221,81 @@ CREATE TABLE landlord_profiles (
     id                  UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id             UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     display_name        VARCHAR(255),
-    -- Agency-specific (null for private landlords)
     agency_name         VARCHAR(255),
     vat_number          VARCHAR(50),
     rea_number          VARCHAR(50),
     website_url         TEXT,
-    -- Contact preferences
-    contact_mode        VARCHAR(30)  NOT NULL DEFAULT 'platform_only', -- platform_only | phone | email | mixed
+    contact_mode        VARCHAR(30)  NOT NULL DEFAULT 'platform_only',
     contact_phone       VARCHAR(50),
     contact_email       VARCHAR(255),
-    -- Profile completion
     profile_completion  INTEGER      NOT NULL DEFAULT 0,
     created_at          TIMESTAMP    NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMP    NOT NULL DEFAULT NOW(),
     UNIQUE (user_id)
 );
 
--- ─── Listings (main table) ────────────────────────────────────────────────────
+-- ─── Agency profiles ──────────────────────────────────────────────────────────
+
+CREATE TABLE agency_profiles (
+    id                   UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id              UUID         NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    agency_name          VARCHAR(255) NOT NULL,
+    vat_number           VARCHAR(50),
+    rea_number           VARCHAR(50),
+    website_url          TEXT,
+    contact_email        VARCHAR(255),
+    contact_phone        VARCHAR(50),
+    status               VARCHAR(30)  NOT NULL DEFAULT 'PENDING_APPROVAL',
+    areas                JSONB        NOT NULL DEFAULT '[]',
+    created_at           TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at           TIMESTAMP    NOT NULL DEFAULT NOW(),
+    approved_at          TIMESTAMP,
+    approved_by_admin_id UUID,
+    status_note          TEXT
+);
+
+CREATE INDEX idx_agency_profiles_status ON agency_profiles(status);
+
+-- ─── Agency memberships (operators) ──────────────────────────────────────────
+
+CREATE TABLE agency_memberships (
+    id               UUID      PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agency_user_id   UUID      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    operator_user_id UUID      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    listing_scope    JSONB,
+    added_at         TIMESTAMP NOT NULL DEFAULT NOW(),
+    added_by_user_id UUID,
+    CONSTRAINT uq_membership_agency_operator UNIQUE (agency_user_id, operator_user_id)
+);
+
+CREATE INDEX idx_agency_memberships_agency   ON agency_memberships(agency_user_id);
+CREATE INDEX idx_agency_memberships_operator ON agency_memberships(operator_user_id);
+
+-- ─── Agency areas (PostGIS) ───────────────────────────────────────────────────
+
+CREATE TABLE agency_areas (
+    id              UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agency_user_id  UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    area_type       VARCHAR(20)  NOT NULL,
+    osm_id          VARCHAR(50),
+    name            VARCHAR(255) NOT NULL,
+    display_name    VARCHAR(255),
+    area_geometry   geometry(Geometry, 4326),
+    created_at      TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_agency_areas_user     ON agency_areas(agency_user_id);
+CREATE INDEX idx_agency_areas_geometry ON agency_areas USING GIST(area_geometry);
+
+-- ─── Listings ─────────────────────────────────────────────────────────────────
 
 CREATE TABLE listings (
     id                  UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
     publisher_user_id   UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    -- Categories
-    listing_type        VARCHAR(50)  NOT NULL,  -- LONG_TERM_RENT | SHORT_TERM_RENT | TRANSITIONAL_RENT | STUDENT_RENT | ROOM_RENT
-    property_type       VARCHAR(50)  NOT NULL,  -- APARTMENT | STUDIO | LOFT | PENTHOUSE | HOUSE | VILLA | ROOM | BED_IN_SHARED_ROOM | ...
-    publisher_type      VARCHAR(50)  NOT NULL,  -- PRIVATE | AGENCY | BUILDER | PROPERTY_MANAGER
-    -- Identity
-    status              VARCHAR(30)  NOT NULL DEFAULT 'DRAFT', -- DRAFT | IN_REVIEW | PUBLISHED | REJECTED | ARCHIVED | SUSPENDED
+    listing_type        VARCHAR(50)  NOT NULL,
+    property_type       VARCHAR(50)  NOT NULL,
+    publisher_type      VARCHAR(50)  NOT NULL,
+    status              VARCHAR(30)  NOT NULL DEFAULT 'DRAFT',
     title               VARCHAR(255),
     title_en            VARCHAR(255),
     description         TEXT,
@@ -262,13 +303,13 @@ CREATE TABLE listings (
     source_lang         VARCHAR(10)  DEFAULT 'it',
     internal_reference  VARCHAR(100),
     slug                VARCHAR(255) UNIQUE,
-    -- Metadata
     created_at          TIMESTAMP    NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMP    NOT NULL DEFAULT NOW(),
     published_at        TIMESTAMP    NULL,
-    -- Supervisor validation
     assigned_supervisor_id          UUID NULL,
-    last_validated_by_supervisor_id UUID NULL
+    last_validated_by_supervisor_id UUID NULL,
+    direct_contact_on_tenant_interest BOOLEAN NOT NULL DEFAULT FALSE,
+    deactivation_reason TEXT
 );
 
 CREATE INDEX idx_listings_publisher   ON listings(publisher_user_id);
@@ -289,7 +330,7 @@ CREATE TABLE listing_locations (
     street_name         VARCHAR(255),
     street_number       VARCHAR(20),
     full_address        TEXT,
-    location_precision  VARCHAR(20)  NOT NULL DEFAULT 'EXACT', -- EXACT | APPROXIMATE | HIDDEN
+    location_precision  VARCHAR(20)  NOT NULL DEFAULT 'EXACT',
     location_point      geometry(Point, 4326),
     display_point       geometry(Point, 4326),
     geocoding_provider  VARCHAR(100),
@@ -316,10 +357,10 @@ CREATE TABLE listing_prices (
     agency_fee_amount           NUMERIC(12,2),
     agency_fee_notes            TEXT,
     other_costs_notes           TEXT,
-    price_visibility            VARCHAR(20)  NOT NULL DEFAULT 'public'  -- public | reserved
+    price_visibility            VARCHAR(20)  NOT NULL DEFAULT 'public'
 );
 
--- ─── Listing features (structural) ───────────────────────────────────────────
+-- ─── Listing features ─────────────────────────────────────────────────────────
 
 CREATE TABLE listing_features (
     listing_id              UUID    PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
@@ -336,8 +377,7 @@ CREATE TABLE listing_features (
     balconies_count         INTEGER NOT NULL DEFAULT 0,
     terraces_count          INTEGER NOT NULL DEFAULT 0,
     cellars_count           INTEGER NOT NULL DEFAULT 0,
-    -- Room-specific (used when property_type = ROOM or BED_IN_SHARED_ROOM)
-    room_type               VARCHAR(30),  -- single | double | shared_bed
+    room_type               VARCHAR(30),
     room_surface_sqm        NUMERIC(8,2),
     room_furnished          BOOLEAN,
     private_bathroom        BOOLEAN,
@@ -347,30 +387,29 @@ CREATE TABLE listing_features (
     students_only           BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- ─── Listing amenities (JSONB – many boolean flags) ───────────────────────────
+-- ─── Listing amenities ────────────────────────────────────────────────────────
 
 CREATE TABLE listing_amenities (
     listing_id  UUID  PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
     amenities   JSONB NOT NULL DEFAULT '{}'
 );
 
--- ─── Listing availability & rules ────────────────────────────────────────────
+-- ─── Listing availability & rules ─────────────────────────────────────────────
 
 CREATE TABLE listing_availability (
     listing_id                      UUID        PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
-    condition_status                VARCHAR(30),   -- new | excellent | renovated | good | habitable | to_restore
-    furnished_status                VARCHAR(30),   -- furnished | partially_furnished | unfurnished
-    kitchen_status                  VARCHAR(30),   -- equipped | partially_equipped | not_equipped
-    heating_type                    VARCHAR(30),   -- centralized | autonomous | heat_pump | none | other
-    cooling_type                    VARCHAR(30),   -- air_conditioning | central_cooling | none | other
-    availability_status             VARCHAR(30),   -- available_now | available_from_date | rented | reserved
+    condition_status                VARCHAR(30),
+    furnished_status                VARCHAR(30),
+    kitchen_status                  VARCHAR(30),
+    heating_type                    VARCHAR(30),
+    cooling_type                    VARCHAR(30),
+    availability_status             VARCHAR(30),
     available_from                  DATE,
     available_to                    DATE,
     minimum_contract_duration_months INTEGER,
     maximum_contract_duration_months INTEGER,
     minimum_stay_days               INTEGER,
     maximum_stay_days               INTEGER,
-    -- Rules
     max_occupants                   INTEGER,
     pets_allowed                    BOOLEAN NOT NULL DEFAULT FALSE,
     smoking_allowed                 BOOLEAN NOT NULL DEFAULT FALSE,
@@ -387,11 +426,11 @@ CREATE TABLE listing_availability (
 
 CREATE TABLE listing_energy (
     listing_id                      UUID        PRIMARY KEY REFERENCES listings(id) ON DELETE CASCADE,
-    energy_class                    VARCHAR(10),   -- A4|A3|A2|A1|B|C|D|E|F|G|NA
+    energy_class                    VARCHAR(10),
     energy_index_epgl               NUMERIC(8,2),
     energy_certificate_available    BOOLEAN NOT NULL DEFAULT FALSE,
     energy_certificate_file_url     TEXT,
-    heating_energy_source           VARCHAR(30),   -- gas | electric | district_heating | biomass | other
+    heating_energy_source           VARCHAR(30),
     renewable_energy_present        BOOLEAN NOT NULL DEFAULT FALSE
 );
 
@@ -400,7 +439,7 @@ CREATE TABLE listing_energy (
 CREATE TABLE listing_media (
     id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
     listing_id  UUID        NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
-    media_type  VARCHAR(20) NOT NULL DEFAULT 'IMAGE',  -- IMAGE | VIDEO | FLOORPLAN
+    media_type  VARCHAR(20) NOT NULL DEFAULT 'IMAGE',
     file_url    TEXT        NOT NULL,
     sort_order  INTEGER     NOT NULL DEFAULT 0,
     is_cover    BOOLEAN     NOT NULL DEFAULT FALSE,
@@ -415,7 +454,7 @@ CREATE TABLE listing_field_validations (
     id           UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
     listing_id   UUID         NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
     field_name   VARCHAR(100) NOT NULL,
-    status       VARCHAR(20)  NOT NULL DEFAULT 'PENDING',  -- PENDING | APPROVED | FLAGGED
+    status       VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
     note         TEXT,
     supervisor_id UUID,
     validated_at  TIMESTAMP    NOT NULL DEFAULT NOW(),
@@ -450,48 +489,31 @@ CREATE TABLE matches (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     listing_id              UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
     tenant_profile_id       UUID NOT NULL REFERENCES tenant_profiles(id) ON DELETE CASCADE,
-
-    -- Hard filter results
     geo_match               BOOLEAN NOT NULL DEFAULT FALSE,
     price_match             BOOLEAN NOT NULL DEFAULT FALSE,
     timing_match            BOOLEAN NOT NULL DEFAULT FALSE,
     property_type_match     BOOLEAN NOT NULL DEFAULT FALSE,
-
-    -- Valori calcolati
     geo_distance_meters     DOUBLE PRECISION,
     price_delta_percentage  DOUBLE PRECISION,
-    price_band              VARCHAR(30),    -- within_budget | within_tolerance | over_budget
-
-    -- Punteggi soft (0-100 ciascuno)
+    price_band              VARCHAR(30),
     geo_score               DOUBLE PRECISION,
     price_score             DOUBLE PRECISION,
     timing_score            DOUBLE PRECISION,
     fit_score               DOUBLE PRECISION,
     tenant_strength_score   DOUBLE PRECISION,
-
-    -- Punteggi aggregati (due formule distinte per le due viste)
     match_score_tenant      DOUBLE PRECISION,
     match_score_landlord    DOUBLE PRECISION,
-
-    -- Banda di compatibilità
-    match_band              VARCHAR(30),    -- excellent_match | good_match | medium_match | weak_match
-
-    -- Macchina a stati
+    match_band              VARCHAR(30),
     match_state             VARCHAR(30) NOT NULL DEFAULT 'ALGORITHMIC',
-
-    -- AI summary (ex V2: tenant_match_summary, match_summary_en, tenant_match_summary_en)
     match_summary           TEXT,
     tenant_match_summary    TEXT,
     match_summary_en        TEXT,
     tenant_match_summary_en TEXT,
-
-    -- Timestamps azioni
     tenant_interest_at      TIMESTAMP,
     landlord_interest_at    TIMESTAMP,
     contact_unlocked_at     TIMESTAMP,
     created_at              TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMP NOT NULL DEFAULT NOW(),
-
     CONSTRAINT uq_match_listing_tenant UNIQUE (listing_id, tenant_profile_id)
 );
 
@@ -507,7 +529,7 @@ CREATE TABLE score_overrides (
     id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_profile_id    UUID NOT NULL UNIQUE REFERENCES tenant_profiles(id) ON DELETE CASCADE,
     supervisor_id        UUID NOT NULL,
-    rent_sustainability  VARCHAR(10),   -- HIGH | MEDIUM | LOW | NULL (null = use algorithm)
+    rent_sustainability  VARCHAR(10),
     income_stability     VARCHAR(10),
     document_reliability VARCHAR(10),
     reason               TEXT,
@@ -515,16 +537,13 @@ CREATE TABLE score_overrides (
     updated_at           TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- ─── Onboarding step configs (prompt overrides editabili dal superadmin) ──────
--- Se esiste una riga per step_id, i suoi prompt sostituiscono i default Java.
--- Variabili template supportate: {{collected_data}}, {{lang}}
--- Le modifiche sono attive entro ~30 secondi senza restart.
+-- ─── Onboarding step configs ──────────────────────────────────────────────────
 
 CREATE TABLE onboarding_step_configs (
     step_id                    VARCHAR(20)  PRIMARY KEY,
-    system_prompt_override     TEXT,           -- sostituisce buildSystemPrompt() se valorizzato
-    extraction_prompt_override TEXT,           -- sostituisce buildExtractionPrompt() se valorizzato
-    admin_notes                TEXT,           -- note interne, non inviate al LLM
+    system_prompt_override     TEXT,
+    extraction_prompt_override TEXT,
+    admin_notes                TEXT,
     updated_at                 TIMESTAMP    NOT NULL DEFAULT NOW(),
     updated_by                 VARCHAR(255)
 );
@@ -533,7 +552,7 @@ COMMENT ON TABLE onboarding_step_configs IS
     'Runtime-editable LLM prompt overrides per onboarding step. '
     'Changes take effect within 30 seconds without restart.';
 
--- ─── Guarantors ──────────────────────────────────────────────────────────────
+-- ─── Guarantors ───────────────────────────────────────────────────────────────
 
 CREATE TABLE guarantors (
     id                      UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -564,7 +583,7 @@ CREATE TABLE supervisor_notes (
     supervisor_id       UUID         NOT NULL,
     message             TEXT,
     requested_items     JSONB        NOT NULL DEFAULT '[]',
-    status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING',  -- PENDING | REPLIED | RESOLVED
+    status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
     sent_at             TIMESTAMP    NOT NULL DEFAULT NOW(),
     tenant_replied_at   TIMESTAMP,
     resolved_at         TIMESTAMP

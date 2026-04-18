@@ -2,6 +2,7 @@ package com.inquilino.dto.matching;
 
 import com.inquilino.entity.*;
 import com.inquilino.enums.MatchState;
+import com.inquilino.enums.PublisherType;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -169,8 +170,12 @@ public record ListingCardDto(
                         ? landlordProfile.getDisplayName()
                         : landlordProfile.getAgencyName();
             String mode = landlordProfile.getContactMode();
-            if ("phone".equals(mode) || "mixed".equals(mode)) contactPhone = landlordProfile.getContactPhone();
-            if ("email".equals(mode) || "mixed".equals(mode)) contactEmail = landlordProfile.getContactEmail();
+            // Se contactMode non è impostato (es. agenzia non ha configurato la preferenza),
+            // esponi tutti i contatti disponibili.
+            if (mode == null || "phone".equals(mode) || "mixed".equals(mode))
+                contactPhone = landlordProfile.getContactPhone();
+            if (mode == null || "email".equals(mode) || "mixed".equals(mode))
+                contactEmail = landlordProfile.getContactEmail();
         }
 
         return new ListingCardDto(
@@ -282,6 +287,61 @@ public record ListingCardDto(
                 displayName,
                 contactPhone,
                 contactEmail
+        );
+    }
+
+    /** Factory per annunci di agenzie (AgencyProfile invece di LandlordProfile). */
+    public static ListingCardDto fromAgency(
+            com.inquilino.entity.Match match,
+            Listing listing,
+            List<ListingMedia> media,
+            com.inquilino.entity.AgencyProfile agencyProfile,
+            String lang) {
+
+        String contactPhone = null;
+        String contactEmail = null;
+        String displayName  = null;
+        if (match.getMatchState() == MatchState.CONTACT_UNLOCKED && agencyProfile != null) {
+            displayName  = agencyProfile.getAgencyName();
+            contactPhone = agencyProfile.getContactPhone();
+            contactEmail = agencyProfile.getContactEmail();
+        }
+
+        // Delegate all listing-level fields to the existing factory, passing a synthetic LandlordProfile
+        // shell only for the contact block; override the contact fields after construction isn't possible
+        // on a record, so we re-use the same full build with normalized contact values.
+        ListingCardDto base = from(match, listing, media, null, lang);
+        return new ListingCardDto(
+                base.matchId(), base.matchState(), base.matchBand(), base.matchScore(),
+                base.priceCompatible(), base.areaCompatible(), base.timingCompatible(),
+                base.listingId(), base.listingType(), base.propertyType(), base.title(),
+                base.streetName(), base.district(), base.municipality(),
+                base.displayLat(), base.displayLng(),
+                base.exactLat(), base.exactLng(), base.fullAddress(),
+                base.monthlyRent(), base.dailyRent(), base.condominiumFees(),
+                base.utilitiesIncluded(), base.utilitiesEstimatedMonthly(),
+                base.depositMonths(), base.depositAmount(),
+                base.agencyFeeAmount(), base.agencyFeeNotes(),
+                base.surfaceSqm(), base.commercialSurfaceSqm(),
+                base.roomsCount(), base.bedroomsCount(), base.bathroomsCount(),
+                base.floorNumber(), base.totalBuildingFloors(), base.elevator(),
+                base.parkingSpacesCount(), base.garageIncluded(),
+                base.balconiesCount(), base.terracesCount(), base.cellarsCount(),
+                base.roomType(), base.roomSurfaceSqm(), base.privateBathroom(),
+                base.sharedBathroom(), base.sharedKitchen(), base.roommatesCount(), base.studentsOnly(),
+                base.conditionStatus(), base.furnishedStatus(), base.kitchenStatus(),
+                base.heatingType(), base.coolingType(), base.amenities(),
+                base.availabilityStatus(), base.availableFrom(), base.availableTo(),
+                base.minimumContractDurationMonths(), base.maximumContractDurationMonths(),
+                base.minimumStayDays(), base.maximumStayDays(), base.maxOccupants(),
+                base.petsAllowed(), base.smokingAllowed(), base.childrenAllowed(),
+                base.sublettingAllowed(), base.residenceAllowed(),
+                base.studentsAllowed(), base.workersAllowed(), base.notesForTenants(),
+                base.energyClass(), base.energyIndexEpgl(), base.energyCertificateAvailable(),
+                base.heatingEnergySource(), base.renewableEnergyPresent(),
+                base.coverImageUrl(), base.allImageUrls(), base.description(),
+                base.matchSummary(), base.tenantMatchSummary(),
+                displayName, contactPhone, contactEmail
         );
     }
 

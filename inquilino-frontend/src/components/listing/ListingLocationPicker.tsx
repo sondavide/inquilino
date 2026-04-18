@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLang } from '../../i18n'
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, GeoJSON, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import type { ListingLocationData, ListingFieldValidation } from '../../types'
+import type { ListingLocationData, ListingFieldValidation, AgencyArea } from '../../types'
 import { FieldStatusBadge, FieldNote, fieldBorderClass } from './FieldStatusBadge'
 
 // Fix Leaflet default icon
@@ -18,33 +18,92 @@ const DEFAULT_CENTER: [number, number] = [42.5, 12.5]
 const DEFAULT_ZOOM = 6
 const DETAIL_ZOOM  = 15
 
-interface NominatimResult {
-  display_name: string
-  lat: string
-  lon: string
-  address: {
-    road?: string; house_number?: string; suburb?: string; quarter?: string
-    city?: string; town?: string; village?: string; municipality?: string
-    county?: string; state?: string; postcode?: string; country_code?: string
+// ─── Nominatim polygon fetch ─────────────────────────────────────────────────
+
+async function fetchAreaPolygon(area: AgencyArea): Promise<object | null> {
+  if (!area.osmId || !area.osmType) return null
+  const prefix = area.osmType === 'relation' ? 'R' : area.osmType === 'way' ? 'W' : 'N'
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/lookup?osm_ids=${prefix}${area.osmId}&format=json&polygon_geojson=1`,
+      { headers: { 'Accept-Language': 'it' } }
+    )
+    const data = await res.json()
+    return data[0]?.geojson ?? null
+  } catch { return null }
+}
+
+// ─── Point-in-polygon (ray-casting) ─────────────────────────────────────────
+// GeoJSON coordinates are [lng, lat]
+
+function pointInRing(lat: number, lng: number, ring: number[][]): boolean {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    if (((yi > lat) !== (yj > lat)) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi)
+      inside = !inside
   }
-  place_id: string
+  return inside
+}
+
+function pointInGeoJSON(lat: number, lng: number, geojson: any): boolean {
+  if (!geojson) return false
+  if (geojson.type === 'Polygon')
+    return pointInRing(lat, lng, geojson.coordinates[0])
+  if (geojson.type === 'MultiPolygon')
+    return geojson.coordinates.some((poly: number[][][]) => pointInRing(lat, lng, poly[0]))
+  return false
+}
+
+function isInsideAnyArea(lat: number, lng: number, geojsons: (object | null)[]): boolean {
+  // If no polygon was loaded yet (still fetching), fall back to allowing the point
+  if (!geojsons.length) return true
+  return geojsons.some(g => g && pointInGeoJSON(lat, lng, g))
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface NominatimResult {
+  display_name: string; lat: string; lon: string; place_id: string
+  address: {
+    road?: string; house_number?: string; city?: string; town?: string
+    village?: string; municipality?: string; county?: string; state?: string
+    postcode?: string
+  }
 }
 
 interface Props {
   value: Partial<ListingLocationData>
   onChange: (loc: Partial<ListingLocationData>) => void
   validations?: ListingFieldValidation[]
+  agencyAreas?: AgencyArea[]
 }
+
+// ─── Map sub-components ──────────────────────────────────────────────────────
 
 function MapFlyTo({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
   const map = useMap()
-  useEffect(() => { map.flyTo([lat, lng], zoom, { duration: 0.8 }) }, [lat, lng])
+  useEffect(() => { map.flyTo([lat, lng], zoom, { duration: 0.8 }) }, [lat, lng]) // eslint-disable-line
+  return null
+}
+
+function MapFitGeoJSONs({ geojsons }: { geojsons: object[] }) {
+  const map    = useMap()
+  const fitted = useRef(false)
+  useEffect(() => {
+    if (fitted.current || !geojsons.length) return
+    try {
+      const group  = L.geoJSON(geojsons as any)
+      const bounds = group.getBounds()
+      if (bounds.isValid()) { map.fitBounds(bounds, { padding: [24, 24] }); fitted.current = true }
+    } catch { /* geojson malformato */ }
+  }, [geojsons.length, map])
   return null
 }
 
 function DraggableMarker({ position, onMove }: {
-  position: [number, number]
-  onMove: (lat: number, lng: number) => void
+  position: [number, number]; onMove: (lat: number, lng: number) => void
 }) {
   const markerRef = useRef<L.Marker>(null)
   return (
@@ -62,11 +121,9 @@ function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => v
   return null
 }
 
-// Campo testo con badge validazione
 function Field({ label, value, onChange, placeholder, required, fieldName, vs }: {
   label: string; value: string; onChange: (v: string) => void
-  placeholder?: string; required?: boolean
-  fieldName?: string; vs?: ListingFieldValidation[]
+  placeholder?: string; required?: boolean; fieldName?: string; vs?: ListingFieldValidation[]
 }) {
   return (
     <div>
@@ -74,8 +131,7 @@ function Field({ label, value, onChange, placeholder, required, fieldName, vs }:
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
         {fieldName && <FieldStatusBadge vs={vs} field={fieldName} />}
       </label>
-      <input
-        type="text" value={value} onChange={e => onChange(e.target.value)}
+      <input type="text" value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
                    focus:outline-none focus:ring-2 focus:ring-blue-500
@@ -86,18 +142,58 @@ function Field({ label, value, onChange, placeholder, required, fieldName, vs }:
   )
 }
 
-export default function ListingLocationPicker({ value, onChange, validations: vs }: Props) {
+function AreaToast({ message }: { message: string }) {
+  return (
+    <div className="mt-2 flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-xs text-amber-800">
+      <span className="text-base leading-none shrink-0">⚠️</span>
+      <span>{message}</span>
+    </div>
+  )
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
+
+export default function ListingLocationPicker({ value, onChange, validations: vs, agencyAreas }: Props) {
   const { t } = useLang()
   const [query, setQuery]        = useState('')
   const [suggestions, setSugg]   = useState<NominatimResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [gpsLoading, setGpsLoad] = useState(false)
   const [gpsError, setGpsError]  = useState<string | null>(null)
-  const debounceRef              = useRef<ReturnType<typeof setTimeout>>()
+  const [areaToast, setAreaToast] = useState<string | null>(null)
+  // Poligoni GeoJSON reali fetchati da Nominatim per le aree agenzia
+  const [areaGeoJSONs, setAreaGeoJSONs] = useState<(object | null)[]>([])
+  const debounceRef  = useRef<ReturnType<typeof setTimeout>>()
+  const toastTimer   = useRef<ReturnType<typeof setTimeout>>()
+  const geoCache     = useRef<Record<string, object>>({})
 
-  const hasPosition = !!(value.lat && value.lng)
+  const hasAgencyRestriction = !!(agencyAreas && agencyAreas.length > 0)
+  const hasPosition          = !!(value.lat && value.lng)
+  const loadedGeoJSONs       = areaGeoJSONs.filter(Boolean) as object[]
 
-  // ── GPS ──────────────────────────────────────────────────────────────────────
+  // Fetch poligoni reali all'avvio (o quando cambiano le aree)
+  useEffect(() => {
+    if (!agencyAreas || !agencyAreas.length) { setAreaGeoJSONs([]); return }
+    let cancelled = false
+    Promise.all(
+      agencyAreas.map(async area => {
+        if (area.osmId && geoCache.current[area.osmId])
+          return geoCache.current[area.osmId]
+        const geojson = await fetchAreaPolygon(area)
+        if (geojson && area.osmId) geoCache.current[area.osmId] = geojson
+        return geojson
+      })
+    ).then(results => { if (!cancelled) setAreaGeoJSONs(results) })
+    return () => { cancelled = true }
+  }, [JSON.stringify(agencyAreas?.map(a => a.osmId))]) // eslint-disable-line
+
+  const showToast = (msg: string) => {
+    setAreaToast(msg)
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setAreaToast(null), 4000)
+  }
+
+  // ── GPS ──────────────────────────────────────────────────────────────────
 
   const requestGps = useCallback(() => {
     if (!navigator.geolocation) return
@@ -105,21 +201,25 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
     navigator.geolocation.getCurrentPosition(
       pos => {
         const { latitude: lat, longitude: lng } = pos.coords
+        if (hasAgencyRestriction && !isInsideAnyArea(lat, lng, areaGeoJSONs)) {
+          showToast(t('loc.agencyArea.toast'))
+          setGpsLoad(false)
+          return
+        }
         onChange({ ...value, lat, lng, displayLat: lat, displayLng: lng })
         setGpsLoad(false)
       },
       err => {
         setGpsLoad(false)
-        if (err.code === err.PERMISSION_DENIED)
-          setGpsError('Permesso posizione negato.')
+        if (err.code === err.PERMISSION_DENIED) setGpsError(t('loc.gpsError'))
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
-  }, [onChange, value])
+  }, [onChange, value, hasAgencyRestriction, areaGeoJSONs]) // eslint-disable-line
 
-  useEffect(() => { if (!hasPosition) requestGps() }, []) // eslint-disable-line
+  useEffect(() => { if (!hasPosition && !hasAgencyRestriction) requestGps() }, []) // eslint-disable-line
 
-  // ── Ricerca Nominatim (solo per spostare la mappa) ────────────────────────────
+  // ── Ricerca Nominatim ────────────────────────────────────────────────────
 
   const searchNominatim = useCallback(async (q: string) => {
     if (q.length < 3) { setSugg([]); return }
@@ -139,25 +239,31 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
     debounceRef.current = setTimeout(() => searchNominatim(v), 400)
   }
 
-  // Selezione suggestion: sposta SOLO la mappa, NON tocca i campi indirizzo
   const handleSuggestionPick = (r: NominatimResult) => {
     const lat = parseFloat(r.lat), lng = parseFloat(r.lon)
+    if (hasAgencyRestriction && !isInsideAnyArea(lat, lng, areaGeoJSONs)) {
+      showToast(t('loc.agencyArea.outsideSearch'))
+      setQuery(''); setSugg([])
+      return
+    }
     onChange({ ...value, lat, lng, displayLat: lat, displayLng: lng })
     setQuery(''); setSugg([])
   }
 
   const handleMapMove = (lat: number, lng: number) => {
+    if (hasAgencyRestriction && !isInsideAnyArea(lat, lng, areaGeoJSONs)) {
+      showToast(t('loc.agencyArea.toast'))
+      return
+    }
     onChange({ ...value, lat, lng, displayLat: lat, displayLng: lng })
   }
-
-  // ── Campi indirizzo manuali ───────────────────────────────────────────────────
 
   const upd = (patch: Partial<ListingLocationData>) => onChange({ ...value, ...patch })
 
   return (
     <div className="space-y-5">
 
-      {/* ── Sezione mappa ─────────────────────────────────────────────────── */}
+      {/* ── Sezione mappa ──────────────────────────────────────────────── */}
       <div>
         <p className="text-sm font-medium text-gray-700 mb-2">
           {t('loc.gpsLabel')} <span className="text-red-500">*</span>
@@ -169,8 +275,7 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
         {/* Barra ricerca + GPS */}
         <div className="relative mb-2">
           <div className="flex gap-2">
-            <input
-              type="text" value={query} onChange={handleQueryChange}
+            <input type="text" value={query} onChange={handleQueryChange}
               placeholder={t('loc.searchPlaceholder')}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm
                          focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -182,7 +287,7 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
               {gpsLoading ? '…' : '📍'}
             </button>
           </div>
-          {gpsError && <p className="text-xs text-amber-600 mt-1">{t('loc.gpsError')}</p>}
+          {gpsError && <p className="text-xs text-amber-600 mt-1">{gpsError}</p>}
 
           {suggestions.length > 0 && (
             <div className="absolute z-50 left-0 right-12 bg-white border border-gray-200
@@ -198,6 +303,8 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
           )}
         </div>
 
+        {areaToast && <AreaToast message={areaToast} />}
+
         {/* Mappa */}
         <div className="rounded-xl overflow-hidden border border-gray-200 relative z-0">
           <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM}
@@ -206,6 +313,16 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             />
+
+            {/* Poligoni reali delle aree agenzia */}
+            {loadedGeoJSONs.map((geojson, i) => (
+              <GeoJSON
+                key={i}
+                data={geojson as any}
+                style={{ color: '#7c3aed', weight: 2, fillColor: '#7c3aed', fillOpacity: 0.1, dashArray: '6 4' }}
+              />
+            ))}
+
             {hasPosition && (
               <>
                 <DraggableMarker position={[value.lat!, value.lng!]} onMove={handleMapMove} />
@@ -213,6 +330,11 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
               </>
             )}
             <MapClickHandler onClick={handleMapMove} />
+
+            {/* Fit della mappa sui poligoni agenzia (solo se non c'è già un punto) */}
+            {hasAgencyRestriction && !hasPosition && loadedGeoJSONs.length > 0 && (
+              <MapFitGeoJSONs geojsons={loadedGeoJSONs} />
+            )}
           </MapContainer>
           <p className="text-xs text-gray-500 px-3 py-1.5 bg-gray-50">
             {hasPosition
@@ -220,6 +342,14 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
               : t('loc.mapNoPos')}
           </p>
         </div>
+
+        {/* Legenda aree agenzia */}
+        {hasAgencyRestriction && (
+          <p className="text-xs text-violet-700 mt-1.5 flex items-center gap-1.5">
+            <span className="inline-block w-4 border-t-2 border-dashed border-violet-500" />
+            {t('loc.agencyArea.boundary')}: {agencyAreas!.map(a => a.displayName).join(', ')}
+          </p>
+        )}
 
         {/* Precisione posizione */}
         <div className="mt-3">
@@ -232,8 +362,7 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
               { v: 'APPROXIMATE', l: t('loc.precision.APPROXIMATE'),  d: t('loc.precision.APPROXIMATE.desc') },
               { v: 'HIDDEN',      l: t('loc.precision.HIDDEN'),       d: t('loc.precision.HIDDEN.desc') },
             ].map(p => (
-              <button key={p.v} type="button"
-                onClick={() => upd({ locationPrecision: p.v as any })}
+              <button key={p.v} type="button" onClick={() => upd({ locationPrecision: p.v as any })}
                 title={p.d}
                 className={`flex-1 py-2 text-xs rounded-lg border-2 font-medium transition
                   ${value.locationPrecision === p.v
@@ -246,7 +375,7 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
         </div>
       </div>
 
-      {/* ── Sezione indirizzo (manuale) ───────────────────────────────────── */}
+      {/* ── Sezione indirizzo (manuale) ───────────────────────────────── */}
       <div className="space-y-3">
         <p className="text-sm font-medium text-gray-700">
           {t('loc.addressLabel')} <span className="text-xs font-normal text-gray-400">({t('loc.addressManual')})</span>
@@ -254,7 +383,7 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
         <p className="text-xs text-gray-400">{t('loc.addressHint')}</p>
 
         <Field
-          label={t('loc.street')}
+          label={t('loc.street')} required
           value={`${value.streetName ?? ''}${value.streetNumber ? ' ' + value.streetNumber : ''}`}
           onChange={v => {
             const parts = v.trim().match(/^(.*?)[\s,]+(\d+\w*)$/)
@@ -262,38 +391,30 @@ export default function ListingLocationPicker({ value, onChange, validations: vs
             else upd({ streetName: v, streetNumber: undefined, fullAddress: v })
           }}
           placeholder={t('loc.streetPlaceholder')}
-          required fieldName="location.fullAddress" vs={vs}
+          fieldName="location.fullAddress" vs={vs}
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <Field
-            label={t('loc.municipality')} required
-            value={value.municipality ?? ''}
-            onChange={v => upd({ municipality: v })}
+          <Field label={t('loc.municipality')} required
+            value={value.municipality ?? ''} onChange={v => upd({ municipality: v })}
             placeholder={t('loc.municipalityPlaceholder')}
             fieldName="location.municipality" vs={vs}
           />
-          <Field
-            label={t('loc.postalCode')}
-            value={value.postalCode ?? ''}
-            onChange={v => upd({ postalCode: v })}
+          <Field label={t('loc.postalCode')}
+            value={value.postalCode ?? ''} onChange={v => upd({ postalCode: v })}
             placeholder={t('loc.postalCodePlaceholder')}
             fieldName="location.postalCode" vs={vs}
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field
-            label={t('loc.province')}
-            value={value.province ?? ''}
-            onChange={v => upd({ province: v })}
+          <Field label={t('loc.province')}
+            value={value.province ?? ''} onChange={v => upd({ province: v })}
             placeholder={t('loc.provincePlaceholder')}
             fieldName="location.province" vs={vs}
           />
-          <Field
-            label={t('loc.district')}
-            value={value.district ?? ''}
-            onChange={v => upd({ district: v })}
+          <Field label={t('loc.district')}
+            value={value.district ?? ''} onChange={v => upd({ district: v })}
             placeholder={t('loc.districtPlaceholder')}
           />
         </div>

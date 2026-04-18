@@ -6,9 +6,7 @@ import { setToken } from '@/hooks/useAuth'
 import { registerPushSubscription } from '@/lib/webPush'
 import { cn } from '@/lib/utils'
 import { useLang } from '@/i18n'
-import AgencyContactModal from '@/components/landing/AgencyContactModal'
-
-type SelectedType = null | 'tenant' | 'landlord'
+type SelectedType = null | 'tenant' | 'landlord' | 'agency'
 
 const CARDS = [
   {
@@ -35,8 +33,7 @@ export default function RegisterChoicePage() {
   const { t }    = useLang()
   const navigate = useNavigate()
 
-  const [selected, setSelected]           = useState<SelectedType>(null)
-  const [showAgencyModal, setShowAgencyModal] = useState(false)
+  const [selected, setSelected] = useState<SelectedType>(null)
 
   // Tenant registration form state
   const [tenantStep, setTenantStep]           = useState<'form' | 'otp'>('form')
@@ -165,7 +162,7 @@ export default function RegisterChoicePage() {
               })}
 
               {/* Agency card */}
-              <button onClick={() => setShowAgencyModal(true)} className="h-full text-left">
+              <button onClick={() => navigate('/register/agency')} className="h-full text-left">
                 <div className="group h-full flex flex-col bg-white rounded-3xl border-2 border-slate-100 p-7 shadow-sm hover:shadow-lg hover:border-violet-300 hover:shadow-violet-100 transition-all duration-200 cursor-pointer">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center mb-5">
                     <Building2 className="w-6 h-6 text-white" />
@@ -328,7 +325,6 @@ export default function RegisterChoicePage() {
 
       </div>
 
-      {showAgencyModal && <AgencyContactModal onClose={() => setShowAgencyModal(false)} />}
     </div>
   )
 }

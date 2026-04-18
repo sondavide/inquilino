@@ -5,8 +5,10 @@ import com.inquilino.dto.tenant.ScoreDto;
 import com.inquilino.entity.*;
 import com.inquilino.enums.MatchState;
 import java.util.Arrays;
+import com.inquilino.enums.UserType;
 import com.inquilino.repository.*;
 import com.inquilino.security.UserPrincipal;
+import com.inquilino.service.AgencyService;
 import com.inquilino.service.MatchStateService;
 import com.inquilino.service.ScoringService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,7 @@ public class LandlordMatchController {
     private final UserRepository          userRepository;
     private final ScoringService          scoringService;
     private final MatchStateService       matchStateService;
+    private final AgencyService           agencyService;
 
     // ─── GET /api/landlord/listings/{listingId}/matches ───────────────────────
 
@@ -49,7 +52,7 @@ public class LandlordMatchController {
             @RequestParam(defaultValue = "20") int size,
             @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
-        assertListingOwner(listingId, principal.getUserId());
+        assertListingOwner(listingId, principal);
 
         Page<Match> matchPage = matchRepo.findActiveListingMatches(
                 listingId, MatchState.ARCHIVED, PageRequest.of(page, size));
@@ -69,7 +72,7 @@ public class LandlordMatchController {
             @PathVariable UUID listingId,
             @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
-        assertListingOwner(listingId, principal.getUserId());
+        assertListingOwner(listingId, principal);
 
         List<Match> matches = matchRepo.findMutualListingMatches(listingId,
                 Arrays.asList(MatchState.MUTUAL_INTEREST, MatchState.CONTACT_UNLOCKED));
@@ -86,7 +89,7 @@ public class LandlordMatchController {
             @PathVariable UUID matchId,
             @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
-        assertListingOwner(listingId, principal.getUserId());
+        assertListingOwner(listingId, principal);
 
         Match match = matchRepo.findById(matchId)
                 .filter(m -> m.getListingId().equals(listingId))
@@ -104,8 +107,9 @@ public class LandlordMatchController {
             @PathVariable UUID matchId,
             @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
-        assertListingOwner(listingId, principal.getUserId());
-        Match updated = matchStateService.landlordExpressInterest(matchId, principal.getUserId());
+        assertListingOwner(listingId, principal);
+        UUID publisherId = agencyService.resolvePublisherUserId(principal.getUserId(), principal.getUserType());
+        Match updated = matchStateService.landlordExpressInterest(matchId, publisherId);
         return ResponseEntity.ok(buildCard(updated, resolveLang(lang)));
     }
 
@@ -118,8 +122,9 @@ public class LandlordMatchController {
             @PathVariable UUID matchId,
             @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
-        assertListingOwner(listingId, principal.getUserId());
-        Match updated = matchStateService.landlordInvite(matchId, principal.getUserId());
+        assertListingOwner(listingId, principal);
+        UUID publisherId = agencyService.resolvePublisherUserId(principal.getUserId(), principal.getUserType());
+        Match updated = matchStateService.landlordInvite(matchId, publisherId);
         return ResponseEntity.ok(buildCard(updated, resolveLang(lang)));
     }
 
@@ -132,8 +137,9 @@ public class LandlordMatchController {
             @PathVariable UUID listingId,
             @PathVariable UUID matchId) {
 
-        assertListingOwner(listingId, principal.getUserId());
-        matchStateService.landlordDismiss(matchId, principal.getUserId());
+        assertListingOwner(listingId, principal);
+        UUID publisherId = agencyService.resolvePublisherUserId(principal.getUserId(), principal.getUserType());
+        matchStateService.landlordDismiss(matchId, publisherId);
     }
 
     // ─── POST …/unlock-contact ────────────────────────────────────────────────
@@ -145,8 +151,9 @@ public class LandlordMatchController {
             @PathVariable UUID matchId,
             @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang) {
 
-        assertListingOwner(listingId, principal.getUserId());
-        Match updated = matchStateService.unlockContact(matchId, principal.getUserId());
+        assertListingOwner(listingId, principal);
+        UUID publisherId = agencyService.resolvePublisherUserId(principal.getUserId(), principal.getUserType());
+        Match updated = matchStateService.unlockContact(matchId, publisherId);
         return ResponseEntity.ok(buildCard(updated, resolveLang(lang)));
     }
 
@@ -172,9 +179,14 @@ public class LandlordMatchController {
         return acceptLang != null && acceptLang.startsWith("en") ? "en" : "it";
     }
 
-    private void assertListingOwner(UUID listingId, UUID userId) {
-        listingRepo.findByIdAndPublisherUserId(listingId, userId)
+    private void assertListingOwner(UUID listingId, UserPrincipal principal) {
+        UUID publisherId = agencyService.resolvePublisherUserId(
+                principal.getUserId(), principal.getUserType());
+        listingRepo.findByIdAndPublisherUserId(listingId, publisherId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
                         "Listing not found or not owned by you"));
+        if (principal.getUserType() == UserType.AGENCY_OPERATOR) {
+            agencyService.assertListingScope(listingId, principal.getUserId());
+        }
     }
 }

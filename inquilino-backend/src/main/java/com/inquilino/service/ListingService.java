@@ -34,6 +34,7 @@ public class ListingService {
     private final ListingFieldValidationRepository fieldValidationRepo;
     private final ListingAuditLogRepository      auditLogRepo;
     private final LandlordProfileRepository      landlordProfileRepo;
+    private final UserRepository                 userRepository;
     private final NotificationService            notificationService;
     private final ListingTranslationService      translationService;
     private final MatchingService                matchingService;
@@ -44,6 +45,10 @@ public class ListingService {
 
     @Transactional
     public Listing createDraft(UUID publisherUserId, SaveListingRequest req) {
+        boolean isAgency = userRepository.findById(publisherUserId)
+                .map(u -> u.getType() == com.inquilino.enums.UserType.AGENCY)
+                .orElse(false);
+
         Listing listing = Listing.builder()
                 .publisherUserId(publisherUserId)
                 .listingType(req.listingType() != null ? ListingType.valueOf(req.listingType()) : null)
@@ -54,6 +59,7 @@ public class ListingService {
                 .description(req.description())
                 .internalReference(req.internalReference())
                 .sourceLang(req.sourceLang() != null ? req.sourceLang() : "it")
+                .directContactOnTenantInterest(isAgency)
                 .build();
 
         listing = listingRepo.save(listing);
@@ -158,6 +164,26 @@ public class ListingService {
         return listing;
     }
 
+    @Transactional
+    public Listing deactivate(UUID listingId, UUID publisherUserId, String reason) {
+        Listing listing = getOwnedListing(listingId, publisherUserId);
+
+        if (listing.getStatus() == ListingStatus.ARCHIVED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Listing already archived");
+        }
+
+        listing.setStatus(ListingStatus.ARCHIVED);
+        listing.setDeactivationReason(reason);
+        listingRepo.save(listing);
+
+        audit(listingId, publisherUserId, "LANDLORD",
+                ListingAuditAction.UPDATED, null, listing.getStatus().name(),
+                ListingStatus.ARCHIVED.name(), "Disattivazione: " + reason);
+
+        matchingService.archiveMatchesForListing(listingId);
+        return listing;
+    }
+
     // ─── Lista annunci del landlord ───────────────────────────────────────────
 
     public List<ListingSummaryDto> getLandlordListings(UUID publisherUserId) {
@@ -201,6 +227,19 @@ public class ListingService {
 
     public Page<ListingSummaryDto> getSupervisorQueuePaged(List<ListingStatus> statuses, Pageable pageable) {
         Page<Listing> page = listingRepo.findByStatusIn(statuses, pageable);
+        List<ListingSummaryDto> content = page.getContent().stream()
+                .map(l -> {
+                    List<ListingMedia> media = mediaRepo.findByListingIdOrderBySortOrderAsc(l.getId());
+                    int flagged = fieldValidationRepo
+                            .findByListingIdAndStatus(l.getId(), FieldValidationStatus.FLAGGED).size();
+                    return ListingSummaryDto.from(l, media, flagged);
+                })
+                .toList();
+        return new PageImpl<>(content, pageable, page.getTotalElements());
+    }
+
+    public Page<ListingSummaryDto> getSupervisorQueuePaged(List<ListingStatus> statuses, PublisherType publisherType, Pageable pageable) {
+        Page<Listing> page = listingRepo.findByStatusInAndPublisherType(statuses, publisherType, pageable);
         List<ListingSummaryDto> content = page.getContent().stream()
                 .map(l -> {
                     List<ListingMedia> media = mediaRepo.findByListingIdOrderBySortOrderAsc(l.getId());

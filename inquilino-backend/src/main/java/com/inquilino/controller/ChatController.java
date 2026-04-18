@@ -77,6 +77,19 @@ public class ChatController {
         return onboardingService.skipStep(principal.getUserId(), cleanLang);
     }
 
+    /**
+     * Accepts both mandatory consents (GDPR + profile sharing) and finalises the
+     * onboarding without going through the LLM. Called by the dedicated consent UI.
+     */
+    @PostMapping("/accept-consents")
+    public OnboardingStateDto acceptConsents(
+            @RequestHeader(value = "Accept-Language", defaultValue = "it") String lang,
+            @AuthenticationPrincipal UserPrincipal principal) {
+
+        String cleanLang = lang.toLowerCase().startsWith("it") ? "it" : "en";
+        return onboardingService.acceptConsents(principal.getUserId(), cleanLang);
+    }
+
     /** Go back to the previous step. */
     @PostMapping("/back")
     public OnboardingStateDto goBack(

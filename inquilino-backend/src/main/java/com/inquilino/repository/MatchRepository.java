@@ -51,6 +51,24 @@ public interface MatchRepository extends JpaRepository<Match, UUID> {
     List<Match> findMutualListingMatches(@Param("listingId") UUID listingId,
                                          @Param("states") List<MatchState> states);
 
+    // ─── Rubrica agenzia ─────────────────────────────────────────────────────
+
+    /** Profili che hanno messo like ad almeno un annuncio PUBLISHED dell'agenzia. */
+    @Query("SELECT DISTINCT m FROM Match m " +
+           "JOIN Listing l ON m.listingId = l.id " +
+           "WHERE l.publisherUserId = :agencyUserId " +
+           "AND m.matchState IN :states " +
+           "AND l.status = com.inquilino.enums.ListingStatus.PUBLISHED " +
+           "ORDER BY m.tenantInterestAt DESC NULLS LAST")
+    List<Match> findAgencyRubrica(@Param("agencyUserId") UUID agencyUserId,
+                                   @Param("states") List<MatchState> states);
+
+    /** Profili interessati a un annuncio specifico dell'agenzia. */
+    @Query("SELECT m FROM Match m WHERE m.listingId = :listingId " +
+           "AND m.matchState IN :states ORDER BY m.tenantInterestAt DESC NULLS LAST")
+    List<Match> findInterestedByListing(@Param("listingId") UUID listingId,
+                                        @Param("states") List<MatchState> states);
+
     // ─── Utility ──────────────────────────────────────────────────────────────
 
     List<Match> findByTenantProfileId(UUID tenantProfileId);

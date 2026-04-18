@@ -81,6 +81,29 @@ public class PasswordResetService {
     }
 
     /**
+     * Genera un token di impostazione password per un operatore appena invitato.
+     * Riutilizza il flusso di reset, senza verificare se l'utente ha già una password.
+     */
+    public void sendOperatorInvite(User operator, String invitedByAgencyName) {
+        byte[] bytes = new byte[32];
+        rnd.nextBytes(bytes);
+        String token = HexFormat.of().formatHex(bytes);
+        pending.put(token, new ResetEntry(operator.getId().toString(),
+                Instant.now().plusSeconds(72 * 60 * 60L))); // 72h
+
+        String setupLink = frontendUrl + "/reset-password?token=" + token;
+        emailService.send(
+            operator.getEmail(),
+            "InquilinoFacile – Sei stato invitato come operatore",
+            "Sei stato aggiunto come operatore dell'agenzia \"" + invitedByAgencyName + "\" su InquilinoFacile.\n\n" +
+            "Imposta la tua password cliccando il link qui sotto (valido per 72 ore):\n" +
+            setupLink + "\n\n" +
+            "Se ritieni di aver ricevuto questa email per errore, ignorala."
+        );
+        log.info("Invito operatore inviato a {}", operator.getEmail());
+    }
+
+    /**
      * Valida il token e aggiorna la password.
      * @return true se il reset è riuscito, false se il token è scaduto/inesistente
      */

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { resolveMediaUrl } from '../../lib/utils'
@@ -10,6 +10,7 @@ import {
   flagListingField,
   resetListingField,
   completeListingValidation,
+  recomputeListingMatches,
 } from '../../api/listings'
 import type { ListingDto, ListingFieldValidation } from '../../types'
 
@@ -21,22 +22,188 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-function ReadOnlyMap({ lat, lng }: { lat: number; lng: number }) {
+// ─── Icons ────────────────────────────────────────────────────────────────────
+
+const declaredIcon = new L.Icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+})
+
+const nominatimIcon = new L.DivIcon({
+  html: '<div style="background:#ef4444;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>',
+  iconSize: [16, 16], iconAnchor: [8, 8], className: '',
+})
+
+// ─── Haversine ────────────────────────────────────────────────────────────────
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R    = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lng2 - lng1) * Math.PI / 180
+  const a    = Math.sin(dLat / 2) ** 2
+              + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+// ─── MapFitTwo: fit bounds to two points ──────────────────────────────────────
+
+function MapFitTwo({ p1, p2 }: { p1: [number, number]; p2: [number, number] }) {
+  const map = useMap()
+  useEffect(() => {
+    const bounds = L.latLngBounds([p1, p2])
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40] })
+  }, [p1[0], p1[1], p2[0], p2[1]]) // eslint-disable-line
+  return null
+}
+
+// ─── ReadOnlyMap ──────────────────────────────────────────────────────────────
+
+function ReadOnlyMap({ lat, lng, nominatimLat, nominatimLng }: {
+  lat: number; lng: number
+  nominatimLat?: number; nominatimLng?: number
+}) {
+  const hasNominatim = nominatimLat != null && nominatimLng != null
   return (
     <div className="rounded-xl overflow-hidden border border-gray-200 mb-2 relative z-0">
       <MapContainer center={[lat, lng]} zoom={15}
-        style={{ height: 200, width: '100%' }}
+        style={{ height: hasNominatim ? 240 : 200, width: '100%' }}
         scrollWheelZoom={false} dragging={false} zoomControl={false}
         doubleClickZoom={false} touchZoom={false}>
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
-        <Marker position={[lat, lng]} />
+        <Marker position={[lat, lng]} icon={declaredIcon} />
+        {hasNominatim && (
+          <>
+            <Marker position={[nominatimLat!, nominatimLng!]} icon={nominatimIcon} />
+            <MapFitTwo p1={[lat, lng]} p2={[nominatimLat!, nominatimLng!]} />
+          </>
+        )}
       </MapContainer>
-      <p className="text-xs text-gray-400 px-3 py-1.5 bg-gray-50">
-        📌 {lat.toFixed(5)}, {lng.toFixed(5)}
-      </p>
+      <div className="flex items-center gap-4 px-3 py-1.5 bg-gray-50 text-xs text-gray-500">
+        <span>📌 {lat.toFixed(5)}, {lng.toFixed(5)}</span>
+        {hasNominatim && (
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" />
+            {nominatimLat!.toFixed(5)}, {nominatimLng!.toFixed(5)}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── GeocodeCheck ─────────────────────────────────────────────────────────────
+
+const GEO_THRESHOLD_KM = 5
+
+function GeocodeCheck({ listing }: { listing: ListingDto }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'warning' | 'notfound'>('idle')
+  const [nominatimPt, setNominatimPt] = useState<{ lat: number; lng: number } | null>(null)
+  const [distKm, setDistKm]           = useState<number | null>(null)
+
+  const hasCoords = listing.location?.lat != null && listing.location?.lng != null
+
+  const verify = async () => {
+    setState('loading')
+    const parts = [
+      listing.location?.fullAddress ?? [listing.location?.streetName, listing.location?.streetNumber].filter(Boolean).join(' '),
+      listing.location?.municipality,
+      listing.location?.province,
+      'Italia',
+    ].filter(Boolean).join(', ')
+
+    try {
+      const res  = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(parts)}&format=json&countrycodes=it&limit=1`,
+        { headers: { 'Accept-Language': 'it' } }
+      )
+      const data = await res.json()
+      if (!data.length) { setState('notfound'); return }
+      const nLat = parseFloat(data[0].lat)
+      const nLng = parseFloat(data[0].lon)
+      const dist = haversineKm(listing.location!.lat!, listing.location!.lng!, nLat, nLng)
+      setNominatimPt({ lat: nLat, lng: nLng })
+      setDistKm(dist)
+      setState(dist <= GEO_THRESHOLD_KM ? 'ok' : 'warning')
+    } catch { setState('notfound') }
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <div className="px-3 py-2.5 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
+        <div>
+          <h3 className="text-xs font-semibold text-indigo-700">Verifica posizione con Nominatim</h3>
+          <p className="text-[10px] text-indigo-400 mt-0.5">
+            Confronta il marker dichiarato con le coordinate restituite da Nominatim per l'indirizzo inserito.
+          </p>
+        </div>
+        {hasCoords && state !== 'loading' && (
+          <button onClick={verify}
+            className="shrink-0 ml-3 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition">
+            {state === 'idle' ? 'Verifica indirizzo' : 'Riverifica'}
+          </button>
+        )}
+      </div>
+
+      <div className="px-3 py-2.5 space-y-3">
+        {!hasCoords && (
+          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            ⚠ Coordinate GPS non impostate — impossibile verificare la corrispondenza con l'indirizzo.
+          </p>
+        )}
+        {hasCoords && state === 'loading' && (
+          <p className="text-xs text-gray-400 animate-pulse">Ricerca in corso…</p>
+        )}
+        {hasCoords && state === 'idle' && (
+          <p className="text-xs text-gray-400">Premi "Verifica indirizzo" per confrontare il marker con Nominatim.</p>
+        )}
+
+        {hasCoords && state === 'notfound' && (
+          <div className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600">
+            <span>⚠️</span>
+            <span>Indirizzo non trovato su Nominatim. Impossibile verificare.</span>
+          </div>
+        )}
+
+        {hasCoords && (state === 'ok' || state === 'warning') && nominatimPt && distKm != null && (
+          <>
+            <div className={`flex items-start gap-2 rounded-lg px-3 py-2 text-xs font-medium border
+              ${state === 'ok'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'}`}>
+              <span>{state === 'ok' ? '✅' : '⛔'}</span>
+              <span>
+                {state === 'ok'
+                  ? `Coerente — il punto dista ${distKm.toFixed(2)} km dall'indirizzo dichiarato.`
+                  : `Attenzione — il punto dista ${distKm.toFixed(2)} km dall'indirizzo dichiarato. Verificare se la via è corretta.`
+                }
+              </span>
+            </div>
+
+            <ReadOnlyMap
+              lat={listing.location!.lat!}
+              lng={listing.location!.lng!}
+              nominatimLat={nominatimPt.lat}
+              nominatimLng={nominatimPt.lng}
+            />
+
+            <div className="flex gap-4 text-xs text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <img src="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png" className="h-4" alt="" />
+                Punto dichiarato
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-full bg-red-500 shrink-0" />
+                Nominatim suggerisce
+              </span>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -170,10 +337,14 @@ function ValidatedFieldRow({
 export default function ListingDetailPage() {
   const { id }            = useParams<{ id: string }>()
   const navigate          = useNavigate()
+  const { state: locState } = useLocation()
+  const backPath          = (locState as any)?.backTo ?? '/supervisor/listings'
   const [listing, setListing] = useState<ListingDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
+  const [recomputing, setRecomputing] = useState(false)
+  const [recomputeMsg, setRecomputeMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const load = () => {
@@ -236,14 +407,28 @@ export default function ListingDetailPage() {
     try {
       const res = await completeListingValidation(id)
       if (res.status === 'PUBLISHED') {
-        navigate('/supervisor/listings', { state: { published: true } })
+        navigate(backPath, { state: { published: true } })
       } else {
-        navigate('/supervisor/listings')
+        navigate(backPath)
       }
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Errore durante la validazione')
     } finally {
       setCompleting(false)
+    }
+  }
+
+  const handleRecompute = async () => {
+    if (!id) return
+    setRecomputing(true)
+    try {
+      await recomputeListingMatches(id)
+      setRecomputeMsg('Match ricalcolati.')
+      setTimeout(() => setRecomputeMsg(null), 4000)
+    } catch {
+      setRecomputeMsg('Errore nel ricalcolo.')
+    } finally {
+      setRecomputing(false)
     }
   }
 
@@ -265,7 +450,7 @@ export default function ListingDetailPage() {
   return (
     <div className="w-full px-4 py-6">
       {/* Back */}
-      <button onClick={() => navigate('/supervisor/listings')}
+      <button onClick={() => navigate(backPath)}
         className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1">
         ← Torna alla lista
       </button>
@@ -353,6 +538,7 @@ export default function ListingDetailPage() {
                 ? <ReadOnlyMap lat={listing.location.lat} lng={listing.location.lng} />
                 : <p className="text-sm text-gray-400 italic">Posizione GPS non impostata</p>
               }
+
               <ValidatedFieldRow
                 label="Posizione GPS (marker mappa)"
                 value={listing.location?.lat
@@ -372,6 +558,9 @@ export default function ListingDetailPage() {
             row('CAP', listing.location?.postalCode ?? '', 'location.postalCode'),
             row('Provincia', listing.location?.province ?? '', 'location.province'),
             row('Precisione mostrata', listing.location?.locationPrecision ?? '', 'location.locationPrecision'),
+            <div key="geocode-check" className="py-2.5">
+              <GeocodeCheck listing={listing} />
+            </div>,
           ]
         },
         {
@@ -471,6 +660,29 @@ export default function ListingDetailPage() {
           >
             {completing ? 'Elaborazione...' :
               flaggedCount === 0 ? '✓ Pubblica annuncio' : '✗ Rigetta e notifica locatore'}
+          </button>
+        </div>
+      )}
+
+      {/* Ricalcola match — solo per annunci PUBLISHED */}
+      {listing.status === 'PUBLISHED' && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-4 mt-3">
+          <p className="text-xs text-gray-500 mb-2">
+            Forza il ricalcolo dei match per questo annuncio. Utile se l'annuncio è stato pubblicato
+            prima che alcuni tenant fossero verificati, o se i match sono mancanti.
+          </p>
+          {recomputeMsg && (
+            <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5 mb-2">
+              {recomputeMsg}
+            </p>
+          )}
+          <button
+            onClick={handleRecompute}
+            disabled={recomputing}
+            className="w-full py-2 text-sm font-medium rounded-xl border border-indigo-300
+                       text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 transition"
+          >
+            {recomputing ? 'Ricalcolo...' : '🔄 Ricalcola match tenant'}
           </button>
         </div>
       )}

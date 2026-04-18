@@ -1,19 +1,25 @@
 package com.inquilino.controller;
 
+import com.inquilino.dto.agency.AgencyProfileResponse;
 import com.inquilino.dto.auth.AuthResponse;
 import com.inquilino.dto.auth.LoginRequest;
+import com.inquilino.dto.auth.RegisterAgencyRequest;
 import com.inquilino.dto.auth.RegisterRequest;
 import com.inquilino.dto.auth.RegisterLandlordRequest;
+import com.inquilino.entity.AgencyProfile;
+import com.inquilino.enums.AgencyStatus;
 import com.inquilino.entity.LandlordProfile;
 import com.inquilino.entity.OnboardingState;
 import com.inquilino.entity.User;
 import com.inquilino.enums.PublisherType;
 import com.inquilino.enums.StepStatus;
 import com.inquilino.enums.UserType;
+import com.inquilino.repository.AgencyProfileRepository;
 import com.inquilino.repository.LandlordProfileRepository;
 import com.inquilino.repository.OnboardingStateRepository;
 import com.inquilino.repository.TenantProfileRepository;
 import com.inquilino.repository.UserRepository;
+import com.inquilino.service.AgencyService;
 import com.inquilino.security.JwtService;
 import com.inquilino.security.UserPrincipal;
 import com.inquilino.service.EmailVerificationService;
@@ -41,6 +47,8 @@ public class AuthController {
     private final OnboardingStateRepository onboardingStateRepository;
     private final LandlordProfileRepository landlordProfileRepository;
     private final TenantProfileRepository tenantProfileRepository;
+    private final AgencyProfileRepository agencyProfileRepository;
+    private final AgencyService agencyService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -148,6 +156,43 @@ public class AuthController {
                 user.getId().toString(), user.getEmail());
     }
 
+    // ─── Registrazione Agenzia ────────────────────────────────────────────────
+
+    @PostMapping("/register/agency")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponse registerAgency(@RequestBody @Valid RegisterAgencyRequest req) {
+        if (userRepository.existsByEmail(req.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        }
+        if (!emailVerificationService.verifyAndConsume(req.getEmail(), req.getVerificationCode())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid or expired verification code");
+        }
+
+        User user = User.builder()
+                .type(UserType.AGENCY)
+                .email(req.getEmail())
+                .phone(req.getPhone())
+                .passwordHash(passwordEncoder.encode(req.getPassword()))
+                .verified(false)
+                .build();
+        user = userRepository.save(user);
+
+        AgencyProfile profile = AgencyProfile.builder()
+                .userId(user.getId())
+                .agencyName(req.getAgencyName())
+                .vatNumber(req.getVatNumber())
+                .reaNumber(req.getReaNumber())
+                .websiteUrl(req.getWebsiteUrl())
+                .contactEmail(req.getEmail())
+                .contactPhone(req.getContactPhone())
+                .status(AgencyStatus.PENDING_APPROVAL)
+                .build();
+        agencyProfileRepository.save(profile);
+
+        return new AuthResponse(jwtService.generateToken(user.getId()),
+                user.getId().toString(), user.getEmail());
+    }
+
     // ─── Password reset ───────────────────────────────────────────────────────
 
     @PostMapping("/forgot-password")
@@ -199,6 +244,13 @@ public class AuthController {
             tenantProfileRepository.findByUserId(principal.getUserId()).ifPresent(p ->
                 result.put("verificationStatus", p.getVerificationStatus())
             );
+        } else if (principal.getUserType() == UserType.AGENCY) {
+            agencyProfileRepository.findByUserId(principal.getUserId()).ifPresent(p -> {
+                result.put("agencyStatus", p.getStatus());
+                result.put("agencyId", p.getId());
+            });
+        } else if (principal.getUserType() == UserType.AGENCY_OPERATOR) {
+            result.put("agencyStatus", "ACTIVE"); // gli operatori esistono solo in agenzie attive
         }
         return result;
     }

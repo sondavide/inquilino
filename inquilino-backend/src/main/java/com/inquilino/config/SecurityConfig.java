@@ -58,7 +58,8 @@ public class SecurityConfig {
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPERADMIN")
                 .requestMatchers("/api/supervisor/**").hasAnyRole("SUPERVISOR", "SUPERADMIN")
-                .requestMatchers("/api/landlord/**").hasAnyRole("LANDLORD", "AGENCY", "SUPERADMIN")
+                .requestMatchers("/api/landlord/**").hasAnyRole("LANDLORD", "AGENCY", "AGENCY_OPERATOR", "SUPERADMIN")
+                .requestMatchers("/api/agency/**").hasAnyRole("AGENCY", "AGENCY_OPERATOR", "SUPERADMIN")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

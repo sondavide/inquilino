@@ -47,8 +47,16 @@ public class MatchStateService {
         MatchState current = match.getMatchState();
         match.setTenantInterestAt(LocalDateTime.now());
 
-        if (current == MatchState.LANDLORD_INTERESTED) {
-            // Match reciproco
+        // Per annunci agenzia: il like del tenant sblocca il contatto direttamente
+        boolean directContact = listingRepo.findById(match.getListingId())
+                .map(l -> l.isDirectContactOnTenantInterest())
+                .orElse(false);
+
+        if (directContact && current == MatchState.ALGORITHMIC) {
+            match.setMatchState(MatchState.CONTACT_UNLOCKED);
+            match.setContactUnlockedAt(LocalDateTime.now());
+            notifyAgencyTenantInterested(match);
+        } else if (current == MatchState.LANDLORD_INTERESTED) {
             match.setMatchState(MatchState.MUTUAL_INTEREST);
             notifyMutualMatch(match);
         } else if (current == MatchState.ALGORITHMIC) {
@@ -157,6 +165,13 @@ public class MatchStateService {
     }
 
     // ─── Notifiche ────────────────────────────────────────────────────────────
+
+    private void notifyAgencyTenantInterested(Match match) {
+        listingRepo.findById(match.getListingId()).ifPresent(listing -> {
+            String title = listing.getTitle() != null ? listing.getTitle() : listing.getId().toString();
+            notificationService.notifyAgencyTenantInterested(listing.getPublisherUserId(), title);
+        });
+    }
 
     private void notifyMutualMatch(Match match) {
         // Notifica l'inquilino

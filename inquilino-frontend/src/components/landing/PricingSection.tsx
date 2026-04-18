@@ -80,7 +80,7 @@ export default function PricingSection({ onAgencyCta }: Props) {
               ))}
             </ul>
             <Link
-              to="/register/landlord"
+              to="/register"
               className="w-full text-center py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-colors"
             >
               {t('landing.pricing.landlord.cta')}
@@ -121,7 +121,7 @@ export default function PricingSection({ onAgencyCta }: Props) {
               ))}
             </ul>
             <Link
-              to="/register/landlord"
+              to="/register"
               className="w-full text-center py-3 rounded-2xl bg-white text-blue-700 font-bold text-sm hover:bg-blue-50 transition-colors"
             >
               {t('landing.pricing.premium.cta')}

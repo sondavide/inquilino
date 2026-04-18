@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { getMyListings } from '../../api/listings'
+import { getMyListings, deactivateListing } from '../../api/listings'
 import type { ListingSummary } from '../../types'
 import { resolveMediaUrl } from '../../lib/utils'
 
@@ -25,6 +25,10 @@ export default function LandlordListingsPage() {
   const [listings, setListings] = useState<ListingSummary[]>([])
   const [loading, setLoading]   = useState(true)
   const [showSubmitted, setShowSubmitted] = useState(false)
+  const [deactivateId, setDeactivateId]   = useState<string | null>(null)
+  const [deactivateReason, setDeactivateReason] = useState('')
+  const [deactivateLoading, setDeactivateLoading] = useState(false)
+  const [deactivateError, setDeactivateError] = useState('')
 
   useEffect(() => {
     if ((location.state as any)?.submitted) setShowSubmitted(true)
@@ -32,6 +36,22 @@ export default function LandlordListingsPage() {
       .then(setListings)
       .finally(() => setLoading(false))
   }, [])
+
+  const handleDeactivate = async () => {
+    if (!deactivateId || !deactivateReason.trim()) return
+    setDeactivateLoading(true)
+    setDeactivateError('')
+    try {
+      await deactivateListing(deactivateId, deactivateReason.trim())
+      setListings(prev => prev.map(l => l.id === deactivateId ? { ...l, status: 'ARCHIVED' } : l))
+      setDeactivateId(null)
+      setDeactivateReason('')
+    } catch {
+      setDeactivateError('Errore durante la disattivazione. Riprova.')
+    } finally {
+      setDeactivateLoading(false)
+    }
+  }
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[40vh] text-gray-400 text-sm">
@@ -126,24 +146,70 @@ export default function LandlordListingsPage() {
                   )}
                 </div>
                 {l.status === 'PUBLISHED' && (
-                  <button
-                    onClick={e => { e.stopPropagation(); navigate(`/landlord/listings/${l.id}/matches`) }}
-                    className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700
-                               text-white text-xs font-semibold rounded-xl transition"
-                  >
-                    👥 Vedi profili compatibili
-                    {l.mutualMatchCount > 0 && (
-                      <span className="bg-white text-blue-700 font-bold text-xs px-1.5 py-0.5 rounded-full leading-none">
-                        💚 {l.mutualMatchCount}
-                      </span>
-                    )}
-                  </button>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={e => { e.stopPropagation(); navigate(`/landlord/listings/${l.id}/matches`) }}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700
+                                 text-white text-xs font-semibold rounded-xl transition"
+                    >
+                      👥 Profili compatibili
+                      {l.mutualMatchCount > 0 && (
+                        <span className="bg-white text-blue-700 font-bold text-xs px-1.5 py-0.5 rounded-full leading-none">
+                          💚 {l.mutualMatchCount}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); setDeactivateId(l.id); setDeactivateReason(''); setDeactivateError('') }}
+                      className="px-3 py-2 border border-red-300 text-red-600 text-xs font-semibold rounded-xl hover:bg-red-50 transition shrink-0"
+                    >
+                      Disattiva
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
           )
         })}
       </div>
+
+      {/* Deactivation modal */}
+      {deactivateId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Disattiva annuncio</h3>
+            <p className="text-sm text-gray-500">
+              Inserisci il motivo della disattivazione. I profili interessati non potranno più vedere questo annuncio.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Motivazione *</label>
+              <textarea
+                value={deactivateReason}
+                onChange={e => setDeactivateReason(e.target.value)}
+                placeholder="Es. Immobile già affittato, ristrutturazione in corso…"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+              />
+            </div>
+            {deactivateError && <p className="text-red-500 text-sm">{deactivateError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeactivateId(null)}
+                className="flex-1 py-2.5 border rounded-xl text-sm hover:bg-gray-50 transition"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleDeactivate}
+                disabled={!deactivateReason.trim() || deactivateLoading}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition disabled:opacity-50"
+              >
+                {deactivateLoading ? 'Attendere…' : 'Conferma disattivazione'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

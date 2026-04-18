@@ -99,7 +99,7 @@ export default function ListingListPage() {
 
   useEffect(() => {
     setLoading(true)
-    getSupervisorListingQueue(statuses, page, PAGE_SIZE)
+    getSupervisorListingQueue(statuses, page, PAGE_SIZE, 'PRIVATE')
       .then(setResult)
       .catch(console.error)
       .finally(() => setLoading(false))

@@ -177,7 +177,7 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight, m
             <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
             <div className={
               menuAnchor === 'right'
-                ? 'fixed bottom-24 right-4 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]'
+                ? 'absolute bottom-full left-0 mb-2 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]'
                 : 'absolute bottom-full right-0 mb-2 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]'
             }>
               <button

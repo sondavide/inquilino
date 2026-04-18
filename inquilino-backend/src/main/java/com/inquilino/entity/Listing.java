@@ -81,6 +81,18 @@ public class Listing {
     @Column(name = "last_validated_by_supervisor_id")
     private UUID lastValidatedBySupervisorId;
 
+    /**
+     * Per gli annunci di agenzia: il like del tenant sblocca il contatto direttamente,
+     * senza necessità di doppio match.
+     */
+    @Column(name = "direct_contact_on_tenant_interest", nullable = false)
+    @Builder.Default
+    private boolean directContactOnTenantInterest = false;
+
+    /** Motivo fornito dal publisher alla disattivazione dell'annuncio. */
+    @Column(name = "deactivation_reason", columnDefinition = "TEXT")
+    private String deactivationReason;
+
     // ─── Relations ────────────────────────────────────────────────────────────
 
     @OneToOne(mappedBy = "listing", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = true)

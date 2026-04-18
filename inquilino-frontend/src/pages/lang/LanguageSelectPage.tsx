@@ -81,7 +81,7 @@ export default function LanguageSelectPage() {
 
           {/* Landlord */}
           <button
-            onClick={() => handleRole('/register/landlord')}
+            onClick={() => handleRole('/register')}
             className="flex items-center gap-4 w-full px-5 py-4 rounded-2xl
                        border-2 border-border bg-background text-foreground
                        hover:bg-accent active:scale-95 transition-all text-left"
@@ -95,7 +95,7 @@ export default function LanguageSelectPage() {
 
           {/* Agency */}
           <button
-            onClick={() => handleRole('/register/landlord?type=AGENCY')}
+            onClick={() => handleRole('/register')}
             className="flex items-center gap-4 w-full px-5 py-4 rounded-2xl
                        border-2 border-border bg-background text-foreground
                        hover:bg-accent active:scale-95 transition-all text-left"

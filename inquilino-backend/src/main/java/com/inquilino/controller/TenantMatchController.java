@@ -3,6 +3,7 @@ package com.inquilino.controller;
 import com.inquilino.dto.matching.ListingCardDto;
 import com.inquilino.entity.*;
 import com.inquilino.enums.MatchState;
+import com.inquilino.enums.PublisherType;
 import java.util.Arrays;
 import com.inquilino.repository.*;
 import com.inquilino.security.UserPrincipal;
@@ -26,12 +27,13 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TenantMatchController {
 
-    private final MatchRepository         matchRepo;
-    private final TenantProfileRepository profileRepo;
-    private final ListingRepository       listingRepo;
-    private final ListingMediaRepository  mediaRepo;
+    private final MatchRepository           matchRepo;
+    private final TenantProfileRepository   profileRepo;
+    private final ListingRepository         listingRepo;
+    private final ListingMediaRepository    mediaRepo;
     private final LandlordProfileRepository landlordProfileRepo;
-    private final MatchStateService       matchStateService;
+    private final AgencyProfileRepository   agencyProfileRepo;
+    private final MatchStateService         matchStateService;
 
     // ─── GET /api/tenant/matches ──────────────────────────────────────────────
 
@@ -145,9 +147,12 @@ public class TenantMatchController {
 
         List<ListingMedia> media = mediaRepo.findByListingIdOrderBySortOrderAsc(listing.getId());
 
-        LandlordProfile landlordProfile = landlordProfileRepo.findByUserId(listing.getPublisherUserId())
-                .orElse(null);
+        if (listing.getPublisherType() == PublisherType.AGENCY) {
+            AgencyProfile agencyProfile = agencyProfileRepo.findByUserId(listing.getPublisherUserId()).orElse(null);
+            return ListingCardDto.fromAgency(match, listing, media, agencyProfile, lang);
+        }
 
+        LandlordProfile landlordProfile = landlordProfileRepo.findByUserId(listing.getPublisherUserId()).orElse(null);
         return ListingCardDto.from(match, listing, media, landlordProfile, lang);
     }
 

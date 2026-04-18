@@ -5,9 +5,11 @@ import com.inquilino.dto.supervisor.FieldActionRequest;
 import com.inquilino.entity.Listing;
 import com.inquilino.entity.ListingFieldValidation;
 import com.inquilino.enums.ListingStatus;
+import com.inquilino.enums.PublisherType;
 import com.inquilino.security.UserPrincipal;
 import com.inquilino.service.ListingService;
 import com.inquilino.service.ListingValidationService;
+import com.inquilino.service.MatchingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -27,12 +29,14 @@ public class SupervisorListingController {
 
     private final ListingService           listingService;
     private final ListingValidationService validationService;
+    private final MatchingService          matchingService;
 
     // ─── Coda annunci (IN_REVIEW + REJECTED con correzioni) ──────────────────
 
     @GetMapping
     public Page<ListingSummaryDto> getQueue(
             @RequestParam(defaultValue = "IN_REVIEW") String statuses,
+            @RequestParam(required = false) String publisherType,
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
         List<ListingStatus> statusList = List.of(statuses.split(","))
@@ -40,6 +44,9 @@ public class SupervisorListingController {
                 .map(s -> ListingStatus.valueOf(s.trim()))
                 .toList();
         PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        if (publisherType != null && !publisherType.isBlank()) {
+            return listingService.getSupervisorQueuePaged(statusList, PublisherType.valueOf(publisherType.trim()), pageable);
+        }
         return listingService.getSupervisorQueuePaged(statusList, pageable);
     }
 
@@ -103,5 +110,14 @@ public class SupervisorListingController {
             @AuthenticationPrincipal UserPrincipal principal) {
         Listing result = validationService.completeValidation(listingId, principal.getUserId());
         return Map.of("status", result.getStatus().name());
+    }
+
+    // ─── Ricalcola matching per un annuncio già pubblicato ───────────────────
+
+    @PostMapping("/{listingId}/recompute-matches")
+    public Map<String, String> recomputeMatches(@PathVariable UUID listingId) {
+        listingService.getListingById(listingId); // verifica esistenza
+        matchingService.computeMatchesForListing(listingId);
+        return Map.of("result", "ok");
     }
 }

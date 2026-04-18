@@ -6,9 +6,11 @@ import com.inquilino.dto.listing.*;
 import com.inquilino.entity.LandlordProfile;
 import com.inquilino.entity.ListingMedia;
 import com.inquilino.entity.User;
+import com.inquilino.enums.UserType;
 import com.inquilino.repository.LandlordProfileRepository;
 import com.inquilino.repository.UserRepository;
 import com.inquilino.security.UserPrincipal;
+import com.inquilino.service.AgencyService;
 import com.inquilino.service.ListingMediaService;
 import com.inquilino.service.ListingService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,7 @@ public class LandlordController {
     private final ListingMediaService    mediaService;
     private final LandlordProfileRepository profileRepo;
     private final UserRepository         userRepo;
+    private final AgencyService          agencyService;
 
     // ─── Profilo landlord ─────────────────────────────────────────────────────
 
@@ -77,7 +80,9 @@ public class LandlordController {
     @GetMapping("/listings")
     public List<ListingSummaryDto> getMyListings(
             @AuthenticationPrincipal UserPrincipal principal) {
-        return listingService.getLandlordListings(principal.getUserId());
+        UUID publisherId = agencyService.resolvePublisherUserId(
+                principal.getUserId(), principal.getUserType());
+        return listingService.getLandlordListings(publisherId);
     }
 
     // ─── Crea annuncio (bozza) ────────────────────────────────────────────────
@@ -87,8 +92,10 @@ public class LandlordController {
     public ListingResponse createListing(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody SaveListingRequest req) {
-        var listing = listingService.createDraft(principal.getUserId(), req);
-        return listingService.getListing(listing.getId(), principal.getUserId());
+        UUID publisherId = agencyService.resolvePublisherUserId(
+                principal.getUserId(), principal.getUserType());
+        var listing = listingService.createDraft(publisherId, req);
+        return listingService.getListing(listing.getId(), publisherId);
     }
 
     // ─── Dettaglio annuncio ───────────────────────────────────────────────────
@@ -97,7 +104,12 @@ public class LandlordController {
     public ListingResponse getListing(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID id) {
-        return listingService.getListing(id, principal.getUserId());
+        UUID publisherId = agencyService.resolvePublisherUserId(
+                principal.getUserId(), principal.getUserType());
+        if (principal.getUserType() == UserType.AGENCY_OPERATOR) {
+            agencyService.assertListingScope(id, principal.getUserId());
+        }
+        return listingService.getListing(id, publisherId);
     }
 
     // ─── Aggiorna annuncio (partial) ──────────────────────────────────────────
@@ -107,8 +119,13 @@ public class LandlordController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID id,
             @RequestBody SaveListingRequest req) {
-        listingService.update(id, principal.getUserId(), req);
-        return listingService.getListing(id, principal.getUserId());
+        UUID publisherId = agencyService.resolvePublisherUserId(
+                principal.getUserId(), principal.getUserType());
+        if (principal.getUserType() == UserType.AGENCY_OPERATOR) {
+            agencyService.assertListingScope(id, principal.getUserId());
+        }
+        listingService.update(id, publisherId, req);
+        return listingService.getListing(id, publisherId);
     }
 
     // ─── Invia in revisione ───────────────────────────────────────────────────
@@ -117,7 +134,12 @@ public class LandlordController {
     public Map<String, String> revertToDraft(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID id) {
-        var listing = listingService.revertToDraft(id, principal.getUserId());
+        UUID publisherId = agencyService.resolvePublisherUserId(
+                principal.getUserId(), principal.getUserType());
+        if (principal.getUserType() == UserType.AGENCY_OPERATOR) {
+            agencyService.assertListingScope(id, principal.getUserId());
+        }
+        var listing = listingService.revertToDraft(id, publisherId);
         return Map.of("status", listing.getStatus().name());
     }
 
@@ -125,7 +147,31 @@ public class LandlordController {
     public Map<String, String> submitForReview(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID id) {
-        var listing = listingService.submitForReview(id, principal.getUserId());
+        UUID publisherId = agencyService.resolvePublisherUserId(
+                principal.getUserId(), principal.getUserType());
+        if (principal.getUserType() == UserType.AGENCY_OPERATOR) {
+            agencyService.assertListingScope(id, principal.getUserId());
+        }
+        var listing = listingService.submitForReview(id, publisherId);
+        return Map.of("status", listing.getStatus().name());
+    }
+
+    @PostMapping("/listings/{id}/deactivate")
+    public Map<String, String> deactivateListing(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> body) {
+        UUID publisherId = agencyService.resolvePublisherUserId(
+                principal.getUserId(), principal.getUserType());
+        if (principal.getUserType() == UserType.AGENCY_OPERATOR) {
+            agencyService.assertListingScope(id, principal.getUserId());
+        }
+        String reason = body.getOrDefault("reason", "").trim();
+        if (reason.isEmpty()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Deactivation reason required");
+        }
+        var listing = listingService.deactivate(id, publisherId, reason);
         return Map.of("status", listing.getStatus().name());
     }
 

@@ -60,9 +60,7 @@ public class Step15CoherenceCheck implements OnboardingStep {
 
     @Override
     public List<Suggestion> getSuggestions(OnboardingContext ctx) {
-        return ctx.isItalian()
-                ? List.of(new Suggestion("I dati sono corretti", "confirm"), new Suggestion("Voglio correggere qualcosa", "correct"))
-                : List.of(new Suggestion("Data is correct", "confirm"), new Suggestion("I want to correct something", "correct"));
+        return List.of(); // chips caused LLM to meta-ask about the check itself
     }
 
     @Override

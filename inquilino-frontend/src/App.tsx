@@ -17,6 +17,12 @@ import OnboardingConfigPage     from '@/pages/admin/OnboardingConfigPage'
 import ScoringTemplatesPage     from '@/pages/admin/ScoringTemplatesPage'
 import AppLayout            from '@/components/layout/AppLayout'
 import { UserType }         from '@/types'
+// Agency
+import RegisterAgencyPage    from '@/pages/auth/RegisterAgencyPage'
+import AgencyProfilePage     from '@/pages/agency/AgencyProfilePage'
+import AgencyOperatorsPage   from '@/pages/agency/AgencyOperatorsPage'
+import AgencyRubricaPage     from '@/pages/agency/AgencyRubricaPage'
+import AgencyManagementPage  from '@/pages/admin/AgencyManagementPage'
 // Landlord
 import RegisterLandlordPage  from '@/pages/auth/RegisterLandlordPage'
 import RegisterChoicePage   from '@/pages/auth/RegisterChoicePage'
@@ -27,6 +33,7 @@ import LandlordProfilePage   from '@/pages/landlord/LandlordProfilePage'
 import ListingWizardPage     from '@/pages/landlord/ListingWizardPage'
 // Supervisor listings
 import ListingListPage              from '@/pages/supervisor/ListingListPage'
+import AgencyListingListPage        from '@/pages/supervisor/AgencyListingListPage'
 import ListingDetailPage            from '@/pages/supervisor/ListingDetailPage'
 // Matching
 import TenantMatchesPage            from '@/pages/tenant/TenantMatchesPage'
@@ -88,8 +95,12 @@ function PublicLandingRoute() {
     const type = user.userType as UserType
     if (type === UserType.SUPERVISOR || type === UserType.SUPERADMIN)
       return <Navigate to="/supervisor/profiles" replace />
-    if (type === UserType.LANDLORD || type === UserType.AGENCY)
+    if (type === UserType.LANDLORD)
       return <Navigate to="/landlord/listings" replace />
+    if (type === UserType.AGENCY)
+      return <Navigate to="/agency/rubrica" replace />
+    if (type === UserType.AGENCY_OPERATOR)
+      return <Navigate to="/agency/rubrica" replace />
     return <Navigate to="/profile" replace />
   }
   return <LandingPage />
@@ -120,6 +131,7 @@ function AppRoutes() {
         <Route path="/login"             element={<LoginPage />} />
         <Route path="/register"          element={<RegisterChoicePage />} />
         <Route path="/register/landlord" element={<RegisterLandlordPage />} />
+        <Route path="/register/agency"   element={<RegisterAgencyPage />} />
         <Route path="/forgot-password"   element={<ForgotPasswordPage />} />
         <Route path="/reset-password"    element={<ResetPasswordPage />} />
         {/* Legal pages — always public */}
@@ -131,11 +143,11 @@ function AppRoutes() {
           <AuthGuard><OnboardingPage /></AuthGuard>
         } />
 
-        {/* Landlord wizard (senza AppLayout per massimizzare spazio) */}
+        {/* Landlord/Agency wizard (senza AppLayout per massimizzare spazio) */}
         <Route path="/landlord/listings/new"      element={
           <AuthGuard>
             <OnboardingGuard>
-              <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.SUPERADMIN]}>
+              <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.AGENCY_OPERATOR, UserType.SUPERADMIN]}>
                 <ListingWizardPage />
               </RoleGuard>
             </OnboardingGuard>
@@ -144,7 +156,7 @@ function AppRoutes() {
         <Route path="/landlord/listings/:id/edit" element={
           <AuthGuard>
             <OnboardingGuard>
-              <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.SUPERADMIN]}>
+              <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.AGENCY_OPERATOR, UserType.SUPERADMIN]}>
                 <ListingWizardPage />
               </RoleGuard>
             </OnboardingGuard>
@@ -160,18 +172,35 @@ function AppRoutes() {
 
           {/* Landlord */}
           <Route path="/landlord/listings" element={
-            <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.SUPERADMIN]}>
+            <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.AGENCY_OPERATOR, UserType.SUPERADMIN]}>
               <LandlordListingsPage />
             </RoleGuard>
           } />
           <Route path="/landlord/listings/:listingId/matches" element={
-            <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.SUPERADMIN]}>
+            <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY, UserType.AGENCY_OPERATOR, UserType.SUPERADMIN]}>
               <LandlordListingMatchesPage />
             </RoleGuard>
           } />
           <Route path="/landlord/profile" element={
-            <RoleGuard roles={[UserType.LANDLORD, UserType.AGENCY]}>
+            <RoleGuard roles={[UserType.LANDLORD]}>
               <LandlordProfilePage />
+            </RoleGuard>
+          } />
+
+          {/* Agency */}
+          <Route path="/agency/profile" element={
+            <RoleGuard roles={[UserType.AGENCY]}>
+              <AgencyProfilePage />
+            </RoleGuard>
+          } />
+          <Route path="/agency/operators" element={
+            <RoleGuard roles={[UserType.AGENCY]}>
+              <AgencyOperatorsPage />
+            </RoleGuard>
+          } />
+          <Route path="/agency/rubrica" element={
+            <RoleGuard roles={[UserType.AGENCY, UserType.AGENCY_OPERATOR]}>
+              <AgencyRubricaPage />
             </RoleGuard>
           } />
 
@@ -187,13 +216,25 @@ function AppRoutes() {
             </RoleGuard>
           } />
 
-          {/* Supervisor – annunci */}
+          {/* Supervisor – annunci locatori */}
           <Route path="/supervisor/listings" element={
             <RoleGuard roles={[UserType.SUPERVISOR, UserType.SUPERADMIN]}>
               <ListingListPage />
             </RoleGuard>
           } />
           <Route path="/supervisor/listings/:id" element={
+            <RoleGuard roles={[UserType.SUPERVISOR, UserType.SUPERADMIN]}>
+              <ListingDetailPage />
+            </RoleGuard>
+          } />
+
+          {/* Supervisor – annunci agenzie */}
+          <Route path="/supervisor/agency-listings" element={
+            <RoleGuard roles={[UserType.SUPERVISOR, UserType.SUPERADMIN]}>
+              <AgencyListingListPage />
+            </RoleGuard>
+          } />
+          <Route path="/supervisor/agency-listings/:id" element={
             <RoleGuard roles={[UserType.SUPERVISOR, UserType.SUPERADMIN]}>
               <ListingDetailPage />
             </RoleGuard>
@@ -218,6 +259,11 @@ function AppRoutes() {
           <Route path="/admin/scoring-templates" element={
             <RoleGuard roles={[UserType.SUPERADMIN]}>
               <ScoringTemplatesPage />
+            </RoleGuard>
+          } />
+          <Route path="/admin/agencies" element={
+            <RoleGuard roles={[UserType.SUPERADMIN]}>
+              <AgencyManagementPage />
             </RoleGuard>
           } />
         </Route>

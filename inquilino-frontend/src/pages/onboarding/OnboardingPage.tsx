@@ -16,18 +16,20 @@ export default function OnboardingPage() {
   const { messages, isStreaming, onboardingState, banUntil, sendMessage, skipStep, init } = useChat()
   const { t, lang } = useLang()
   const navigate = useNavigate()
-  const [input, setInput]           = useState('')
+  const [input, setInput]                   = useState('')
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
-  const [isSkipping, setIsSkipping] = useState(false)
-  const messagesEndRef              = useRef<HTMLDivElement>(null)
-  const inputRef                    = useRef<HTMLInputElement>(null)
-  const hasInitialized              = useRef(false)
+  const [isSkipping, setIsSkipping]         = useState(false)
+  const [isAccepting, setIsAccepting]       = useState(false)
+  const messagesEndRef                      = useRef<HTMLDivElement>(null)
+  const inputRef                            = useRef<HTMLInputElement>(null)
+  const hasInitialized                      = useRef(false)
 
   const isCompleted = onboardingState?.currentStep === 'STEP_18'
+  const isStep06    = onboardingState?.currentStep === 'STEP_06'
+  const isStep16    = onboardingState?.currentStep === 'STEP_16'
 
   useEffect(() => {
     if (!isCompleted) return
-    // Full reload so useAuth re-fetches /api/me and picks up onboardingCompleted=true
     const timer = setTimeout(() => { window.location.href = '/' }, 4000)
     return () => clearTimeout(timer)
   }, [isCompleted])
@@ -44,8 +46,8 @@ export default function OnboardingPage() {
   }, [messages])
 
   useEffect(() => {
-    if (!isStreaming && !banUntil) inputRef.current?.focus()
-  }, [isStreaming, banUntil])
+    if (!isStreaming && !banUntil && !isStep16) inputRef.current?.focus()
+  }, [isStreaming, banUntil, isStep16])
 
   const handleSend = () => {
     const text = input.trim()
@@ -61,9 +63,7 @@ export default function OnboardingPage() {
   }
 
   const handleBack = async () => {
-    try {
-      await onboardingApi.goBack()
-    } catch { /* ignore */ }
+    try { await onboardingApi.goBack() } catch { /* ignore */ }
   }
 
   const handleSkipConfirmed = async () => {
@@ -76,18 +76,29 @@ export default function OnboardingPage() {
     }
   }
 
+  const handleAcceptConsents = async () => {
+    setIsAccepting(true)
+    try {
+      await onboardingApi.acceptConsents()
+      // state update is handled by useChat polling / next getState call;
+      // force a page reload to pick up onboardingCompleted flag
+      window.location.href = '/'
+    } catch {
+      setIsAccepting(false)
+    }
+  }
+
   const handleUploaded = (filename: string, _passed: boolean) => {
     setTimeout(() => sendMessage(t('chat.upload.message', { filename }), { isDocument: true }), 300)
-    // If verification failed, the bot will ask for re-upload based on the updated onboarding state
   }
 
   const handleMapConfirm = (message: string, areas: InterestArea[]) => {
     if (isStreaming) return
-    // Fire-and-forget: save areas to DB; don't block the chat
     onboardingApi.saveInterestAreas(areas).catch(console.error)
     sendMessage(message)
   }
 
+  // ── Completion screen ────────────────────────────────────────────────────────
   if (isCompleted) {
     const it = lang === 'it'
     return (
@@ -106,8 +117,96 @@ export default function OnboardingPage() {
     )
   }
 
-  const isStep06       = onboardingState?.currentStep === 'STEP_06'
-  const isStep16       = onboardingState?.currentStep === 'STEP_16'
+  // ── Consent screen (STEP_16) — no chat, no LLM ──────────────────────────────
+  if (isStep16) {
+    return (
+      <div className="fixed inset-0 flex flex-col bg-background overflow-hidden">
+
+        {/* Top bar */}
+        <div className="flex items-center gap-2 px-3 pt-2 pb-0 shrink-0">
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted/60 shrink-0"
+          >
+            <span className="text-sm leading-none">←</span>
+            <span className="hidden sm:inline">{lang === 'it' ? 'Esci' : 'Exit'}</span>
+          </button>
+          <div className="flex-1 min-w-0">
+            <ProgressBar
+              stepNumber={onboardingState?.stepNumber ?? 1}
+              totalSteps={onboardingState?.totalSteps ?? 16}
+              progress={onboardingState?.progress ?? 0}
+              canGoBack={false}
+              onBack={handleBack}
+            />
+          </div>
+        </div>
+
+        <ChecklistBar items={onboardingState?.checklistItems ?? []} />
+
+        {/* Consent card */}
+        <div className="flex-1 overflow-y-auto flex items-center justify-center px-5 py-8">
+          <div className="w-full max-w-md flex flex-col gap-6">
+
+            <div className="text-center space-y-1">
+              <h2 className="text-xl font-bold text-foreground">
+                {t('consent.screen.title')}
+              </h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {t('consent.screen.subtitle')}
+              </p>
+            </div>
+
+            {/* Consent 1 */}
+            <div className="flex items-start gap-3 rounded-2xl border bg-muted/30 px-4 py-4">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">1</span>
+              <div className="space-y-0.5">
+                <p className="text-sm font-semibold text-foreground">
+                  {t('consent.screen.gdpr.title')}
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {t('consent.screen.gdpr.desc')}
+                </p>
+              </div>
+            </div>
+
+            {/* Consent 2 */}
+            <div className="flex items-start gap-3 rounded-2xl border bg-muted/30 px-4 py-4">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">2</span>
+              <div className="space-y-0.5">
+                <p className="text-sm font-semibold text-foreground">
+                  {t('consent.screen.sharing.title')}
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {t('consent.screen.sharing.desc')}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-center text-[11px] text-muted-foreground">
+              {t('consent.screen.mandatory')}
+            </p>
+
+            <button
+              onClick={handleAcceptConsents}
+              disabled={isAccepting}
+              className="w-full rounded-2xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAccepting
+                ? <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                    {lang === 'it' ? 'Invio in corso…' : 'Submitting…'}
+                  </span>
+                : t('consent.screen.cta')}
+            </button>
+
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Normal chat screen ───────────────────────────────────────────────────────
   const requiresUpload = onboardingState?.requiresDocumentUpload ?? false
 
   return (
@@ -121,7 +220,7 @@ export default function OnboardingPage() {
           title="Esci dall'onboarding"
         >
           <span className="text-sm leading-none">←</span>
-          <span className="hidden sm:inline">Esci</span>
+          <span className="hidden sm:inline">{lang === 'it' ? 'Esci' : 'Exit'}</span>
         </button>
         <div className="flex-1 min-w-0">
           <ProgressBar
@@ -153,7 +252,6 @@ export default function OnboardingPage() {
           />
         ))}
 
-        {/* Loading indicator while waiting for first token */}
         {isStreaming && messages[messages.length - 1]?.content === '' && (
           <div className="flex justify-start mb-3">
             <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs mr-2 mt-1">AI</div>
@@ -176,7 +274,6 @@ export default function OnboardingPage() {
           residenceAddress={onboardingState?.residenceAddress}
         />
       ) : (
-        /* ── Suggestion chips (all other steps) ── */
         <SuggestionChips
           suggestions={onboardingState?.suggestions ?? []}
           onSelect={handleSuggestion}
@@ -212,9 +309,7 @@ export default function OnboardingPage() {
               disabled={isSkipping}
               className="text-xs px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50"
             >
-              {isSkipping
-                ? '…'
-                : lang === 'it' ? 'Sì, salta' : 'Yes, skip'}
+              {isSkipping ? '…' : lang === 'it' ? 'Sì, salta' : 'Yes, skip'}
             </button>
           </div>
         </div>
@@ -277,21 +372,8 @@ export default function OnboardingPage() {
           </button>
         </div>
 
-        {/* Consent step: mandatory accept button only, no skip */}
-        {isStep16 && !banUntil && (
-          <div className="flex justify-center pb-0.5">
-            <button
-              onClick={() => handleSuggestion(t('chat.consent.accept_both'))}
-              disabled={isStreaming}
-              className="text-xs font-semibold px-4 py-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors"
-            >
-              {t('chat.consent.accept_both')}
-            </button>
-          </div>
-        )}
-
-        {/* Skip step link — hidden while banned, confirming, or on consent step */}
-        {!banUntil && !showSkipConfirm && !isCompleted && !isStep16 && (
+        {/* Skip step link */}
+        {!banUntil && !showSkipConfirm && !isCompleted && (
           <div className="flex justify-end pb-0.5">
             <button
               onClick={() => setShowSkipConfirm(true)}

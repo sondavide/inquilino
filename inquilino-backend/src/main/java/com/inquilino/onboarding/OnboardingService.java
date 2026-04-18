@@ -374,6 +374,34 @@ public class OnboardingService {
         return buildStateDto(state, user, locale, List.of());
     }
 
+    /**
+     * Accepts both mandatory consents and advances directly to STEP_18,
+     * bypassing the LLM entirely. Also marks final_review_confirmed so
+     * STEP_17 auto-completes without requiring a chat round-trip.
+     */
+    public OnboardingStateDto acceptConsents(UUID userId, String lang) {
+        User user = userService.findById(userId);
+        Locale locale = parseLocale(lang);
+        OnboardingState state = stateRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalStateException("No onboarding state"));
+
+        Map<String, Object> data = new HashMap<>(
+                state.getCollectedData() != null ? state.getCollectedData() : new HashMap<>());
+        data.put("privacy_consent",           true);
+        data.put("profile_sharing_consent",   true);
+        data.put("final_review_confirmed",    true);
+        state.setCollectedData(data);
+
+        advanceThroughCompletedSteps(state, user, locale);
+        stateRepository.save(state);
+
+        if ("STEP_18".equals(state.getCurrentStep())) {
+            tenantProfileService.syncOnCompletion(userId);
+        }
+
+        return buildStateDto(state, user, locale, List.of());
+    }
+
     public OnboardingStateDto goBack(UUID userId, String lang) {
         User user = userService.findById(userId);
         OnboardingState state = stateRepository.findByUserId(userId)

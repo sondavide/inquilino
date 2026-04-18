@@ -33,13 +33,6 @@ export default function Step1Category({ data, onChange, validations: vs }: Props
     { value: 'OTHER',              label: t('propertyType.OTHER') },
   ]
 
-  const PUBLISHER_TYPES = [
-    { value: 'PRIVATE',          label: t('publisherType.PRIVATE'),          disabled: false },
-    { value: 'AGENCY',           label: t('publisherType.AGENCY'),           disabled: true },
-    { value: 'BUILDER',          label: t('publisherType.BUILDER'),          disabled: true },
-    { value: 'PROPERTY_MANAGER', label: t('publisherType.PROPERTY_MANAGER'), disabled: true },
-  ]
-
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-semibold text-gray-800">{t('s1.heading')}</h2>
@@ -73,27 +66,6 @@ export default function Step1Category({ data, onChange, validations: vs }: Props
                   ? 'border-blue-600 bg-blue-50 text-blue-700 font-medium'
                   : 'border-gray-200 hover:border-gray-300 text-gray-700'}`}>
               {tp.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t('s1.publisherType.label')} <span className="text-red-500">*</span>
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          {PUBLISHER_TYPES.map(tp => (
-            <button key={tp.value} type="button" disabled={tp.disabled}
-              onClick={() => onChange({ publisherType: tp.value })}
-              className={`p-3 text-left text-sm rounded-lg border-2 transition
-                ${tp.disabled
-                  ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                  : data.publisherType === tp.value
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 font-medium'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-700'}`}>
-              {tp.label}
-              {tp.disabled && <span className="block text-[10px] text-gray-300 mt-0.5">{t('s1.comingSoon')}</span>}
             </button>
           ))}
         </div>

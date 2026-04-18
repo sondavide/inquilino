@@ -35,4 +35,7 @@ export const onboardingApi = {
 
   skipStep: () =>
     apiClient.post<OnboardingStateDto>('/onboarding/skip-step').then(r => r.data),
+
+  acceptConsents: () =>
+    apiClient.post<OnboardingStateDto>('/onboarding/accept-consents').then(r => r.data),
 }

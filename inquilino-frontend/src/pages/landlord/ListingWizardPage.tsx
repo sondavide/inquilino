@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLang } from '../../i18n'
 import type { Lang } from '../../i18n'
-import type { SaveListingRequest, ListingMediaItem, ListingFieldValidation } from '../../types'
+import type { SaveListingRequest, ListingMediaItem, ListingFieldValidation, AgencyArea } from '../../types'
 import { createListing, updateListing, getListing, submitForReview, revertToDraft } from '../../api/listings'
+import { getAgencyProfile } from '../../api/agency'
+import { authApi } from '../../api/auth'
 import WizardProgress from '../../components/listing/WizardProgress'
 import WizardNav      from '../../components/listing/WizardNav'
 import Step1Category   from '../../components/listing/steps/Step1Category'
@@ -55,6 +57,33 @@ export default function ListingWizardPage() {
   const [saving, setSaving]           = useState(false)
   const [error, setError]      = useState<string | null>(null)
   const [successMsg, setMsg]   = useState<string | null>(null)
+  const [agencyAreas, setAgencyAreas] = useState<AgencyArea[]>([])
+
+  // Determina il tipo inserzionista e pre-compila i dati publisher in base al ruolo utente
+  useEffect(() => {
+    authApi.me().then(me => {
+      if (me.userType === 'AGENCY' || me.userType === 'AGENCY_OPERATOR') {
+        getAgencyProfile().then(p => {
+          setAgencyAreas(p.areas ?? [])
+          // Pre-compila solo per nuovi annunci (paramId assente) o se publisherType non è già impostato
+          setData(prev => ({
+            ...prev,
+            publisherType: prev.publisherType ?? 'AGENCY',
+            publisher: prev.publisher ?? {
+              agencyName:   p.agencyName,
+              vatNumber:    p.vatNumber  ?? undefined,
+              reaNumber:    p.reaNumber  ?? undefined,
+              websiteUrl:   p.websiteUrl ?? undefined,
+              contactPhone: p.contactPhone ?? undefined,
+              contactEmail: p.contactEmail ?? undefined,
+            },
+          }))
+        }).catch(() => {})
+      } else {
+        setData(prev => ({ ...prev, publisherType: prev.publisherType ?? 'PRIVATE' }))
+      }
+    }).catch(() => {})
+  }, [])
 
   // Carica listing esistente in modalità edit
   useEffect(() => {
@@ -150,7 +179,7 @@ export default function ListingWizardPage() {
   const renderStep = () => {
     switch (currentStep) {
       case 0: return <Step1Category    data={data} onChange={patch} validations={vs} />
-      case 1: return <Step2Location    data={data} onChange={patch} validations={vs} />
+      case 1: return <Step2Location    data={data} onChange={patch} validations={vs} agencyAreas={agencyAreas.length ? agencyAreas : undefined} />
       case 2: return <Step3Price       data={data} onChange={patch} validations={vs} />
       case 3: return <Step4Features    data={data} onChange={patch} validations={vs} />
       case 4: return <Step5Amenities   data={data} onChange={patch} validations={vs} />

@@ -28,14 +28,11 @@ public class ListingValidationService {
     @Transactional
     public Listing openListing(UUID listingId, UUID supervisorId) {
         Listing listing = getListing(listingId);
-        if (listing.getStatus() == ListingStatus.IN_REVIEW
-                || listing.getStatus() == ListingStatus.PUBLISHED) {
-            ListingStatus prev = listing.getStatus();
-            listing.setStatus(ListingStatus.IN_REVIEW);
+        if (listing.getStatus() == ListingStatus.IN_REVIEW) {
             listing.setAssignedSupervisorId(supervisorId);
             listingRepo.save(listing);
             audit(listingId, supervisorId, "SUPERVISOR", ListingAuditAction.STATUS_CHANGED,
-                    null, prev.name(), ListingStatus.IN_REVIEW.name(), "Aperto per revisione");
+                    null, ListingStatus.IN_REVIEW.name(), ListingStatus.IN_REVIEW.name(), "Aperto per revisione");
         }
         return listing;
     }

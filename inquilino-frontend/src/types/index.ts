@@ -1,4 +1,4 @@
-export enum UserType    { TENANT = 'TENANT', LANDLORD = 'LANDLORD', SUPERVISOR = 'SUPERVISOR', AGENCY = 'AGENCY', SUPERADMIN = 'SUPERADMIN' }
+export enum UserType    { TENANT = 'TENANT', LANDLORD = 'LANDLORD', SUPERVISOR = 'SUPERVISOR', AGENCY = 'AGENCY', AGENCY_OPERATOR = 'AGENCY_OPERATOR', SUPERADMIN = 'SUPERADMIN' }
 export enum VerificationStatus {
   NONE = 'NONE',
   PARTIAL = 'PARTIAL',
@@ -785,6 +785,56 @@ export interface TenantProfileCardDto {
   fullName:   string | null
   email:      string | null
   phone:      string | null
+}
+
+// ─── Agency types ─────────────────────────────────────────────────────────────
+
+export type AgencyStatus = 'PENDING_APPROVAL' | 'ACTIVE' | 'SUSPENDED'
+
+export interface AgencyArea {
+  type: 'COMUNE' | 'PROVINCIA' | 'REGIONE'
+  name: string
+  osmId?: string
+  osmType?: string   // 'node' | 'way' | 'relation'
+  displayName: string
+  boundingBox?: number[]
+}
+
+export interface AgencyProfileDto {
+  id:           string
+  userId:       string
+  agencyName:   string
+  vatNumber:    string | null
+  reaNumber:    string | null
+  websiteUrl:   string | null
+  contactEmail: string | null
+  contactPhone: string | null
+  status:       AgencyStatus
+  statusNote:   string | null
+  areas:        AgencyArea[]
+  createdAt:    string
+  approvedAt:   string | null
+}
+
+export interface AgencyProfileSummary {
+  id:           string
+  userId:       string
+  agencyName:   string
+  vatNumber:    string | null
+  contactEmail: string | null
+  status:       AgencyStatus
+  statusNote:   string | null
+  createdAt:    string
+  approvedAt:   string | null
+}
+
+export interface AgencyMembershipDto {
+  id:                string
+  operatorUserId:    string
+  operatorEmail:     string
+  operatorDisplayName: string
+  listingScope:      string[] | null
+  addedAt:           string
 }
 
 export interface LandlordProfile {

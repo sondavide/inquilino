@@ -5,5 +5,6 @@ public enum UserType {
     LANDLORD,
     SUPERVISOR,
     AGENCY,
+    AGENCY_OPERATOR,
     SUPERADMIN
 }

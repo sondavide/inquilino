@@ -20,23 +20,37 @@ function getNavItems(role: string, t: TFn): NavItem[] {
   switch (role) {
     case UserType.SUPERADMIN:
       return [
-        { label: t('nav.admin.supervisors'),   icon: '👥', path: '/admin/supervisors',        match: '/admin/supervisors' },
-        { label: t('nav.admin.auditlog'),       icon: '📋', path: '/admin/audit-log',           match: '/admin/audit-log' },
-        { label: t('nav.admin.onboarding'),     icon: '🤖', path: '/admin/onboarding',          match: '/admin/onboarding' },
-        { label: t('nav.admin.scoring'),        icon: '⚖️', path: '/admin/scoring-templates',   match: '/admin/scoring-templates' },
-        { label: t('nav.supervisor.profiles'), icon: '🔍', path: '/supervisor/profiles',       match: '/supervisor/profiles' },
-        { label: t('nav.supervisor.listings'), icon: '🏠', path: '/supervisor/listings',       match: '/supervisor/listings' },
+        { label: t('nav.admin.supervisors'),   icon: '👥', path: '/admin/supervisors',           match: '/admin/supervisors' },
+        { label: 'Agenzie',                    icon: '🏢', path: '/admin/agencies',               match: '/admin/agencies' },
+        { label: t('nav.admin.auditlog'),       icon: '📋', path: '/admin/audit-log',              match: '/admin/audit-log' },
+        { label: t('nav.admin.onboarding'),     icon: '🤖', path: '/admin/onboarding',             match: '/admin/onboarding' },
+        { label: t('nav.admin.scoring'),        icon: '⚖️', path: '/admin/scoring-templates',      match: '/admin/scoring-templates' },
+        { label: t('nav.supervisor.profiles'), icon: '🔍', path: '/supervisor/profiles',          match: '/supervisor/profiles' },
+        { label: t('nav.supervisor.listings'), icon: '🏠', path: '/supervisor/listings',          match: '/supervisor/listings' },
+        { label: 'Annunci Agenzie',            icon: '🏢', path: '/supervisor/agency-listings',   match: '/supervisor/agency-listings' },
       ]
     case UserType.SUPERVISOR:
       return [
-        { label: t('nav.supervisor.profiles'), icon: '👤', path: '/supervisor/profiles',  match: '/supervisor/profiles' },
-        { label: t('nav.supervisor.listings'), icon: '🏠', path: '/supervisor/listings',  match: '/supervisor/listings' },
+        { label: t('nav.supervisor.profiles'), icon: '👤', path: '/supervisor/profiles',         match: '/supervisor/profiles' },
+        { label: t('nav.supervisor.listings'), icon: '🏠', path: '/supervisor/listings',         match: '/supervisor/listings' },
+        { label: 'Annunci Agenzie',            icon: '🏢', path: '/supervisor/agency-listings',  match: '/supervisor/agency-listings' },
       ]
     case UserType.LANDLORD:
-    case UserType.AGENCY:
       return [
         { label: t('nav.landlord.listings'),   icon: '🏠', path: '/landlord/listings',    match: '/landlord/listings' },
         { label: t('nav.landlord.profile'),    icon: '👤', path: '/landlord/profile',     match: '/landlord/profile' },
+      ]
+    case UserType.AGENCY:
+      return [
+        { label: 'Rubrica',    icon: '📋', path: '/agency/rubrica',   match: '/agency/rubrica' },
+        { label: 'Annunci',    icon: '🏠', path: '/landlord/listings', match: '/landlord/listings' },
+        { label: 'Operatori',  icon: '👥', path: '/agency/operators',  match: '/agency/operators' },
+        { label: 'Profilo',    icon: '🏢', path: '/agency/profile',    match: '/agency/profile' },
+      ]
+    case UserType.AGENCY_OPERATOR:
+      return [
+        { label: 'Rubrica',    icon: '📋', path: '/agency/rubrica',   match: '/agency/rubrica' },
+        { label: 'Annunci',    icon: '🏠', path: '/landlord/listings', match: '/landlord/listings' },
       ]
     default:
       return [
@@ -52,7 +66,8 @@ function getRoleLabel(role: string, t: TFn): string {
     case UserType.SUPERADMIN: return t('nav.role.superadmin')
     case UserType.SUPERVISOR: return t('nav.role.supervisor')
     case UserType.LANDLORD:   return t('nav.role.landlord')
-    case UserType.AGENCY:     return t('nav.role.agency')
+    case UserType.AGENCY:          return t('nav.role.agency')
+    case UserType.AGENCY_OPERATOR: return 'Operatore'
     default:                  return t('nav.role.tenant')
   }
 }
@@ -79,6 +94,8 @@ function getSecondaryRoute(pathname: string): SecondaryRoute | null {
     return { title: 'Profili compatibili', backTo: '/landlord/listings' }
   if (/^\/supervisor\/profiles\/.+/.test(pathname))
     return { title: 'Dettaglio profilo',   backTo: '/supervisor/profiles' }
+  if (/^\/supervisor\/agency-listings\/.+/.test(pathname))
+    return { title: 'Dettaglio annuncio agenzia', backTo: '/supervisor/agency-listings' }
   if (/^\/supervisor\/listings\/.+/.test(pathname))
     return { title: 'Dettaglio annuncio',  backTo: '/supervisor/listings' }
   return null
@@ -307,8 +324,8 @@ export default function AppLayout() {
         />
 
         {/* Contenuto pagina */}
-        <main className="flex-1 overflow-y-auto flex flex-col">
-          <div className="flex-1 flex flex-col w-full md:max-w-5xl md:mx-auto">
+        <main className="flex-1 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto w-full md:max-w-5xl md:mx-auto">
             <Outlet />
           </div>
         </main>
