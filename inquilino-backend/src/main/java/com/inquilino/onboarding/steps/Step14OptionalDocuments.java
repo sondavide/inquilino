@@ -53,7 +53,7 @@ public class Step14OptionalDocuments implements OnboardingStep {
                 Return ONLY a valid JSON object.
 
                 Set "optional_docs_step_done": true if the user:
-                - says they want to skip ("skip", "passo", "no grazie", "non ho documenti", "prosegui", "ho finito", "continua", "avanti")
+                - says they want to skip (for example he writes "skip", "passo", "no grazie", "non ho documenti", "prosegui", "ho finito", "continua", "avanti" or similar sentences)
                 - confirms they're done uploading
                 - says they don't have any optional documents
                 Otherwise return {}
@@ -82,7 +82,7 @@ public class Step14OptionalDocuments implements OnboardingStep {
     }
 
     @Override
-    public String resolveNextStep(OnboardingContext ctx) { return "STEP_15"; }
+    public String resolveNextStep(OnboardingContext ctx) { return "STEP_16"; }
 
     @Override
     public Optional<String> nextMissingField(OnboardingContext ctx) {

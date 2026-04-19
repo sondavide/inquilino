@@ -20,19 +20,22 @@ export default function OnboardingPage() {
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
   const [isSkipping, setIsSkipping]         = useState(false)
   const [isAccepting, setIsAccepting]       = useState(false)
+  const [onboardingFinished, setOnboardingFinished] = useState(false)
   const messagesEndRef                      = useRef<HTMLDivElement>(null)
   const inputRef                            = useRef<HTMLInputElement>(null)
   const hasInitialized                      = useRef(false)
 
-  const isCompleted = onboardingState?.currentStep === 'STEP_18'
   const isStep06    = onboardingState?.currentStep === 'STEP_06'
   const isStep16    = onboardingState?.currentStep === 'STEP_16'
+  const isStep17    = onboardingState?.currentStep === 'STEP_17'
+  const isStep18    = onboardingState?.currentStep === 'STEP_18'
+  const isReadOnly  = isStep17 || isStep18
 
   useEffect(() => {
-    if (!isCompleted) return
+    if (!onboardingFinished) return
     const timer = setTimeout(() => { window.location.href = '/' }, 4000)
     return () => clearTimeout(timer)
-  }, [isCompleted])
+  }, [onboardingFinished])
 
   useEffect(() => {
     if (!hasInitialized.current) {
@@ -46,8 +49,8 @@ export default function OnboardingPage() {
   }, [messages])
 
   useEffect(() => {
-    if (!isStreaming && !banUntil && !isStep16) inputRef.current?.focus()
-  }, [isStreaming, banUntil, isStep16])
+    if (!isStreaming && !banUntil && !isStep16 && !isReadOnly) inputRef.current?.focus()
+  }, [isStreaming, banUntil, isStep16, isReadOnly])
 
   const handleSend = () => {
     const text = input.trim()
@@ -80,9 +83,7 @@ export default function OnboardingPage() {
     setIsAccepting(true)
     try {
       await onboardingApi.acceptConsents()
-      // state update is handled by useChat polling / next getState call;
-      // force a page reload to pick up onboardingCompleted flag
-      window.location.href = '/'
+      init() // carica STEP_17 in chat (non awaited — aggiorna lo stato async)
     } catch {
       setIsAccepting(false)
     }
@@ -99,7 +100,7 @@ export default function OnboardingPage() {
   }
 
   // ── Completion screen ────────────────────────────────────────────────────────
-  if (isCompleted) {
+  if (onboardingFinished) {
     const it = lang === 'it'
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6 px-8 text-center">
@@ -273,16 +274,16 @@ export default function OnboardingPage() {
           disabled={isStreaming}
           residenceAddress={onboardingState?.residenceAddress}
         />
-      ) : (
+      ) : !isReadOnly ? (
         <SuggestionChips
           suggestions={onboardingState?.suggestions ?? []}
           onSelect={handleSuggestion}
           disabled={isStreaming}
         />
-      )}
+      ) : null}
 
       {/* ── Skip confirmation panel ── */}
-      {showSkipConfirm && (
+      {!isReadOnly && showSkipConfirm && (
         <div className="border-t bg-amber-50 dark:bg-amber-900/20 border-amber-200 px-4 py-3 space-y-2">
           <div className="flex items-start gap-2">
             <span className="text-lg shrink-0">⚠️</span>
@@ -330,61 +331,87 @@ export default function OnboardingPage() {
         </div>
       )}
 
-      {/* ── Input bar ── */}
-      <div className="relative z-10 border-t bg-background px-4 pt-3 pb-2 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <UploadButton
-            expectedTypes={onboardingState?.expectedDocumentTypes ?? []}
-            onUploaded={handleUploaded}
-            disabled={isStreaming || !!banUntil}
-            highlight={onboardingState?.requiresDocumentUpload ?? false}
-            menuAnchor="right"
-          />
-
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-            placeholder={requiresUpload ? t('upload.input_hint') : t('chat.placeholder')}
-            disabled={isStreaming || !!banUntil}
-            className="
-              flex-1 min-w-0 rounded-xl border border-input bg-background
-              px-3 py-2.5 text-sm outline-none
-              focus:ring-2 focus:ring-ring
-              disabled:opacity-50
-            "
-          />
-
+      {/* ── Read-only footer (Step 17 e 18): solo bottone OK ── */}
+      {isReadOnly ? (
+        <div className="border-t bg-background px-4 pt-3 pb-4">
           <button
-            onClick={handleSend}
-            disabled={isStreaming || !input.trim() || !!banUntil}
-            className="
-              flex items-center justify-center w-10 h-10 rounded-xl shrink-0
-              bg-primary text-primary-foreground text-lg
-              hover:bg-primary/90 transition-colors
-              disabled:opacity-40 disabled:cursor-not-allowed
-            "
-            aria-label="Invia"
+            onClick={() => {
+              if (isStreaming) return
+              if (isStep18) {
+                setOnboardingFinished(true)
+              } else {
+                sendMessage('confirm')
+              }
+            }}
+            disabled={isStreaming}
+            className="w-full rounded-2xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground
+                       hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            ↑
+            {isStreaming
+              ? <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                  {lang === 'it' ? 'Un momento…' : 'Just a moment…'}
+                </span>
+              : 'OK'}
           </button>
         </div>
+      ) : (
+        /* ── Normal input bar ── */
+        <div className="relative z-10 border-t bg-background px-4 pt-3 pb-2 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <UploadButton
+              expectedTypes={onboardingState?.expectedDocumentTypes ?? []}
+              onUploaded={handleUploaded}
+              disabled={isStreaming || !!banUntil}
+              highlight={onboardingState?.requiresDocumentUpload ?? false}
+              menuAnchor="right"
+            />
 
-        {/* Skip step link */}
-        {!banUntil && !showSkipConfirm && !isCompleted && (
-          <div className="flex justify-end pb-0.5">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+              placeholder={requiresUpload ? t('upload.input_hint') : t('chat.placeholder')}
+              disabled={isStreaming || !!banUntil}
+              className="
+                flex-1 min-w-0 rounded-xl border border-input bg-background
+                px-3 py-2.5 text-sm outline-none
+                focus:ring-2 focus:ring-ring
+                disabled:opacity-50
+              "
+            />
+
             <button
-              onClick={() => setShowSkipConfirm(true)}
-              disabled={isStreaming}
-              className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors underline-offset-2 hover:underline"
+              onClick={handleSend}
+              disabled={isStreaming || !input.trim() || !!banUntil}
+              className="
+                flex items-center justify-center w-10 h-10 rounded-xl shrink-0
+                bg-primary text-primary-foreground text-lg
+                hover:bg-primary/90 transition-colors
+                disabled:opacity-40 disabled:cursor-not-allowed
+              "
+              aria-label="Invia"
             >
-              {lang === 'it' ? 'Salta questo step →' : 'Skip this step →'}
+              ↑
             </button>
           </div>
-        )}
-      </div>
+
+          {/* Skip step link */}
+          {!banUntil && !showSkipConfirm && (
+            <div className="flex justify-end pb-0.5">
+              <button
+                onClick={() => setShowSkipConfirm(true)}
+                disabled={isStreaming}
+                className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors underline-offset-2 hover:underline"
+              >
+                {lang === 'it' ? 'Salta questo step →' : 'Skip this step →'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

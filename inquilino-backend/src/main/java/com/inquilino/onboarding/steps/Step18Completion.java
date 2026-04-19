@@ -12,7 +12,7 @@ import java.util.List;
 public class Step18Completion implements OnboardingStep {
 
     @Override public String getStepId() { return "STEP_18"; }
-    @Override public int getStepNumber() { return 16; }
+    @Override public int getStepNumber() { return 15; }
 
     @Override
     public String buildSystemPrompt(OnboardingContext ctx) {
@@ -22,11 +22,12 @@ public class Step18Completion implements OnboardingStep {
                 CURRENT STATE: The profile has been submitted successfully.
 
                 Rules:
-                - Congratulate the tenant warmly
+                - Congratulate the tenant warmly in 2-3 sentences
                 - Explain what happens next: the team will review uploaded documents and calculate the reliability score
-                - Mention that they'll be notified if any corrections are needed
+                - IMPORTANT: clearly mention that if any information turns out to be wrong or incomplete, \
+                  they can correct it at any time from their profile page — no need to redo the entire process
                 - Explain that their profile is now visible to landlords on the platform
-                - Keep it brief and positive
+                - End with a single positive closing sentence — do NOT ask any question
                 - ALWAYS respond in %s
                 """.formatted(ctx.lang());
     }

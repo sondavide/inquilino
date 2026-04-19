@@ -13,7 +13,7 @@ import java.util.Optional;
 public class Step17FinalReview implements OnboardingStep {
 
     @Override public String getStepId() { return "STEP_17"; }
-    @Override public int getStepNumber() { return 15; }
+    @Override public int getStepNumber() { return 14; }
 
     @Override
     public String buildSystemPrompt(OnboardingContext ctx) {
@@ -54,13 +54,7 @@ public class Step17FinalReview implements OnboardingStep {
 
     @Override
     public List<Suggestion> getSuggestions(OnboardingContext ctx) {
-        return ctx.isItalian()
-                ? List.of(
-                    new Suggestion("Tutto corretto, invia il profilo", "confirm"),
-                    new Suggestion("Voglio correggere qualcosa", "correct"))
-                : List.of(
-                    new Suggestion("All correct, submit profile", "confirm"),
-                    new Suggestion("I want to correct something", "correct"));
+        return List.of(); // Il bottone OK è gestito direttamente dal frontend
     }
 
     @Override

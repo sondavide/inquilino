@@ -10,6 +10,8 @@ const ALL_DOC_TYPES = [
   'TAX_RETURN', 'BANK_STATEMENT', 'LANDLORD_REFERENCE', 'GUARANTOR_DOCUMENT', 'OTHER',
 ]
 
+type WizardStep = 'type' | 'method' | null
+
 interface UploadButtonProps {
   expectedTypes: string[]
   onUploaded?:   (filename: string, passed: boolean) => void
@@ -18,21 +20,19 @@ interface UploadButtonProps {
   menuAnchor?:   'left' | 'right'
 }
 
-export function UploadButton({ expectedTypes, onUploaded, disabled, highlight, menuAnchor = 'left' }: UploadButtonProps) {
-  const { t } = useLang()
+export function UploadButton({ expectedTypes, onUploaded, disabled, highlight }: UploadButtonProps) {
+  const { t, lang } = useLang()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [showTypePicker, setShowTypePicker] = useState(false)
+  const [wizardStep,      setWizardStep]      = useState<WizardStep>(null)
   const [selectedDocType, setSelectedDocType] = useState<string | null>(null)
-  const [showMenu,   setShowMenu]   = useState(false)
-  const [showCamera, setShowCamera] = useState(false)
-  const [uploading,  setUploading]  = useState(false)
-  const [lastFile,   setLastFile]   = useState<{ name: string; passed: boolean } | null>(null)
+  const [showCamera,      setShowCamera]      = useState(false)
+  const [uploading,       setUploading]       = useState(false)
+  const [lastFile,        setLastFile]        = useState<{ name: string; passed: boolean } | null>(null)
 
-  const hasCamera = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
-
-  // Doc types to show in picker: expectedTypes if not empty, else all
+  const hasCamera  = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
   const pickerTypes = expectedTypes.length > 0 ? expectedTypes : ALL_DOC_TYPES
+  const it = lang === 'it'
 
   // ─── Upload logic ─────────────────────────────────────────────────────────
 
@@ -63,23 +63,42 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight, m
     if (selectedDocType) await uploadFile(file, selectedDocType)
   }
 
+  // ─── Wizard navigation ────────────────────────────────────────────────────
+
+  const closeWizard = () => {
+    setWizardStep(null)
+    setSelectedDocType(null)
+  }
+
   const handleButtonClick = () => {
     if (disabled || uploading) return
     if (expectedTypes.length === 1) {
-      // Single expected type: auto-select and proceed directly
       setSelectedDocType(expectedTypes[0])
-      if (hasCamera) setShowMenu(true)
+      if (hasCamera) setWizardStep('method')
       else fileInputRef.current?.click()
     } else {
-      setShowTypePicker(true)
+      setWizardStep('type')
     }
   }
 
   const handleTypeSelected = (type: string) => {
     setSelectedDocType(type)
-    setShowTypePicker(false)
-    if (hasCamera) setShowMenu(true)
-    else fileInputRef.current?.click()
+    if (hasCamera) {
+      setWizardStep('method')
+    } else {
+      setWizardStep(null)
+      setTimeout(() => fileInputRef.current?.click(), 50)
+    }
+  }
+
+  const handleMethodCamera = () => {
+    setWizardStep(null)
+    setShowCamera(true)
+  }
+
+  const handleMethodFile = () => {
+    setWizardStep(null)
+    setTimeout(() => fileInputRef.current?.click(), 50)
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -104,42 +123,89 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight, m
         />
       )}
 
-      {/* Document type picker modal */}
-      {showTypePicker && (
+      {/* Upload wizard modal */}
+      {wizardStep && (
         <>
-          <div
-            className="fixed inset-0 z-50 bg-black/40"
-            onClick={() => setShowTypePicker(false)}
-          />
-          <div className="fixed inset-x-4 bottom-4 sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 z-50 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border p-4 max-w-sm w-full">
-            <p className="text-sm font-semibold text-center mb-3">
-              {t('upload.choose_type')}
-            </p>
-            <div className="space-y-1.5">
-              {pickerTypes.map(type => (
+          <div className="fixed inset-0 z-50 bg-black/40" onClick={closeWizard} />
+          <div className="fixed inset-x-4 bottom-4 sm:inset-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 z-50 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border p-5 max-w-sm w-full">
+
+            {/* Step 1 — choose document type */}
+            {wizardStep === 'type' && (
+              <>
+                <p className="text-sm font-semibold text-center mb-3">
+                  {t('upload.choose_type')}
+                </p>
+                <div className="space-y-1.5">
+                  {pickerTypes.map(type => (
+                    <button
+                      key={type}
+                      onClick={() => handleTypeSelected(type)}
+                      className="w-full text-left px-4 py-2.5 text-sm rounded-xl hover:bg-accent transition-colors border"
+                    >
+                      {t(`doc.type.${type}` as Parameters<typeof t>[0])}
+                    </button>
+                  ))}
+                </div>
                 <button
-                  key={type}
-                  onClick={() => handleTypeSelected(type)}
-                  className="w-full text-left px-4 py-2.5 text-sm rounded-xl hover:bg-accent transition-colors border"
+                  onClick={closeWizard}
+                  className="w-full mt-3 text-xs text-muted-foreground text-center py-1"
                 >
-                  {t(`doc.type.${type}` as Parameters<typeof t>[0])}
+                  {t('profile.cancel')}
                 </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowTypePicker(false)}
-              className="w-full mt-3 text-xs text-muted-foreground text-center py-1"
-            >
-              {t('profile.cancel')}
-            </button>
+              </>
+            )}
+
+            {/* Step 2 — choose method (camera or file) */}
+            {wizardStep === 'method' && selectedDocType && (
+              <>
+                {/* Back — only visible when we came from the type picker */}
+                {expectedTypes.length !== 1 && (
+                  <button
+                    onClick={() => setWizardStep('type')}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3 -ml-1 px-1 py-0.5 rounded transition-colors"
+                  >
+                    ← {it ? 'Indietro' : 'Back'}
+                  </button>
+                )}
+
+                <p className="text-sm font-semibold text-center mb-1">
+                  {it ? 'Come vuoi caricarlo?' : 'How do you want to upload?'}
+                </p>
+                <p className="text-xs text-muted-foreground text-center mb-5">
+                  {t(`doc.type.${selectedDocType}` as Parameters<typeof t>[0])}
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handleMethodCamera}
+                    className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-border bg-muted/30 px-4 py-6 hover:border-primary hover:bg-primary/5 transition-all"
+                  >
+                    <span className="text-3xl">📷</span>
+                    <span className="text-sm font-medium">{t('upload.camera')}</span>
+                  </button>
+                  <button
+                    onClick={handleMethodFile}
+                    className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-border bg-muted/30 px-4 py-6 hover:border-primary hover:bg-primary/5 transition-all"
+                  >
+                    <span className="text-3xl">📁</span>
+                    <span className="text-sm font-medium">{t('upload.file')}</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={closeWizard}
+                  className="w-full mt-4 text-xs text-muted-foreground text-center py-1"
+                >
+                  {t('profile.cancel')}
+                </button>
+              </>
+            )}
           </div>
         </>
       )}
 
-      {/* Button + menu wrapper */}
+      {/* Button + feedback badge */}
       <div className="relative shrink-0">
-
-        {/* Filename feedback badge (above the button) */}
         {lastFile && (
           <div className={`absolute bottom-full left-0 mb-1.5 flex items-center gap-1 whitespace-nowrap
                           text-xs rounded-full px-2.5 py-1 shadow-sm border ${
@@ -152,7 +218,6 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight, m
           </div>
         )}
 
-        {/* Main button */}
         <button
           onClick={handleButtonClick}
           disabled={disabled || uploading}
@@ -170,32 +235,6 @@ export function UploadButton({ expectedTypes, onUploaded, disabled, highlight, m
             : <span>📎</span>
           }
         </button>
-
-        {/* Choice dropdown (camera vs file) */}
-        {showMenu && !uploading && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-            <div className={
-              menuAnchor === 'right'
-                ? 'absolute bottom-full left-0 mb-2 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]'
-                : 'absolute bottom-full right-0 mb-2 z-50 bg-white dark:bg-gray-900 border rounded-xl shadow-lg overflow-hidden min-w-[148px]'
-            }>
-              <button
-                onClick={() => { setShowMenu(false); setShowCamera(true) }}
-                className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-accent transition-colors"
-              >
-                <span>📷</span> {t('upload.camera')}
-              </button>
-              <div className="border-t" />
-              <button
-                onClick={() => { setShowMenu(false); fileInputRef.current?.click() }}
-                className="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-accent transition-colors"
-              >
-                <span>📁</span> {t('upload.file')}
-              </button>
-            </div>
-          </>
-        )}
       </div>
     </>
   )

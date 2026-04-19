@@ -387,17 +387,12 @@ public class OnboardingService {
 
         Map<String, Object> data = new HashMap<>(
                 state.getCollectedData() != null ? state.getCollectedData() : new HashMap<>());
-        data.put("privacy_consent",           true);
-        data.put("profile_sharing_consent",   true);
-        data.put("final_review_confirmed",    true);
+        data.put("privacy_consent",         true);
+        data.put("profile_sharing_consent", true);
         state.setCollectedData(data);
 
         advanceThroughCompletedSteps(state, user, locale);
         stateRepository.save(state);
-
-        if ("STEP_18".equals(state.getCurrentStep())) {
-            tenantProfileService.syncOnCompletion(userId);
-        }
 
         return buildStateDto(state, user, locale, List.of());
     }

@@ -13,7 +13,7 @@ import java.util.Optional;
 public class Step16Consents implements OnboardingStep {
 
     @Override public String getStepId() { return "STEP_16"; }
-    @Override public int getStepNumber() { return 14; }
+    @Override public int getStepNumber() { return 13; }
 
     @Override
     public String buildSystemPrompt(OnboardingContext ctx) {

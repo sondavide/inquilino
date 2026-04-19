@@ -40,7 +40,8 @@
       "Bash(grep -E \"\\\\.\\(md|html|tsx|ts\\)$\")",
       "Bash(find:*)",
       "Bash(grep -E \"\\\\.java$\")",
-      "Bash(where mvn *)"
+      "Bash(where mvn *)",
+      "Bash(grep -v \".js$\")"
     ]
   }
 }
