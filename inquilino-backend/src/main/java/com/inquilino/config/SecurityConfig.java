@@ -54,6 +54,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers("/api/auth/**", "/api/public/**", "/actuator/health", "/actuator/prometheus", "/api/ping").permitAll()
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPERADMIN")
