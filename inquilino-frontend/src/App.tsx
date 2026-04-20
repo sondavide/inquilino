@@ -28,6 +28,10 @@ import RegisterLandlordPage  from '@/pages/auth/RegisterLandlordPage'
 import RegisterChoicePage   from '@/pages/auth/RegisterChoicePage'
 import ForgotPasswordPage  from '@/pages/auth/ForgotPasswordPage'
 import ResetPasswordPage   from '@/pages/auth/ResetPasswordPage'
+// Guide / SEO pages
+import GuidesHubPage               from '@/pages/guide/GuidesHubPage'
+import TrovareCasaStranieriPage    from '@/pages/guide/TrovareCasaStranieriPage'
+import CostoInquilinoInaffidabilePage from '@/pages/guide/CostoInquilinoInaffidabilePage'
 import LandlordListingsPage  from '@/pages/landlord/LandlordListingsPage'
 import LandlordProfilePage   from '@/pages/landlord/LandlordProfilePage'
 import ListingWizardPage     from '@/pages/landlord/ListingWizardPage'
@@ -138,6 +142,10 @@ function AppRoutes() {
         <Route path="/legal/privacy" element={<PolicyPage file="privacy-policy.md"       title="Privacy Policy" />} />
         <Route path="/legal/cookie"  element={<PolicyPage file="cookie-policy.md"        title="Cookie Policy" />} />
         <Route path="/legal/terms"   element={<PolicyPage file="termini-di-servizio.md"  title="Termini di Servizio" />} />
+        {/* Guide / SEO pages — always public */}
+        <Route path="/guide"                              element={<GuidesHubPage />} />
+        <Route path="/guide/trovare-casa-stranieri"       element={<TrovareCasaStranieriPage />} />
+        <Route path="/guide/costo-inquilino-inaffidabile" element={<CostoInquilinoInaffidabilePage />} />
         <Route path="/auth/callback"     element={<OAuthCallbackPage />} />
         <Route path="/onboarding"        element={
           <AuthGuard><OnboardingPage /></AuthGuard>

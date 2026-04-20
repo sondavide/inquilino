@@ -35,6 +35,35 @@
     <priority>0.5</priority>
   </url>
 
+  <!-- Guide SEO — alto valore editoriale e organico -->
+  <url>
+    <loc>https://www.inquilinofacile.it/guide</loc>
+    <lastmod>2026-04-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="it" href="https://www.inquilinofacile.it/guide"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.inquilinofacile.it/guide"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.inquilinofacile.it/guide"/>
+  </url>
+  <url>
+    <loc>https://www.inquilinofacile.it/guide/trovare-casa-stranieri</loc>
+    <lastmod>2026-04-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="it" href="https://www.inquilinofacile.it/guide/trovare-casa-stranieri"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.inquilinofacile.it/guide/trovare-casa-stranieri"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.inquilinofacile.it/guide/trovare-casa-stranieri"/>
+  </url>
+  <url>
+    <loc>https://www.inquilinofacile.it/guide/costo-inquilino-inaffidabile</loc>
+    <lastmod>2026-04-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="it" href="https://www.inquilinofacile.it/guide/costo-inquilino-inaffidabile"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.inquilinofacile.it/guide/costo-inquilino-inaffidabile"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.inquilinofacile.it/guide/costo-inquilino-inaffidabile"/>
+  </url>
+
   <!-- Pagine legali — obbligatorie per GDPR e fiducia -->
   <url>
     <loc>https://www.inquilinofacile.it/legal/privacy</loc>

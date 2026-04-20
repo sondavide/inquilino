@@ -9,7 +9,7 @@ export default function LandingFooter() {
     <footer className="bg-slate-900 text-white">
       {/* Main grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
 
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
@@ -44,6 +44,28 @@ export default function LandingFooter() {
                   >
                     {item.label}
                   </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Guide */}
+          <div>
+            <h3 className="font-semibold text-sm mb-4 text-slate-300 uppercase tracking-wider">
+              {t('landing.footer.col_guides')}
+            </h3>
+            <ul className="space-y-3">
+              {[
+                { label: t('landing.footer.link_guide_stranieri'), to: '/guide/trovare-casa-stranieri' },
+                { label: t('landing.footer.link_guide_costo'),     to: '/guide/costo-inquilino-inaffidabile' },
+              ].map(item => (
+                <li key={item.label}>
+                  <Link
+                    to={item.to}
+                    className="text-slate-400 hover:text-white text-sm transition-colors"
+                  >
+                    {item.label}
+                  </Link>
                 </li>
               ))}
             </ul>

@@ -900,6 +900,19 @@ const translations = {
     'landing.footer.link_terms':        'Termini di Servizio',
     'landing.footer.copyright':         '© {year} InquilinoFacile.it — Tutti i diritti riservati',
     'landing.footer.gdpr':              'GDPR compliant · AI Act compliant · Dati cifrati AES-256',
+    'landing.footer.col_guides':        'Guide',
+    'landing.footer.link_guide_stranieri': 'Trovare casa da straniero',
+    'landing.footer.link_guide_costo':  'Costo inquilini inaffidabili',
+
+    // ── Guide pages ───────────────────────────────────────────────────────────
+    'guide.back_home':                  'Torna alla home',
+    'guide.min_read':                   '{n} min di lettura',
+    'guide.cta.tenant_title':           'Sei un inquilino?',
+    'guide.cta.tenant_sub':             'Crea il tuo profilo verificato gratuitamente e aumenta le tue possibilità di trovare casa.',
+    'guide.cta.tenant_btn':             'Crea profilo gratuito',
+    'guide.cta.landlord_title':         'Sei un proprietario?',
+    'guide.cta.landlord_sub':           'Trova inquilini verificati prima ancora della visita. Risparmia tempo e riduci il rischio.',
+    'guide.cta.landlord_btn':           'Pubblica il tuo annuncio',
 
     // ── Contract type enum ────────────────────────────────────────────────────
     'profile.contractType.PERMANENT':       'Indeterminato',
@@ -1974,6 +1987,19 @@ const translations = {
     'landing.footer.link_terms':        'Terms of Service',
     'landing.footer.copyright':         '© {year} InquilinoFacile.it — All rights reserved',
     'landing.footer.gdpr':              'GDPR compliant · AI Act compliant · AES-256 encrypted data',
+    'landing.footer.col_guides':        'Guides',
+    'landing.footer.link_guide_stranieri': 'Finding a home as a foreigner',
+    'landing.footer.link_guide_costo':  'Cost of unreliable tenants',
+
+    // ── Guide pages ───────────────────────────────────────────────────────────
+    'guide.back_home':                  'Back to home',
+    'guide.min_read':                   '{n} min read',
+    'guide.cta.tenant_title':           'Are you a tenant?',
+    'guide.cta.tenant_sub':             'Create your free verified profile and boost your chances of finding a home.',
+    'guide.cta.tenant_btn':             'Create free profile',
+    'guide.cta.landlord_title':         'Are you a landlord?',
+    'guide.cta.landlord_sub':           'Find verified tenants before even scheduling a visit. Save time and reduce risk.',
+    'guide.cta.landlord_btn':           'Post your listing',
 
     // ── Contract type enum ────────────────────────────────────────────────────
     'profile.contractType.PERMANENT':       'Permanent',
