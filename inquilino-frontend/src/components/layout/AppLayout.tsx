@@ -111,7 +111,7 @@ function Sidebar({ items, roleLabel, onNavigate, onLogout, user }: {
   user:       { email: string; userType: string } | null
 }) {
   const location = useLocation()
-  const initials = user?.email.slice(0, 2).toUpperCase() ?? '??'
+  const initials = user?.email?.slice(0, 2).toUpperCase() ?? '??'
 
   return (
     <aside className="hidden md:flex flex-col w-56 shrink-0 border-r bg-card h-screen sticky top-0 overflow-y-auto">
@@ -173,7 +173,7 @@ function MobileTopbar({ items, roleLabel, onNavigate, onLogout, user }: {
 }) {
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const initials  = user?.email.slice(0, 2).toUpperCase() ?? '??'
+  const initials  = user?.email?.slice(0, 2).toUpperCase() ?? '??'
   const secondary = getSecondaryRoute(location.pathname)
 
   return (

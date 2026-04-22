@@ -25,8 +25,8 @@ export function useAuth() {
     if (!token) { setLoading(false); return }
 
     authApi.me()
-      .then(setUser)
-      .catch(() => clearToken())
+      .then((data) => { if (data?.email && data?.userId) setUser(data); else { clearToken(); window.location.replace('/login') } })
+      .catch(() => { clearToken(); window.location.replace('/login') })
       .finally(() => setLoading(false))
   }, [])
 
