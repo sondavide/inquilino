@@ -63,6 +63,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers("/api/auth/**", "/api/public/**", "/actuator/health", "/actuator/prometheus", "/api/ping").permitAll()
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+                .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPERADMIN")
                 .requestMatchers("/api/supervisor/**").hasAnyRole("SUPERVISOR", "SUPERADMIN")
                 .requestMatchers("/api/landlord/**").hasAnyRole("LANDLORD", "AGENCY", "AGENCY_OPERATOR", "SUPERADMIN")
