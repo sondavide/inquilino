@@ -52,18 +52,11 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.setStatus(401);
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"error\":\"Unauthorized\"}");
-                }))
+                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers("/api/auth/**", "/api/public/**", "/actuator/health", "/actuator/prometheus", "/api/ping").permitAll()
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
-                .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPERADMIN")
                 .requestMatchers("/api/supervisor/**").hasAnyRole("SUPERVISOR", "SUPERADMIN")
                 .requestMatchers("/api/landlord/**").hasAnyRole("LANDLORD", "AGENCY", "AGENCY_OPERATOR", "SUPERADMIN")
